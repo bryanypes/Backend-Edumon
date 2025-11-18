@@ -15,7 +15,6 @@ const entregaSchema = new mongoose.Schema({
     type: Date, 
     default: Date.now 
   },
-  // ⚠️ CAMBIAR ESTO:
   archivosAdjuntos: [{
     url: { type: String, required: true },
     publicId: { type: String, required: true },

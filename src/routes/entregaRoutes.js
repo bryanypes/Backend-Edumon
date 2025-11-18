@@ -94,7 +94,7 @@ router.patch(
  * Crear una nueva entrega
  * Body: { tareaId, padreId, archivos?, textoRespuesta?, estado? }
  * 
- * ⚠️ IMPORTANTE: uploadArchivoCloudinary.array('archivos', 5) va ANTES de los validators
+ * 
  */
 router.post(
   '/', 

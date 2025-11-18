@@ -3,7 +3,7 @@ import Foro from '../models/Foro.js';
 import User from '../models/User.js';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 
-// ✅ VALIDACIÓN DE ARCHIVOS (reutilizar la misma lógica)
+//  VALIDACIÓN DE ARCHIVOS 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
   'image/jpg': 'imagen',
@@ -30,7 +30,7 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
     return { archivos, errores };
   }
 
-  console.log(`📎 Procesando ${files.length} archivos adjuntos`);
+  console.log(` Procesando ${files.length} archivos adjuntos`);
 
   for (const file of files) {
     try {
@@ -67,10 +67,10 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
         tamano: file.size
       });
 
-      console.log(`✅ Archivo subido: ${file.originalname}`);
+      console.log(` Archivo subido: ${file.originalname}`);
 
     } catch (error) {
-      console.error(`❌ Error procesando ${file.originalname}:`, error);
+      console.error(` Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
         error: error.message
@@ -137,7 +137,7 @@ export const crearMensaje = async (req, res) => {
       }
     }
 
-    // ✅ PROCESAR ARCHIVOS ADJUNTOS CON VALIDACIÓN
+    // PROCESAR ARCHIVOS ADJUNTOS CON VALIDACIÓN
     const { archivos, errores } = await procesarArchivosAdjuntos(req.files);
 
     const nuevoMensaje = new MensajeForo({
@@ -151,7 +151,7 @@ export const crearMensaje = async (req, res) => {
     await nuevoMensaje.save();
     await nuevoMensaje.populate('usuarioId', 'nombre apellido fotoPerfilUrl rol');
 
-    console.log(`✅ Mensaje creado: ${nuevoMensaje._id}`);
+    console.log(` Mensaje creado: ${nuevoMensaje._id}`);
 
     // Respuesta con información de archivos
     const respuesta = {
@@ -173,7 +173,7 @@ export const crearMensaje = async (req, res) => {
     res.status(201).json(respuesta);
 
   } catch (error) {
-    console.error('❌ Error al crear mensaje:', error);
+    console.error(' Error al crear mensaje:', error);
     res.status(500).json({ 
       message: 'Error al crear el mensaje', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -291,7 +291,7 @@ export const eliminarMensaje = async (req, res) => {
       });
     }
 
-    // ✅ Eliminar archivos del mensaje principal
+    //  Eliminar archivos del mensaje principal
     if (mensaje.archivos && mensaje.archivos.length > 0) {
       console.log(`🗑️ Eliminando ${mensaje.archivos.length} archivos del mensaje`);
       for (const archivo of mensaje.archivos) {
@@ -301,7 +301,7 @@ export const eliminarMensaje = async (req, res) => {
       }
     }
 
-    // ✅ Obtener respuestas y eliminar sus archivos también
+    //  Obtener respuestas y eliminar sus archivos también
     const respuestas = await MensajeForo.find({ respuestaA: id });
     for (const respuesta of respuestas) {
       if (respuesta.archivos && respuesta.archivos.length > 0) {
@@ -318,7 +318,7 @@ export const eliminarMensaje = async (req, res) => {
 
     await MensajeForo.findByIdAndDelete(id);
 
-    console.log(`✅ Mensaje eliminado: ${id}`);
+    console.log(` Mensaje eliminado: ${id}`);
 
     res.status(200).json({ message: 'Mensaje eliminado exitosamente' });
 
@@ -365,7 +365,7 @@ export const actualizarMensaje = async (req, res) => {
     await mensaje.save();
     await mensaje.populate('usuarioId', 'nombre apellido fotoPerfilUrl rol');
 
-    console.log(`✅ Mensaje actualizado: ${id}`);
+    console.log(` Mensaje actualizado: ${id}`);
 
     res.status(200).json({
       message: 'Mensaje actualizado exitosamente',

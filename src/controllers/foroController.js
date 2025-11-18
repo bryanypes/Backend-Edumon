@@ -309,9 +309,9 @@ export const eliminarForo = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permisos para eliminar este foro' });
     }
 
-    // ✅ Eliminar archivos de Cloudinary del foro
+    //  Eliminar archivos de Cloudinary del foro
     if (foro.archivos && foro.archivos.length > 0) {
-      console.log(`🗑️ Eliminando ${foro.archivos.length} archivos del foro`);
+      console.log(` Eliminando ${foro.archivos.length} archivos del foro`);
       for (const archivo of foro.archivos) {
         const resourceType = archivo.tipo === 'video' ? 'video' : 
                            archivo.tipo === 'pdf' ? 'raw' : 'image';
@@ -319,7 +319,7 @@ export const eliminarForo = async (req, res) => {
       }
     }
 
-    // ✅ Obtener y eliminar archivos de todos los mensajes asociados
+    //  Obtener y eliminar archivos de todos los mensajes asociados
     const mensajes = await mongoose.model('MensajeForo').find({ foroId: id });
     for (const mensaje of mensajes) {
       if (mensaje.archivos && mensaje.archivos.length > 0) {
@@ -336,7 +336,7 @@ export const eliminarForo = async (req, res) => {
 
     await Foro.findByIdAndDelete(id);
 
-    console.log(`✅ Foro eliminado: ${id}`);
+    console.log(` Foro eliminado: ${id}`);
 
     res.status(200).json({ message: 'Foro eliminado exitosamente' });
 
@@ -376,7 +376,7 @@ export const cambiarEstadoForo = async (req, res) => {
     foro.estado = estado;
     await foro.save();
 
-    console.log(`✅ Foro ${estado}: ${foro._id}`);
+    console.log(` Foro ${estado}: ${foro._id}`);
 
     res.status(200).json({
       message: `Foro ${estado === 'cerrado' ? 'cerrado' : 'abierto'} exitosamente`,

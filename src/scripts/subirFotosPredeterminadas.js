@@ -49,7 +49,7 @@ const subirFotosPredeterminadas = async () => {
       }
     }
 
-    console.log('\n📋 Resumen de fotos subidas:');
+    console.log('\n Resumen de fotos subidas:');
     console.log(JSON.stringify(resultados, null, 2));
     
     return resultados;

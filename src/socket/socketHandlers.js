@@ -146,13 +146,13 @@ export const setupSocketIO = (io) => {
  */
 export const emitirNotificacion = async (notificacion) => {
   try {
-    console.log(`\n📡 [WEBSOCKET] Intentando emitir notificación`);
+    console.log(`\n [WEBSOCKET] Intentando emitir notificación`);
     console.log(`   ID: ${notificacion._id}`);
     console.log(`   Usuario: ${notificacion.usuarioId}`);
     
     const io = global.io;
     if (!io) {
-      console.error('❌ Socket.IO no está inicializado en global.io');
+      console.error(' Socket.IO no está inicializado en global.io');
       throw new Error('Socket.IO no está inicializado');
     }
 
@@ -171,9 +171,9 @@ export const emitirNotificacion = async (notificacion) => {
     const noLeidas = await Notificacion.contarNoLeidas(notificacion.usuarioId);
     io.to(roomName).emit('notificaciones:conteo', { noLeidas });
 
-    console.log(`   ✅ Notificación emitida via WebSocket (${noLeidas} no leídas)`);
+    console.log(`    Notificación emitida via WebSocket (${noLeidas} no leídas)`);
   } catch (error) {
-    console.error('❌ Error al emitir notificación:', error);
+    console.error(' Error al emitir notificación:', error);
     throw error;
   }
 };

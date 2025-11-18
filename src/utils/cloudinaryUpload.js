@@ -44,7 +44,7 @@ export const subirImagenCloudinary = async (fileBuffer, mimetype, folder = 'gene
  */
 export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'archivos', originalName = 'archivo') => {
   try {
-    console.log(`📤 Subiendo archivo: ${originalName} (${mimetype})`);
+    console.log(` Subiendo archivo: ${originalName} (${mimetype})`);
     
     const b64 = Buffer.from(fileBuffer).toString('base64');
     const dataURI = `data:${mimetype};base64,${b64}`;
@@ -59,13 +59,13 @@ export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'arc
 
     const result = await cloudinary.uploader.upload(dataURI, {
       folder: folder,
-      resource_type: resourceType, // ⚠️ CAMBIO IMPORTANTE: Usar resourceType específico
+      resource_type: resourceType,
       public_id: `${Date.now()}_${originalName.split('.')[0].replace(/[^a-zA-Z0-9]/g, '_')}`, // Limpiar nombre
       use_filename: true,
       unique_filename: true
     });
 
-    console.log(`✅ Archivo subido exitosamente: ${result.secure_url}`);
+    console.log(` Archivo subido exitosamente: ${result.secure_url}`);
 
     return {
       url: result.secure_url,
@@ -74,7 +74,7 @@ export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'arc
     };
 
   } catch (error) {
-    console.error('❌ Error al subir archivo a Cloudinary:', error);
+    console.error(' Error al subir archivo a Cloudinary:', error);
     console.error('Detalles del error:', error.message);
     throw new Error(`Error al subir el archivo: ${error.message}`);
   }
@@ -88,21 +88,21 @@ export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'arc
 export const eliminarArchivoCloudinary = async (publicId, resourceType = 'image') => {
   try {
     if (!publicId) {
-      console.log('⚠️ No se proporcionó publicId para eliminar');
+      console.log(' No se proporcionó publicId para eliminar');
       return;
     }
     
-    console.log(`🗑️ Eliminando archivo: ${publicId} (tipo: ${resourceType})`);
+    console.log(` Eliminando archivo: ${publicId} (tipo: ${resourceType})`);
     
     const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
       invalidate: true // Invalidar caché de CDN
     });
     
-    console.log(`✅ Archivo eliminado de Cloudinary: ${publicId}`, result);
+    console.log(` Archivo eliminado de Cloudinary: ${publicId}`, result);
     return result;
   } catch (error) {
-    console.error('❌ Error al eliminar archivo de Cloudinary:', error);
+    console.error(' Error al eliminar archivo de Cloudinary:', error);
     // No lanzar error para no interrumpir el flujo principal
   }
 };

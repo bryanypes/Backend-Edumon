@@ -21,7 +21,7 @@ export const createCursoValidator = [
     .isMongoId()
     .withMessage('El ID del docente debe ser un ObjectId válido'),
 
-  // ✅ Validar solo si se envía como string Y no hay archivo
+  // Validar solo si se envía como string Y no hay archivo
   body('fotoPortadaUrl')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value, { req }) => {

@@ -118,20 +118,20 @@ async function procesarUsuariosCSV(file, cursoId) {
 
         // ENVIAR NOTIFICACIONES
         try {
-          // 1️⃣ Notificación de bienvenida (solo para nuevos usuarios)
+          //  Notificación de bienvenida (solo para nuevos usuarios)
           if (esNuevoUsuario) {
             console.log(` Enviando notificación de BIENVENIDA a ${usuario.nombre} ${usuario.apellido}`);
             await notificarBienvenida(usuario); // ✅ Pasa el objeto usuario, no el ID
             console.log(` Bienvenida enviada`);
           }
 
-          // 2️⃣ Notificación de agregar al curso (para todos)
+          // Notificación de agregar al curso (para todos)
           console.log(` Enviando notificación de AGREGAR CURSO a ${usuario.nombre} ${usuario.apellido}`);
           await notificarAgregarCurso(usuario._id, curso);
           console.log(` Notificación de curso enviada`);
 
         } catch (notifError) {
-          console.error(` ❌ Error al enviar notificaciones:`, notifError);
+          console.error(`  Error al enviar notificaciones:`, notifError);
           console.error('Stack:', notifError.stack);
         }
 

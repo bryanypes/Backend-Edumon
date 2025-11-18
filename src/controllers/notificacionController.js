@@ -35,12 +35,11 @@ export const createNotificacion = async (req, res) => {
   }
 };
 
-// ✅ CORRECCIÓN DEFINITIVA: Obtener notificaciones del usuario autenticado
+// Obtener notificaciones del usuario autenticado
 export const getMisNotificaciones = async (req, res) => {
   try {
-    // ✅ CRÍTICO: Verificar que req.user existe
     if (!req.user || !req.user.userId) {
-      console.error('❌ [getMisNotificaciones] req.user no está definido');
+      console.error(' [getMisNotificaciones] req.user no está definido');
       console.error('   Headers:', req.headers.authorization);
       return res.status(401).json({ 
         message: 'Usuario no autenticado',
@@ -60,24 +59,24 @@ export const getMisNotificaciones = async (req, res) => {
       leido
     } = req.query;
 
-    // ✅ Convertir ObjectId a String
+    //  Convertir ObjectId a String
     const usuarioIdString = req.user.userId.toString();
 
-    console.log(`\n🔍 [DEBUG getMisNotificaciones]`);
+    console.log(`\n [DEBUG getMisNotificaciones]`);
     console.log(`   Usuario autenticado: ${req.user.nombre || 'N/A'} ${req.user.apellido || ''}`);
     console.log(`   Usuario ID (ObjectId): ${req.user.userId}`);
     console.log(`   Usuario ID (String): ${usuarioIdString}`);
     console.log(`   Rol: ${req.user.rol || 'N/A'}`);
     console.log(`   Parámetros - Page: ${page}, Limit: ${limit}, Tipo: ${tipo || 'N/A'}, Leído: ${leido !== undefined ? leido : 'N/A'}`);
 
-    // ✅ Construir query
+    //  Construir query
     const query = { usuarioId: usuarioIdString };
 
     if (tipo) {
       query.tipo = tipo;
     }
     
-    // ✅ Manejar correctamente el parámetro 'leido'
+    //  Manejar correctamente el parámetro 'leido'
     if (leido !== undefined && leido !== null && leido !== '') {
       if (typeof leido === 'string') {
         query.leido = leido.toLowerCase() === 'true';
@@ -90,7 +89,7 @@ export const getMisNotificaciones = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // ✅ Buscar notificaciones
+    //  Buscar notificaciones
     const [notificaciones, total] = await Promise.all([
       Notificacion.find(query)
         .sort({ fecha: -1 })
@@ -101,29 +100,29 @@ export const getMisNotificaciones = async (req, res) => {
       Notificacion.countDocuments(query)
     ]);
 
-    // ✅ Contar no leídas
+    //  Contar no leídas
     const noLeidas = await Notificacion.countDocuments({
       usuarioId: usuarioIdString,
       leido: false
     });
 
-    console.log(`\n📋 Resultado de búsqueda:`);
-    console.log(`   ✅ Notificaciones encontradas: ${notificaciones.length}`);
-    console.log(`   📊 Total en BD: ${total}`);
-    console.log(`   🔔 No leídas: ${noLeidas}`);
+    console.log(`\n Resultado de búsqueda:`);
+    console.log(`    Notificaciones encontradas: ${notificaciones.length}`);
+    console.log(`    Total en BD: ${total}`);
+    console.log(`    No leídas: ${noLeidas}`);
 
-    // ✅ Debug: Mostrar algunas notificaciones encontradas
+    //  Debug: Mostrar algunas notificaciones encontradas
     if (notificaciones.length > 0) {
       console.log(`   📝 Primeras notificaciones:`);
       notificaciones.slice(0, 3).forEach((notif, index) => {
         console.log(`      ${index + 1}. ${notif._id} - ${notif.titulo} (leído: ${notif.leido})`);
       });
     } else {
-      // ✅ Si no hay notificaciones, verificar si existen en BD
+      //  Si no hay notificaciones, verificar si existen en BD
       const totalEnBD = await Notificacion.countDocuments({});
       const conEsteUsuario = await Notificacion.countDocuments({ usuarioId: usuarioIdString });
-      console.log(`   ⚠️  Total notificaciones en BD: ${totalEnBD}`);
-      console.log(`   ⚠️  Notificaciones para este usuario: ${conEsteUsuario}`);
+      console.log(`     Total notificaciones en BD: ${totalEnBD}`);
+      console.log(`     Notificaciones para este usuario: ${conEsteUsuario}`);
       
       // Mostrar una muestra de usuarioIds en BD
       const muestraUsuarios = await Notificacion.find({}).limit(5).select('usuarioId titulo').lean();
@@ -146,7 +145,7 @@ export const getMisNotificaciones = async (req, res) => {
       noLeidas
     });
   } catch (error) {
-    console.error('❌ Error al obtener notificaciones:', error);
+    console.error(' Error al obtener notificaciones:', error);
     console.error('   Stack:', error.stack);
     res.status(500).json({ 
       message: 'Error al obtener las notificaciones', 
@@ -155,7 +154,7 @@ export const getMisNotificaciones = async (req, res) => {
   }
 };
 
-// ✅ Obtener notificación por ID
+//  Obtener notificación por ID
 export const getNotificacionById = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -175,16 +174,16 @@ export const getNotificacionById = async (req, res) => {
     }).populate('referenciaId');
 
     if (!notificacion) {
-      console.log(`⚠️  Notificación ${req.params.id} no encontrada para usuario ${usuarioIdString}`);
+      console.log(`  Notificación ${req.params.id} no encontrada para usuario ${usuarioIdString}`);
       return res.status(404).json({ 
         message: 'Notificación no encontrada' 
       });
     }
 
-    console.log(`✅ Notificación ${req.params.id} encontrada`);
+    console.log(` Notificación ${req.params.id} encontrada`);
     res.status(200).json(notificacion);
   } catch (error) {
-    console.error('❌ Error al obtener notificación:', error);
+    console.error(' Error al obtener notificación:', error);
     res.status(500).json({ 
       message: 'Error al obtener la notificación', 
       error: error.message 
@@ -192,7 +191,7 @@ export const getNotificacionById = async (req, res) => {
   }
 };
 
-// ✅ Marcar notificación como leída
+//  Marcar notificación como leída
 export const marcarComoLeida = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -206,7 +205,7 @@ export const marcarComoLeida = async (req, res) => {
 
     const usuarioIdString = req.user.userId.toString();
 
-    console.log(`📝 Marcando como leída: ${req.params.id} para usuario ${usuarioIdString}`);
+    console.log(` Marcando como leída: ${req.params.id} para usuario ${usuarioIdString}`);
 
     const notificacion = await Notificacion.findOneAndUpdate(
       { 
@@ -218,7 +217,7 @@ export const marcarComoLeida = async (req, res) => {
     );
 
     if (!notificacion) {
-      console.log(`⚠️  Notificación ${req.params.id} no encontrada`);
+      console.log(`  Notificación ${req.params.id} no encontrada`);
       return res.status(404).json({ 
         message: 'Notificación no encontrada' 
       });
@@ -229,7 +228,7 @@ export const marcarComoLeida = async (req, res) => {
       leido: false
     });
 
-    console.log(`✅ Notificación marcada como leída. No leídas restantes: ${noLeidas}`);
+    console.log(` Notificación marcada como leída. No leídas restantes: ${noLeidas}`);
 
     res.status(200).json({
       message: 'Notificación marcada como leída',
@@ -245,7 +244,7 @@ export const marcarComoLeida = async (req, res) => {
   }
 };
 
-// ✅ Marcar múltiples notificaciones como leídas
+// Marcar múltiples notificaciones como leídas
 export const marcarVariasLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -260,7 +259,7 @@ export const marcarVariasLeidas = async (req, res) => {
     const { notificacionIds } = req.body;
     const usuarioIdString = req.user.userId.toString();
 
-    console.log(`📝 Marcando ${notificacionIds.length} notificaciones como leídas`);
+    console.log(` Marcando ${notificacionIds.length} notificaciones como leídas`);
 
     const resultado = await Notificacion.updateMany(
       {
@@ -275,7 +274,7 @@ export const marcarVariasLeidas = async (req, res) => {
       leido: false
     });
 
-    console.log(`✅ ${resultado.modifiedCount} notificaciones marcadas. No leídas: ${noLeidas}`);
+    console.log(` ${resultado.modifiedCount} notificaciones marcadas. No leídas: ${noLeidas}`);
 
     res.status(200).json({
       message: 'Notificaciones marcadas como leídas',
@@ -283,7 +282,7 @@ export const marcarVariasLeidas = async (req, res) => {
       noLeidas
     });
   } catch (error) {
-    console.error('❌ Error al marcar notificaciones:', error);
+    console.error(' Error al marcar notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
       error: error.message 
@@ -291,7 +290,7 @@ export const marcarVariasLeidas = async (req, res) => {
   }
 };
 
-// ✅ Marcar todas como leídas
+//  Marcar todas como leídas
 export const marcarTodasLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -300,7 +299,7 @@ export const marcarTodasLeidas = async (req, res) => {
 
     const usuarioIdString = req.user.userId.toString();
 
-    console.log(`📝 Marcando todas las notificaciones como leídas para usuario ${usuarioIdString}`);
+    console.log(` Marcando todas las notificaciones como leídas para usuario ${usuarioIdString}`);
 
     const resultado = await Notificacion.updateMany(
       { 
@@ -310,7 +309,7 @@ export const marcarTodasLeidas = async (req, res) => {
       { leido: true }
     );
 
-    console.log(`✅ ${resultado.modifiedCount} notificaciones marcadas como leídas`);
+    console.log(` ${resultado.modifiedCount} notificaciones marcadas como leídas`);
 
     res.status(200).json({
       message: 'Todas las notificaciones marcadas como leídas',
@@ -326,7 +325,7 @@ export const marcarTodasLeidas = async (req, res) => {
   }
 };
 
-// ✅ Eliminar notificación
+//  Eliminar notificación
 export const deleteNotificacion = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -340,7 +339,7 @@ export const deleteNotificacion = async (req, res) => {
 
     const usuarioIdString = req.user.userId.toString();
 
-    console.log(`🗑️  Eliminando notificación ${req.params.id} de usuario ${usuarioIdString}`);
+    console.log(`  Eliminando notificación ${req.params.id} de usuario ${usuarioIdString}`);
 
     const notificacion = await Notificacion.findOneAndDelete({
       _id: req.params.id,
@@ -348,7 +347,7 @@ export const deleteNotificacion = async (req, res) => {
     });
 
     if (!notificacion) {
-      console.log(`⚠️  Notificación ${req.params.id} no encontrada`);
+      console.log(`  Notificación ${req.params.id} no encontrada`);
       return res.status(404).json({ 
         message: 'Notificación no encontrada' 
       });
@@ -359,7 +358,7 @@ export const deleteNotificacion = async (req, res) => {
       leido: false
     });
 
-    console.log(`✅ Notificación eliminada. No leídas restantes: ${noLeidas}`);
+    console.log(` Notificación eliminada. No leídas restantes: ${noLeidas}`);
 
     res.status(200).json({
       message: 'Notificación eliminada exitosamente',
@@ -374,7 +373,7 @@ export const deleteNotificacion = async (req, res) => {
   }
 };
 
-// ✅ Eliminar todas las notificaciones leídas antiguas
+//  Eliminar todas las notificaciones leídas antiguas
 export const eliminarLeidasAntiguas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -387,7 +386,7 @@ export const eliminarLeidasAntiguas = async (req, res) => {
     const fechaLimite = new Date();
     fechaLimite.setDate(fechaLimite.getDate() - parseInt(dias));
 
-    console.log(`🗑️  Eliminando notificaciones leídas anteriores a ${fechaLimite.toISOString()}`);
+    console.log(`  Eliminando notificaciones leídas anteriores a ${fechaLimite.toISOString()}`);
 
     const resultado = await Notificacion.deleteMany({
       usuarioId: usuarioIdString,
@@ -395,14 +394,14 @@ export const eliminarLeidasAntiguas = async (req, res) => {
       fecha: { $lt: fechaLimite }
     });
 
-    console.log(`✅ ${resultado.deletedCount} notificaciones antiguas eliminadas`);
+    console.log(` ${resultado.deletedCount} notificaciones antiguas eliminadas`);
 
     res.status(200).json({
       message: `${resultado.deletedCount} notificaciones antiguas eliminadas`,
       eliminadas: resultado.deletedCount
     });
   } catch (error) {
-    console.error('❌ Error al eliminar notificaciones antiguas:', error);
+    console.error(' Error al eliminar notificaciones antiguas:', error);
     res.status(500).json({ 
       message: 'Error al eliminar notificaciones', 
       error: error.message 
@@ -410,7 +409,7 @@ export const eliminarLeidasAntiguas = async (req, res) => {
   }
 };
 
-// ✅ Obtener conteo de no leídas
+// Obtener conteo de no leídas
 export const getConteoNoLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -424,11 +423,11 @@ export const getConteoNoLeidas = async (req, res) => {
       leido: false
     });
 
-    console.log(`🔔 Usuario ${usuarioIdString} tiene ${noLeidas} notificaciones no leídas`);
+    console.log(` Usuario ${usuarioIdString} tiene ${noLeidas} notificaciones no leídas`);
 
     res.status(200).json({ noLeidas });
   } catch (error) {
-    console.error('❌ Error al obtener conteo:', error);
+    console.error(' Error al obtener conteo:', error);
     res.status(500).json({ 
       message: 'Error al obtener el conteo', 
       error: error.message 

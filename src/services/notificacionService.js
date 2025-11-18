@@ -26,16 +26,18 @@ export const sendNotification = async (subscription, payload) => {
   }
 };
 
-// Configurar Nodemailer (para emails)
 const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
   }
 });
 
-console.log('\n📧 [CONFIGURACIÓN EMAIL]');
+
+console.log('\n [CONFIGURACIÓN EMAIL]');
 console.log(`   EMAIL_SERVICE: ${process.env.EMAIL_SERVICE || 'gmail'}`);
 console.log(`   EMAIL_USER: ${process.env.EMAIL_USER || '❌ NO CONFIGURADO'}`);
 console.log(`   EMAIL_PASSWORD: ${process.env.EMAIL_PASSWORD ? '✅ Configurado' : '❌ NO CONFIGURADO'}`);
@@ -43,13 +45,13 @@ console.log(`   EMAIL_PASSWORD: ${process.env.EMAIL_PASSWORD ? '✅ Configurado'
 if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
   transporter.verify(function (error, success) {
     if (error) {
-      console.error('❌ Error al verificar servidor de email:', error.message);
+      console.error(' Error al verificar servidor de email:', error.message);
     } else {
-      console.log('✅ Servidor de email listo');
+      console.log(' Servidor de email listo');
     }
   });
 } else {
-  console.warn('⚠️ Email NO configurado - Los emails no se enviarán');
+  console.warn(' Email NO configurado - Los emails no se enviarán');
 }
 
 // Configurar Twilio (para WhatsApp)
@@ -77,7 +79,7 @@ export const crearYEnviarNotificacion = async (datos) => {
       metadata = {}
     } = datos;
 
-    console.log(`\n🔔 [NUEVA NOTIFICACIÓN]`);
+    console.log(`\n [NUEVA NOTIFICACIÓN]`);
     console.log(`   Usuario: ${usuarioId}`);
     console.log(`   Tipo: ${tipo}`);
     console.log(`   Prioridad: ${prioridad}`);
@@ -104,67 +106,67 @@ export const crearYEnviarNotificacion = async (datos) => {
     });
 
     await notificacion.save();
-    console.log(`   ✅ Notificación guardada en BD (${notificacion._id})`);
+    console.log(`    Notificación guardada en BD (${notificacion._id})`);
 
-    // 1️⃣ WEBSOCKET
+    //  WEBSOCKET
     try {
       await emitirNotificacion(notificacion);
       notificacion.canalEnviado.websocket = true;
-      console.log(`   ✅ WebSocket enviado`);
+      console.log(`    WebSocket enviado`);
     } catch (error) {
-      console.error(`   ❌ Error WebSocket:`, error.message);
+      console.error(`    Error WebSocket:`, error.message);
     }
 
-    // 2️⃣ PUSH
+    //  PUSH
     try {
       await enviarNotificacionPush(usuario, notificacion);
       notificacion.canalEnviado.push = true;
-      console.log(`   ✅ Push enviado`);
+      console.log(`    Push enviado`);
     } catch (error) {
-      console.error(`   ❌ Error Push:`, error.message);
+      console.error(`    Error Push:`, error.message);
     }
 
-    // 3️⃣ EMAIL - SIEMPRE INTENTAR
-    console.log(`\n📧 [EMAIL] Verificando envío...`);
+    //  EMAIL - SIEMPRE INTENTAR
+    console.log(`\n [EMAIL] Verificando envío...`);
     console.log(`   ¿Tiene correo? ${usuario.correo ? 'SÍ' : 'NO'}`);
     
     if (usuario.correo) {
       try {
-        console.log(`   🚀 Intentando enviar email a ${usuario.correo}...`);
+        console.log(`    Intentando enviar email a ${usuario.correo}...`);
         await enviarNotificacionEmail(usuario, notificacion);
         notificacion.canalEnviado.email = true;
-        console.log(`   ✅ Email enviado exitosamente`);
+        console.log(`    Email enviado exitosamente`);
       } catch (error) {
-        console.error(`   ❌ Error enviando Email:`);
+        console.error(`    Error enviando Email:`);
         console.error(`      Mensaje: ${error.message}`);
         console.error(`      Stack:`, error.stack);
       }
     } else {
-      console.warn(`   ⚠️ No se puede enviar: usuario sin correo`);
+      console.warn(`    No se puede enviar: usuario sin correo`);
     }
 
-    // 4️⃣ WHATSAPP - SIEMPRE INTENTAR
-    console.log(`\n📱 [WHATSAPP] Verificando envío...`);
+    //  WHATSAPP - SIEMPRE INTENTAR
+    console.log(`\n [WHATSAPP] Verificando envío...`);
     console.log(`   ¿Tiene teléfono? ${usuario.telefono ? 'SÍ' : 'NO'}`);
     
     if (usuario.telefono) {
       try {
-        console.log(`   🚀 Intentando enviar WhatsApp a ${usuario.telefono}...`);
+        console.log(`    Intentando enviar WhatsApp a ${usuario.telefono}...`);
         await enviarNotificacionWhatsApp(usuario, notificacion);
         notificacion.canalEnviado.whatsapp = true;
-        console.log(`   ✅ WhatsApp enviado exitosamente`);
+        console.log(`    WhatsApp enviado exitosamente`);
       } catch (error) {
-        console.error(`   ❌ Error enviando WhatsApp:`);
+        console.error(`    Error enviando WhatsApp:`);
         console.error(`      Mensaje: ${error.message}`);
       }
     } else {
-      console.warn(`   ⚠️ No se puede enviar: usuario sin teléfono`);
+      console.warn(`    No se puede enviar: usuario sin teléfono`);
     }
 
     // Guardar canales enviados
     await notificacion.save();
 
-    console.log(`\n✅ Proceso completado`);
+    console.log(`\n Proceso completado`);
     console.log(`   Canales exitosos:`);
     console.log(`      WebSocket: ${notificacion.canalEnviado.websocket}`);
     console.log(`      Push: ${notificacion.canalEnviado.push}`);
@@ -173,7 +175,7 @@ export const crearYEnviarNotificacion = async (datos) => {
 
     return notificacion;
   } catch (error) {
-    console.error('\n❌ ERROR CRÍTICO en crearYEnviarNotificacion:', error);
+    console.error('\n ERROR CRÍTICO en crearYEnviarNotificacion:', error);
     console.error('Stack:', error.stack);
     throw error;
   }
@@ -262,7 +264,7 @@ _Notificación de Edumon_
  */
 export const enviarNotificacionEmail = async (usuario, notificacion) => {
   try {
-    console.log(`\n📧 [ENVIAR EMAIL] Iniciando...`);
+    console.log(`\n [ENVIAR EMAIL] Iniciando...`);
     console.log(`   Para: ${usuario.nombre} ${usuario.apellido}`);
     console.log(`   Email: ${usuario.correo}`);
     console.log(`   Tipo: ${notificacion.tipo}`);
@@ -285,21 +287,21 @@ export const enviarNotificacionEmail = async (usuario, notificacion) => {
       html: generarHTMLEmail(usuario, notificacion)
     };
 
-    console.log(`   📤 Enviando email...`);
+    console.log(`    Enviando email...`);
     const info = await transporter.sendMail(mailOptions);
     
-    console.log(`   ✅ Email enviado`);
+    console.log(`   Email enviado`);
     console.log(`   Message ID: ${info.messageId}`);
     
     return info;
   } catch (error) {
-    console.error(`\n❌ ERROR en enviarNotificacionEmail:`);
+    console.error(`\n ERROR en enviarNotificacionEmail:`);
     console.error(`   Error: ${error.message}`);
     console.error(`   Código: ${error.code}`);
     
     // Errores específicos de Gmail
     if (error.code === 'EAUTH') {
-      console.error(`   ⚠️ ERROR DE AUTENTICACIÓN`);
+      console.error(`    ERROR DE AUTENTICACIÓN`);
       console.error(`   - Verifica que EMAIL_USER sea correcto`);
       console.error(`   - Para Gmail, usa App Password (no tu contraseña normal)`);
       console.error(`   - Activa verificación en 2 pasos en Google`);
@@ -386,7 +388,7 @@ async function obtenerSuscripcionesPush(usuarioId) {
     console.log(`📱 Suscripciones push encontradas: ${suscripciones.length}`);
     return suscripciones;
   } catch (error) {
-    console.error('❌ Error al obtener suscripciones:', error);
+    console.error(' Error al obtener suscripciones:', error);
     return [];
   }
 }
@@ -408,7 +410,7 @@ async function eliminarSuscripcionPush(endpoint) {
  */
 export const notificarNuevaTarea = async (tarea) => {
   try {
-    console.log(`\n📝 [NUEVA TAREA] Iniciando notificaciones`);
+    console.log(`\n [NUEVA TAREA] Iniciando notificaciones`);
     console.log(`Tarea: ${tarea.titulo} (${tarea._id})`);
     console.log(`Curso ID: ${tarea.cursoId?._id || tarea.cursoId}`);
     console.log(`Asignación tipo: ${tarea.asignacionTipo}`);
@@ -461,7 +463,7 @@ export const notificarNuevaTarea = async (tarea) => {
         .map(p => p.usuarioId);
 
     } else if (tarea.asignacionTipo === 'seleccionados') {
-      console.log(`👥 Asignación a participantes SELECCIONADOS`);
+      console.log(` Asignación a participantes SELECCIONADOS`);
       console.log(`IDs seleccionados:`, tarea.participantesSeleccionados);
       
       const User = (await import('../models/User.js')).default;
@@ -702,7 +704,7 @@ export const notificarNuevaEntrega = async (entrega) => {
 
 /**
  * Notificación cuando se califica una entrega
- * 📱 Envía SOLO WHATSAPP al padre (sin email ni push)
+ *  Envía SOLO WHATSAPP al padre (sin email ni push)
  */
 export const notificarCalificacion = async (entrega) => {
   try {
@@ -752,7 +754,7 @@ export const notificarCalificacion = async (entrega) => {
 
     await notificacion.save();
 
-    // 1️⃣ WebSocket (siempre)
+    //  WebSocket (siempre)
     try {
       await emitirNotificacion(notificacion);
       notificacion.canalEnviado.websocket = true;
@@ -761,7 +763,7 @@ export const notificarCalificacion = async (entrega) => {
       console.error('Error al enviar WebSocket:', error);
     }
 
-    // 2️⃣ WhatsApp (solo si tiene teléfono)
+    //  WhatsApp (solo si tiene teléfono)
     if (padre.telefono) {
       try {
         await enviarNotificacionWhatsApp(padre, notificacion);
@@ -841,10 +843,10 @@ export const notificarTareaProximaVencer = async (tarea) => {
 /**
  * Notificación de bienvenida a nuevo usuario
  */
-// ✅ DESPUÉS - Acepta ID o usuario completo
+// DESPUÉS - Acepta ID o usuario completo
 export const notificarBienvenida = async (usuarioOId) => {
   try {
-    console.log(`\n👋 [BIENVENIDA] Iniciando notificación`);
+    console.log(`\n [BIENVENIDA] Iniciando notificación`);
     
     // Si recibe un string/ObjectId, buscar el usuario
     let usuario;
@@ -853,7 +855,7 @@ export const notificarBienvenida = async (usuarioOId) => {
       usuario = await User.findById(usuarioOId);
       
       if (!usuario) {
-        console.error(`   ❌ Usuario no encontrado: ${usuarioOId}`);
+        console.error(`    Usuario no encontrado: ${usuarioOId}`);
         throw new Error('Usuario no encontrado');
       }
     } else {
@@ -879,9 +881,9 @@ export const notificarBienvenida = async (usuarioOId) => {
       }
     });
 
-    console.log(`   ✅ Notificación de bienvenida enviada`);
+    console.log(`    Notificación de bienvenida enviada`);
   } catch (error) {
-    console.error('❌ Error en notificarBienvenida:', error);
+    console.error(' Error en notificarBienvenida:', error);
     console.error('Stack:', error.stack);
     throw error;
   }
