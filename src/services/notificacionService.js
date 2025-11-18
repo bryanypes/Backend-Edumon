@@ -34,6 +34,23 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+console.log('\n📧 [CONFIGURACIÓN EMAIL]');
+console.log(`   EMAIL_SERVICE: ${process.env.EMAIL_SERVICE || 'gmail'}`);
+console.log(`   EMAIL_USER: ${process.env.EMAIL_USER || '❌ NO CONFIGURADO'}`);
+console.log(`   EMAIL_PASSWORD: ${process.env.EMAIL_PASSWORD ? '✅ Configurado' : '❌ NO CONFIGURADO'}`);
+
+if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+  transporter.verify(function (error, success) {
+    if (error) {
+      console.error('❌ Error al verificar servidor de email:', error.message);
+    } else {
+      console.log('✅ Servidor de email listo');
+    }
+  });
+} else {
+  console.warn('⚠️ Email NO configurado - Los emails no se enviarán');
+}
+
 // Configurar Twilio (para WhatsApp)
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -88,76 +105,70 @@ export const crearYEnviarNotificacion = async (datos) => {
     await notificacion.save();
     console.log(`   ✅ Notificación guardada en BD (${notificacion._id})`);
 
-    // Array para rastrear canales exitosos
-    const canalesExitosos = [];
-    const canalesFallidos = [];
-
-    // 1️⃣ WebSocket (SIEMPRE intentar)
+    // 1️⃣ WEBSOCKET
     try {
       await emitirNotificacion(notificacion);
       notificacion.canalEnviado.websocket = true;
-      canalesExitosos.push('WebSocket');
       console.log(`   ✅ WebSocket enviado`);
     } catch (error) {
-      canalesFallidos.push({ canal: 'WebSocket', error: error.message });
       console.error(`   ❌ Error WebSocket:`, error.message);
     }
 
-    // 2️⃣ Push (si prioridad es alta o crítica)
-    if (['alta', 'critica'].includes(prioridad)) {
-      try {
-        await enviarNotificacionPush(usuario, notificacion);
-        notificacion.canalEnviado.push = true;
-        canalesExitosos.push('Push');
-        console.log(`   ✅ Push enviado`);
-      } catch (error) {
-        canalesFallidos.push({ canal: 'Push', error: error.message });
-        console.error(`   ❌ Error Push:`, error.message);
-      }
+    // 2️⃣ PUSH
+    try {
+      await enviarNotificacionPush(usuario, notificacion);
+      notificacion.canalEnviado.push = true;
+      console.log(`   ✅ Push enviado`);
+    } catch (error) {
+      console.error(`   ❌ Error Push:`, error.message);
     }
 
-    // 3️⃣ WhatsApp (si es crítica Y tiene teléfono)
-    if (prioridad === 'critica' && usuario.telefono) {
+    // 3️⃣ EMAIL - SIEMPRE INTENTAR
+    console.log(`\n📧 [EMAIL] Verificando envío...`);
+    console.log(`   ¿Tiene correo? ${usuario.correo ? 'SÍ' : 'NO'}`);
+    
+    if (usuario.correo) {
       try {
-        await enviarNotificacionWhatsApp(usuario, notificacion);
-        notificacion.canalEnviado.whatsapp = true;
-        canalesExitosos.push('WhatsApp');
-        console.log(`   ✅ WhatsApp enviado a ${usuario.telefono}`);
-      } catch (error) {
-        canalesFallidos.push({ canal: 'WhatsApp', error: error.message });
-        console.error(`   ❌ Error WhatsApp:`, error.message);
-      }
-    } else if (prioridad === 'critica' && !usuario.telefono) {
-      console.warn(`   ⚠️ WhatsApp NO enviado: usuario sin teléfono`);
-    }
-
-    // 4️⃣ Email (SOLO docentes con prioridad alta/crítica)
-    if (usuario.rol === 'docente' && ['alta', 'critica'].includes(prioridad)) {
-      try {
+        console.log(`   🚀 Intentando enviar email a ${usuario.correo}...`);
         await enviarNotificacionEmail(usuario, notificacion);
         notificacion.canalEnviado.email = true;
-        canalesExitosos.push('Email');
-        console.log(`   ✅ Email enviado a ${usuario.correo}`);
+        console.log(`   ✅ Email enviado exitosamente`);
       } catch (error) {
-        canalesFallidos.push({ canal: 'Email', error: error.message });
-        console.error(`   ❌ Error Email:`, error.message);
+        console.error(`   ❌ Error enviando Email:`);
+        console.error(`      Mensaje: ${error.message}`);
+        console.error(`      Stack:`, error.stack);
       }
+    } else {
+      console.warn(`   ⚠️ No se puede enviar: usuario sin correo`);
+    }
+
+    // 4️⃣ WHATSAPP - SIEMPRE INTENTAR
+    console.log(`\n📱 [WHATSAPP] Verificando envío...`);
+    console.log(`   ¿Tiene teléfono? ${usuario.telefono ? 'SÍ' : 'NO'}`);
+    
+    if (usuario.telefono) {
+      try {
+        console.log(`   🚀 Intentando enviar WhatsApp a ${usuario.telefono}...`);
+        await enviarNotificacionWhatsApp(usuario, notificacion);
+        notificacion.canalEnviado.whatsapp = true;
+        console.log(`   ✅ WhatsApp enviado exitosamente`);
+      } catch (error) {
+        console.error(`   ❌ Error enviando WhatsApp:`);
+        console.error(`      Mensaje: ${error.message}`);
+      }
+    } else {
+      console.warn(`   ⚠️ No se puede enviar: usuario sin teléfono`);
     }
 
     // Guardar canales enviados
     await notificacion.save();
 
-    // Resumen
-    console.log(`\n📊 Resumen de envío:`);
-    console.log(`   ✅ Exitosos (${canalesExitosos.length}): ${canalesExitosos.join(', ') || 'Ninguno'}`);
-    console.log(`   ❌ Fallidos (${canalesFallidos.length}): ${canalesFallidos.map(c => c.canal).join(', ') || 'Ninguno'}`);
-    
-    if (canalesFallidos.length > 0) {
-      console.warn(`\n⚠️ Detalles de fallos:`);
-      canalesFallidos.forEach(({ canal, error }) => {
-        console.warn(`   - ${canal}: ${error}`);
-      });
-    }
+    console.log(`\n✅ Proceso completado`);
+    console.log(`   Canales exitosos:`);
+    console.log(`      WebSocket: ${notificacion.canalEnviado.websocket}`);
+    console.log(`      Push: ${notificacion.canalEnviado.push}`);
+    console.log(`      Email: ${notificacion.canalEnviado.email}`);
+    console.log(`      WhatsApp: ${notificacion.canalEnviado.whatsapp}`);
 
     return notificacion;
   } catch (error) {
@@ -250,9 +261,21 @@ _Notificación de Edumon_
  */
 export const enviarNotificacionEmail = async (usuario, notificacion) => {
   try {
-    if (usuario.rol !== 'docente') {
-      return;
+    console.log(`\n📧 [ENVIAR EMAIL] Iniciando...`);
+    console.log(`   Para: ${usuario.nombre} ${usuario.apellido}`);
+    console.log(`   Email: ${usuario.correo}`);
+    console.log(`   Tipo: ${notificacion.tipo}`);
+
+    // Verificar configuración
+    if (!process.env.EMAIL_USER) {
+      throw new Error('EMAIL_USER no configurado en .env');
     }
+    if (!process.env.EMAIL_PASSWORD) {
+      throw new Error('EMAIL_PASSWORD no configurado en .env');
+    }
+
+    console.log(`   Servidor email: ${process.env.EMAIL_SERVICE || 'gmail'}`);
+    console.log(`   Desde: ${process.env.EMAIL_USER}`);
 
     const mailOptions = {
       from: `"Edumon" <${process.env.EMAIL_USER}>`,
@@ -261,10 +284,26 @@ export const enviarNotificacionEmail = async (usuario, notificacion) => {
       html: generarHTMLEmail(usuario, notificacion)
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Email enviado a ${usuario.correo}`);
+    console.log(`   📤 Enviando email...`);
+    const info = await transporter.sendMail(mailOptions);
+    
+    console.log(`   ✅ Email enviado`);
+    console.log(`   Message ID: ${info.messageId}`);
+    
+    return info;
   } catch (error) {
-    console.error('Error en enviarNotificacionEmail:', error);
+    console.error(`\n❌ ERROR en enviarNotificacionEmail:`);
+    console.error(`   Error: ${error.message}`);
+    console.error(`   Código: ${error.code}`);
+    
+    // Errores específicos de Gmail
+    if (error.code === 'EAUTH') {
+      console.error(`   ⚠️ ERROR DE AUTENTICACIÓN`);
+      console.error(`   - Verifica que EMAIL_USER sea correcto`);
+      console.error(`   - Para Gmail, usa App Password (no tu contraseña normal)`);
+      console.error(`   - Activa verificación en 2 pasos en Google`);
+    }
+    
     throw error;
   }
 };
@@ -335,8 +374,6 @@ function generarHTMLEmail(usuario, notificacion) {
  * Obtener suscripciones push de un usuario
  * Debes crear un modelo PushSubscription para guardarlas
  */
-// ✅ DESPUÉS - Importa al inicio del archivo
-import PushSubscription from '../models/PushSubscription.js';
 
 // Reemplaza las funciones por estas versiones corregidas:
 async function obtenerSuscripcionesPush(usuarioId) {
