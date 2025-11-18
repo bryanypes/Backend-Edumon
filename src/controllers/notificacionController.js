@@ -35,9 +35,19 @@ export const createNotificacion = async (req, res) => {
   }
 };
 
-// ✅ CORRECCIÓN COMPLETA: Obtener notificaciones del usuario autenticado
+// ✅ CORRECCIÓN DEFINITIVA: Obtener notificaciones del usuario autenticado
 export const getMisNotificaciones = async (req, res) => {
   try {
+    // ✅ CRÍTICO: Verificar que req.user existe
+    if (!req.user || !req.user._id) {
+      console.error('❌ [getMisNotificaciones] req.user no está definido');
+      console.error('   Headers:', req.headers.authorization);
+      return res.status(401).json({ 
+        message: 'Usuario no autenticado',
+        error: 'Token inválido o middleware de autenticación no configurado'
+      });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -50,16 +60,17 @@ export const getMisNotificaciones = async (req, res) => {
       leido
     } = req.query;
 
-    // ✅ CRÍTICO: Convertir ObjectId a String para comparación correcta
+    // ✅ Convertir ObjectId a String
     const usuarioIdString = req.user._id.toString();
 
     console.log(`\n🔍 [DEBUG getMisNotificaciones]`);
-    console.log(`   Usuario autenticado: ${req.user.nombre} ${req.user.apellido}`);
+    console.log(`   Usuario autenticado: ${req.user.nombre || 'N/A'} ${req.user.apellido || ''}`);
     console.log(`   Usuario ID (ObjectId): ${req.user._id}`);
     console.log(`   Usuario ID (String): ${usuarioIdString}`);
-    console.log(`   Parámetros - Page: ${page}, Limit: ${limit}, Tipo: ${tipo}, Leído: ${leido}`);
+    console.log(`   Rol: ${req.user.rol || 'N/A'}`);
+    console.log(`   Parámetros - Page: ${page}, Limit: ${limit}, Tipo: ${tipo || 'N/A'}, Leído: ${leido !== undefined ? leido : 'N/A'}`);
 
-    // ✅ Construir query con usuarioId como String
+    // ✅ Construir query
     const query = { usuarioId: usuarioIdString };
 
     if (tipo) {
@@ -68,7 +79,6 @@ export const getMisNotificaciones = async (req, res) => {
     
     // ✅ Manejar correctamente el parámetro 'leido'
     if (leido !== undefined && leido !== null && leido !== '') {
-      // Convertir string a boolean si viene como string
       if (typeof leido === 'string') {
         query.leido = leido.toLowerCase() === 'true';
       } else {
@@ -80,7 +90,7 @@ export const getMisNotificaciones = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // ✅ Buscar con el query correcto
+    // ✅ Buscar notificaciones
     const [notificaciones, total] = await Promise.all([
       Notificacion.find(query)
         .sort({ fecha: -1 })
@@ -91,7 +101,7 @@ export const getMisNotificaciones = async (req, res) => {
       Notificacion.countDocuments(query)
     ]);
 
-    // ✅ Contar no leídas con usuarioId como String
+    // ✅ Contar no leídas
     const noLeidas = await Notificacion.countDocuments({
       usuarioId: usuarioIdString,
       leido: false
@@ -102,12 +112,27 @@ export const getMisNotificaciones = async (req, res) => {
     console.log(`   📊 Total en BD: ${total}`);
     console.log(`   🔔 No leídas: ${noLeidas}`);
 
-    // ✅ Debug: Mostrar IDs de las notificaciones encontradas
+    // ✅ Debug: Mostrar algunas notificaciones encontradas
     if (notificaciones.length > 0) {
-      console.log(`   📝 IDs encontrados:`);
-      notificaciones.forEach((notif, index) => {
-        console.log(`      ${index + 1}. ${notif._id} - ${notif.titulo} (usuarioId: ${notif.usuarioId})`);
+      console.log(`   📝 Primeras notificaciones:`);
+      notificaciones.slice(0, 3).forEach((notif, index) => {
+        console.log(`      ${index + 1}. ${notif._id} - ${notif.titulo} (leído: ${notif.leido})`);
       });
+    } else {
+      // ✅ Si no hay notificaciones, verificar si existen en BD
+      const totalEnBD = await Notificacion.countDocuments({});
+      const conEsteUsuario = await Notificacion.countDocuments({ usuarioId: usuarioIdString });
+      console.log(`   ⚠️  Total notificaciones en BD: ${totalEnBD}`);
+      console.log(`   ⚠️  Notificaciones para este usuario: ${conEsteUsuario}`);
+      
+      // Mostrar una muestra de usuarioIds en BD
+      const muestraUsuarios = await Notificacion.find({}).limit(5).select('usuarioId titulo').lean();
+      if (muestraUsuarios.length > 0) {
+        console.log(`   🔍 Muestra de usuarioIds en BD:`);
+        muestraUsuarios.forEach((n, i) => {
+          console.log(`      ${i + 1}. usuarioId: "${n.usuarioId}" (tipo: ${typeof n.usuarioId}) - ${n.titulo}`);
+        });
+      }
     }
 
     res.status(200).json({
@@ -133,6 +158,10 @@ export const getMisNotificaciones = async (req, res) => {
 // ✅ Obtener notificación por ID
 export const getNotificacionById = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -166,6 +195,10 @@ export const getNotificacionById = async (req, res) => {
 // ✅ Marcar notificación como leída
 export const marcarComoLeida = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -215,6 +248,10 @@ export const marcarComoLeida = async (req, res) => {
 // ✅ Marcar múltiples notificaciones como leídas
 export const marcarVariasLeidas = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -257,6 +294,10 @@ export const marcarVariasLeidas = async (req, res) => {
 // ✅ Marcar todas como leídas
 export const marcarTodasLeidas = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const usuarioIdString = req.user._id.toString();
 
     console.log(`📝 Marcando todas las notificaciones como leídas para usuario ${usuarioIdString}`);
@@ -288,6 +329,10 @@ export const marcarTodasLeidas = async (req, res) => {
 // ✅ Eliminar notificación
 export const deleteNotificacion = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -332,6 +377,10 @@ export const deleteNotificacion = async (req, res) => {
 // ✅ Eliminar todas las notificaciones leídas antiguas
 export const eliminarLeidasAntiguas = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const { dias = 30 } = req.query;
     const usuarioIdString = req.user._id.toString();
     
@@ -364,6 +413,10 @@ export const eliminarLeidasAntiguas = async (req, res) => {
 // ✅ Obtener conteo de no leídas
 export const getConteoNoLeidas = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
+
     const usuarioIdString = req.user._id.toString();
 
     const noLeidas = await Notificacion.countDocuments({

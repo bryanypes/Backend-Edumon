@@ -118,7 +118,7 @@ async function procesarUsuariosCSV(file, cursoId) {
 
         // ENVIAR NOTIFICACIONES
         try {
-          // 1️⃣ Notificación de bienvenida (solo para nuevos usuarios)
+          //  Notificación de bienvenida (solo para nuevos usuarios)
           if (esNuevoUsuario) {
             console.log(` Enviando notificación de BIENVENIDA a ${usuario._id}`);
             const { notificarBienvenida } = await import('../services/notificacionService.js');
@@ -126,7 +126,7 @@ async function procesarUsuariosCSV(file, cursoId) {
             console.log(`Bienvenida enviada`);
           }
 
-          // 2️⃣ Notificación de agregar al curso (para todos)
+          // Notificación de agregar al curso (para todos)
           console.log(` Enviando notificación de AGREGAR CURSO a ${usuario._id}`);
           await notificarAgregarCurso(usuario._id, curso);
           console.log(` Notificación de curso enviada`);
@@ -643,7 +643,7 @@ export const agregarParticipante = async (req, res) => {
     // ENVIAR NOTIFICACIONES
     if (usuarioFinalId) {
       try {
-        // 1️⃣ Notificación de bienvenida (solo nuevos usuarios)
+        // Notificación de bienvenida (solo nuevos usuarios)
         if (esNuevoUsuario) {
           console.log(`Enviando notificación de BIENVENIDA a ${usuarioFinalId}`);
           const { notificarBienvenida } = await import('../services/notificacionService.js');
@@ -785,7 +785,7 @@ export const getParticipantesCurso = async (req, res) => {
     const curso = await Curso.findById(id)
       .populate({
         path: 'participantes.usuarioId',
-        select: 'nombre apellido correo telefono rol estado fotoPerfilUrl' // ✅ Agregado fotoPerfilUrl
+        select: 'nombre apellido correo telefono rol estado fotoPerfilUrl' 
       });
 
     if (!curso) {
@@ -830,7 +830,7 @@ export const getParticipantesCurso = async (req, res) => {
       rol: p.usuarioId.rol,
       estado: p.usuarioId.estado,
       etiqueta: p.etiqueta,
-      fotoPerfilUrl: p.usuarioId.fotoPerfilUrl, // ✅ Agregado al objeto de respuesta
+      fotoPerfilUrl: p.usuarioId.fotoPerfilUrl,
       nombreCompleto: `${p.usuarioId.nombre} ${p.usuarioId.apellido}`
     }));
 
