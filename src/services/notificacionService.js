@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import nodemailer from 'nodemailer';
@@ -840,24 +841,49 @@ export const notificarTareaProximaVencer = async (tarea) => {
 /**
  * Notificación de bienvenida a nuevo usuario
  */
-export const notificarBienvenida = async (usuario) => {
+// ✅ DESPUÉS - Acepta ID o usuario completo
+export const notificarBienvenida = async (usuarioOId) => {
   try {
+    console.log(`\n👋 [BIENVENIDA] Iniciando notificación`);
+    
+    // Si recibe un string/ObjectId, buscar el usuario
+    let usuario;
+    if (typeof usuarioOId === 'string' || usuarioOId instanceof mongoose.Types.ObjectId) {
+      console.log(`   Buscando usuario por ID: ${usuarioOId}`);
+      usuario = await User.findById(usuarioOId);
+      
+      if (!usuario) {
+        console.error(`   ❌ Usuario no encontrado: ${usuarioOId}`);
+        throw new Error('Usuario no encontrado');
+      }
+    } else {
+      // Ya es un objeto usuario
+      usuario = usuarioOId;
+    }
+
+    console.log(`   Usuario: ${usuario.nombre} ${usuario.apellido}`);
+    console.log(`   Email: ${usuario.correo}`);
+    console.log(`   Teléfono: ${usuario.telefono || 'N/A'}`);
+
     await crearYEnviarNotificacion({
       usuarioId: usuario._id,
       tipo: 'sistema',
-      mensaje: `¡Bienvenido ${usuario.nombre}! Tu cuenta ha sido creada exitosamente`,
+      mensaje: `¡Bienvenido ${usuario.nombre} ${usuario.apellido}! Tu cuenta ha sido creada exitosamente. Usa tu cédula como contraseña para iniciar sesión.`,
       prioridad: 'critica',
       referenciaId: usuario._id,
       referenciaModelo: 'User',
       metadata: {
         rol: usuario.rol,
-        fechaRegistro: usuario.fechaRegistro
+        fechaRegistro: usuario.fechaRegistro,
+        primerInicio: true
       }
     });
 
-    console.log('Notificación de bienvenida enviada');
+    console.log(`   ✅ Notificación de bienvenida enviada`);
   } catch (error) {
-    console.error('Error en notificarBienvenida:', error);
+    console.error('❌ Error en notificarBienvenida:', error);
+    console.error('Stack:', error.stack);
+    throw error;
   }
 };
 

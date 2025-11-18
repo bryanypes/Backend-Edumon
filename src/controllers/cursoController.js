@@ -19,7 +19,7 @@ async function procesarUsuariosCSV(file, cursoId) {
   try {
     const curso = await Curso.findById(cursoId)
       .populate('docenteId', 'nombre apellido correo');
-    
+
     if (!curso) {
       throw new Error("Curso no encontrado");
     }
@@ -72,7 +72,7 @@ async function procesarUsuariosCSV(file, cursoId) {
 
         if (usuario) {
           console.log(`Usuario existente encontrado: ${usuario._id}`);
-          
+
           if (curso.esParticipante(usuario._id)) {
             console.log(`Usuario YA está en el curso`);
             resultados.duplicados.push({
@@ -105,7 +105,7 @@ async function procesarUsuariosCSV(file, cursoId) {
 
           usuario = await nuevoUsuario.save();
           console.log(`Usuario creado: ${usuario._id}`);
-          
+
           esNuevoUsuario = true;
           curso.agregarParticipante(usuario._id, 'padre');
 
@@ -118,26 +118,26 @@ async function procesarUsuariosCSV(file, cursoId) {
 
         // ENVIAR NOTIFICACIONES
         try {
-          //  Notificación de bienvenida (solo para nuevos usuarios)
+          // 1️⃣ Notificación de bienvenida (solo para nuevos usuarios)
           if (esNuevoUsuario) {
-            console.log(` Enviando notificación de BIENVENIDA a ${usuario._id}`);
-            const { notificarBienvenida } = await import('../services/notificacionService.js');
-            await notificarBienvenida(usuario._id);
-            console.log(`Bienvenida enviada`);
+            console.log(` Enviando notificación de BIENVENIDA a ${usuario.nombre} ${usuario.apellido}`);
+            await notificarBienvenida(usuario); // ✅ Pasa el objeto usuario, no el ID
+            console.log(` Bienvenida enviada`);
           }
 
-          // Notificación de agregar al curso (para todos)
-          console.log(` Enviando notificación de AGREGAR CURSO a ${usuario._id}`);
+          // 2️⃣ Notificación de agregar al curso (para todos)
+          console.log(` Enviando notificación de AGREGAR CURSO a ${usuario.nombre} ${usuario.apellido}`);
           await notificarAgregarCurso(usuario._id, curso);
           console.log(` Notificación de curso enviada`);
 
         } catch (notifError) {
-          console.error(`Error al enviar notificaciones:`, notifError);
+          console.error(` ❌ Error al enviar notificaciones:`, notifError);
+          console.error('Stack:', notifError.stack);
         }
 
       } catch (error) {
         console.error(`Error procesando usuario ${userData.cedula}:`, error);
-        
+
         if (error.code === 11000) {
           // Duplicado - intentar recuperar y agregar al curso
           try {
@@ -553,7 +553,7 @@ export const agregarParticipante = async (req, res) => {
 
     const curso = await Curso.findById(id)
       .populate('docenteId', 'nombre apellido correo');
-    
+
     if (!curso) {
       return res.status(404).json({
         message: "Curso no encontrado"
@@ -585,7 +585,7 @@ export const agregarParticipante = async (req, res) => {
 
     if (usuario) {
       console.log(`Usuario existente encontrado: ${usuario._id}`);
-      
+
       if (curso.esParticipante(usuario._id)) {
         console.log(`Usuario YA está inscrito en el curso`);
         return res.status(400).json({
@@ -608,7 +608,7 @@ export const agregarParticipante = async (req, res) => {
 
     } else {
       console.log(`Creando nuevo usuario`);
-      
+
       const nuevoUsuario = new User({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
@@ -622,7 +622,7 @@ export const agregarParticipante = async (req, res) => {
 
       usuario = await nuevoUsuario.save();
       console.log(`Usuario creado: ${usuario._id}`);
-      
+
       esNuevoUsuario = true;
       curso.agregarParticipante(usuario._id, 'padre');
       usuarioFinalId = usuario._id;
@@ -785,7 +785,7 @@ export const getParticipantesCurso = async (req, res) => {
     const curso = await Curso.findById(id)
       .populate({
         path: 'participantes.usuarioId',
-        select: 'nombre apellido correo telefono rol estado fotoPerfilUrl' 
+        select: 'nombre apellido correo telefono rol estado fotoPerfilUrl'
       });
 
     if (!curso) {

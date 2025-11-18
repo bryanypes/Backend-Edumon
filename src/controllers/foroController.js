@@ -5,7 +5,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import MensajeForo from '../models/MensajeForo.js'; 
 import mongoose from 'mongoose';  
 
-// ✅ VALIDACIÓN DE ARCHIVOS
+// VALIDACIÓN DE ARCHIVOS
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
   'image/jpg': 'imagen',
@@ -46,7 +46,7 @@ const procesarArchivosAdjuntos = async (files) => {
           archivo: file.originalname,
           error: `Tipo de archivo no permitido: ${file.mimetype}`
         });
-        console.warn(`⚠️ Archivo rechazado: ${file.originalname} (${file.mimetype})`);
+        console.warn(` Archivo rechazado: ${file.originalname} (${file.mimetype})`);
         continue;
       }
 
@@ -57,11 +57,11 @@ const procesarArchivosAdjuntos = async (files) => {
           archivo: file.originalname,
           error: `Archivo demasiado grande. Máximo: ${tamanoMax / (1024 * 1024)} MB`
         });
-        console.warn(`⚠️ Archivo muy grande: ${file.originalname} (${file.size} bytes)`);
+        console.warn(` Archivo muy grande: ${file.originalname} (${file.size} bytes)`);
         continue;
       }
 
-      console.log(`✅ Validación OK: ${file.originalname} (${tipo})`);
+      console.log(` Validación OK: ${file.originalname} (${tipo})`);
 
       // Subir a Cloudinary
       const resultado = await subirArchivoCloudinary(
@@ -79,10 +79,10 @@ const procesarArchivosAdjuntos = async (files) => {
         tamano: file.size
       });
 
-      console.log(`📤 Archivo subido: ${file.originalname}`);
+      console.log(` Archivo subido: ${file.originalname}`);
 
     } catch (error) {
-      console.error(`❌ Error procesando ${file.originalname}:`, error);
+      console.error(` Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
         error: error.message || 'Error al subir el archivo'
@@ -120,7 +120,7 @@ export const crearForo = async (req, res) => {
       });
     }
 
-    // ✅ PROCESAR ARCHIVOS ADJUNTOS CON VALIDACIÓN MEJORADA
+    // PROCESAR ARCHIVOS ADJUNTOS CON VALIDACIÓN MEJORADA
     const { archivos, errores } = await procesarArchivosAdjuntos(req.files);
 
     // Crear el foro
@@ -141,7 +141,7 @@ export const crearForo = async (req, res) => {
       { path: 'cursoId', select: 'nombre' }
     ]);
 
-    console.log(`✅ Foro creado: ${nuevoForo._id}`);
+    console.log(` Foro creado: ${nuevoForo._id}`);
 
     // Respuesta con información de archivos procesados
     const respuesta = {
@@ -170,7 +170,7 @@ export const crearForo = async (req, res) => {
     res.status(201).json(respuesta);
 
   } catch (error) {
-    console.error('❌ Error al crear foro:', error);
+    console.error(' Error al crear foro:', error);
     res.status(500).json({ 
       message: 'Error al crear el foro', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

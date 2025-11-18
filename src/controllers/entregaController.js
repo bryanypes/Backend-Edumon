@@ -8,8 +8,8 @@ import { notificarNuevaEntrega, notificarCalificacion } from '../services/notifi
 //Crear entrega
 export const createEntrega = async (req, res) => {
   try {
-    console.log('📦 Body recibido:', req.body);
-    console.log('📎 Archivos recibidos:', req.files?.length || 0);
+    console.log(' Body recibido:', req.body);
+    console.log(' Archivos recibidos:', req.files?.length || 0);
     
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -52,11 +52,11 @@ export const createEntrega = async (req, res) => {
     // Procesar archivos adjuntos si existen
     let archivosAdjuntos = [];
     if (req.files && req.files.length > 0) {
-      console.log(`📤 Procesando ${req.files.length} archivo(s)...`);
+      console.log(` Procesando ${req.files.length} archivo(s)...`);
       
       for (const file of req.files) {
         try {
-          console.log(`⬆️ Subiendo: ${file.originalname} (${file.mimetype}, ${file.size} bytes)`);
+          console.log(` Subiendo: ${file.originalname} (${file.mimetype}, ${file.size} bytes)`);
           
           const archivoSubido = await subirArchivoCloudinary(
             file.buffer,
@@ -73,16 +73,16 @@ export const createEntrega = async (req, res) => {
             tamano: file.size
           });
           
-          console.log(`✅ Archivo subido: ${file.originalname}`);
+          console.log(` Archivo subido: ${file.originalname}`);
         } catch (uploadError) {
-          console.error(`❌ Error subiendo ${file.originalname}:`, uploadError);
+          console.error(` Error subiendo ${file.originalname}:`, uploadError);
           // Continuar con los demás archivos
         }
       }
       
-      console.log(`📊 Total archivos subidos: ${archivosAdjuntos.length}`);
+      console.log(` Total archivos subidos: ${archivosAdjuntos.length}`);
     } else {
-      console.log('⚠️ No se recibieron archivos');
+      console.log(' No se recibieron archivos');
     }
 
     const newEntrega = new Entrega({
@@ -91,16 +91,16 @@ export const createEntrega = async (req, res) => {
       textoRespuesta: req.body.textoRespuesta,
       estado,
       archivosAdjuntos,
-      // ✅ Agregar fecha de entrega si se envía directamente
+      // Agregar fecha de entrega si se envía directamente
       ...(estado === 'enviada' || estado === 'tarde' ? { fechaEntrega: new Date() } : {})
     });
 
     const savedEntrega = await newEntrega.save();
-    console.log(`✅ Entrega guardada: ${savedEntrega._id} (estado: ${estado})`);
+    console.log(` Entrega guardada: ${savedEntrega._id} (estado: ${estado})`);
 
-    // 🔔 NOTIFICAR SI SE ENVIÓ DIRECTAMENTE (no es borrador)
+    //  NOTIFICAR SI SE ENVIÓ DIRECTAMENTE (no es borrador)
     if (estado === 'enviada' || estado === 'tarde') {
-      console.log(`\n📧 [CREATE ENTREGA] Entrega enviada directamente, poblando para notificar...`);
+      console.log(`\n [CREATE ENTREGA] Entrega enviada directamente, poblando para notificar...`);
       
       // Poblar la entrega con todos los datos necesarios
       const entregaCompleta = await Entrega.findById(savedEntrega._id)
@@ -119,13 +119,13 @@ export const createEntrega = async (req, res) => {
 
       // Verificar que la tarea tenga docente asignado
       if (!entregaCompleta.tareaId?.docenteId) {
-        console.error('❌ La tarea no tiene docente asignado');
+        console.error(' La tarea no tiene docente asignado');
         return res.status(400).json({
           message: "Error: La tarea no tiene docente asignado"
         });
       }
 
-      console.log(`   📋 Datos completos para notificación:`);
+      console.log(`    Datos completos para notificación:`);
       console.log(`      Tarea: ${entregaCompleta.tareaId.titulo}`);
       console.log(`      Docente: ${entregaCompleta.tareaId.docenteId.nombre} ${entregaCompleta.tareaId.docenteId.apellido}`);
       console.log(`      Docente Email: ${entregaCompleta.tareaId.docenteId.correo}`);
@@ -133,7 +133,7 @@ export const createEntrega = async (req, res) => {
 
       // Enviar notificación (no bloquea la respuesta)
       notificarNuevaEntrega(entregaCompleta).catch(error => {
-        console.error(`❌ Error al notificar entrega:`, error);
+        console.error(` Error al notificar entrega:`, error);
       });
 
       // Responder con la entrega completa poblada
@@ -155,7 +155,7 @@ export const createEntrega = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error al crear entrega:', error);
+    console.error(' Error al crear entrega:', error);
     res.status(500).json({
       message: "Error interno del servidor",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -374,7 +374,7 @@ export const deleteEntrega = async (req, res) => {
 
     // Eliminar archivos adjuntos de Cloudinary
     if (entrega.archivosAdjuntos && entrega.archivosAdjuntos.length > 0) {
-      console.log(`🗑️ Eliminando ${entrega.archivosAdjuntos.length} archivo(s) de Cloudinary...`);
+      console.log(` Eliminando ${entrega.archivosAdjuntos.length} archivo(s) de Cloudinary...`);
       
       for (const archivo of entrega.archivosAdjuntos) {
         // Determinar el resource_type según el tipo de archivo
@@ -391,13 +391,13 @@ export const deleteEntrega = async (req, res) => {
 
     await Entrega.findByIdAndDelete(id);
 
-    console.log('✅ Entrega eliminada exitosamente');
+    console.log(' Entrega eliminada exitosamente');
 
     res.json({
       message: "Entrega eliminada exitosamente"
     });
   } catch (error) {
-    console.error('❌ Error al eliminar entrega:', error);
+    console.error(' Error al eliminar entrega:', error);
     res.status(500).json({
       message: "Error interno del servidor",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -410,7 +410,7 @@ export const eliminarArchivoEntrega = async (req, res) => {
   try {
     const { id, archivoId } = req.params;
 
-    console.log(`🗑️ Eliminando archivo ${archivoId} de entrega ${id}`);
+    console.log(` Eliminando archivo ${archivoId} de entrega ${id}`);
 
     const entrega = await Entrega.findById(id);
 
@@ -455,14 +455,14 @@ export const eliminarArchivoEntrega = async (req, res) => {
     entrega.archivosAdjuntos.splice(archivoIndex, 1);
     await entrega.save();
 
-    console.log(`✅ Archivo eliminado: ${archivo.nombreOriginal}`);
+    console.log(` Archivo eliminado: ${archivo.nombreOriginal}`);
 
     res.json({
       message: "Archivo eliminado exitosamente",
       entrega
     });
   } catch (error) {
-    console.error('❌ Error al eliminar archivo:', error);
+    console.error(' Error al eliminar archivo:', error);
     res.status(500).json({
       message: "Error interno del servidor",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
