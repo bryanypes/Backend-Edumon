@@ -1,7 +1,7 @@
+import axios from 'axios';
 import mongoose from 'mongoose';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
-import nodemailer from 'nodemailer';
 import twilio from 'twilio';
 import webpush from 'web-push';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
@@ -25,44 +25,6 @@ export const sendNotification = async (subscription, payload) => {
     console.error("Error enviando notificación:", err);
   }
 };
-
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
-
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error(" SMTP error:", error);
-  } else {
-    console.log(" SMTP listo");
-  }
-});
-
-
-
-console.log('\n [CONFIGURACIÓN EMAIL]');
-console.log(`   EMAIL_SERVICE: ${process.env.EMAIL_SERVICE || 'gmail'}`);
-console.log(`   EMAIL_USER: ${process.env.EMAIL_USER || '❌ NO CONFIGURADO'}`);
-console.log(`   EMAIL_PASSWORD: ${process.env.EMAIL_PASSWORD ? '✅ Configurado' : '❌ NO CONFIGURADO'}`);
-
-if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-  transporter.verify(function (error, success) {
-    if (error) {
-      console.error(' Error al verificar servidor de email:', error.message);
-    } else {
-      console.log(' Servidor de email listo');
-    }
-  });
-} else {
-  console.warn(' Email NO configurado - Los emails no se enviarán');
-}
 
 // Configurar Twilio (para WhatsApp)
 const twilioClient = twilio(
@@ -270,7 +232,7 @@ _Notificación de Edumon_
 };
 
 /**
- * Envía notificación por email (solo docentes)
+ * Envía notificación por email usando MailerSend
  */
 export const enviarNotificacionEmail = async (usuario, notificacion) => {
   try {
@@ -279,42 +241,62 @@ export const enviarNotificacionEmail = async (usuario, notificacion) => {
     console.log(`   Email: ${usuario.correo}`);
     console.log(`   Tipo: ${notificacion.tipo}`);
 
-    // Verificar configuración
-    if (!process.env.EMAIL_USER) {
-      throw new Error('EMAIL_USER no configurado en .env');
-    }
-    if (!process.env.EMAIL_PASSWORD) {
-      throw new Error('EMAIL_PASSWORD no configurado en .env');
+    // Verificar configuración de MailerSend
+    if (!process.env.MAILERSEND_API_KEY) {
+      throw new Error('MAILERSEND_API_KEY no configurado en .env');
     }
 
-    console.log(`   Servidor email: ${process.env.EMAIL_SERVICE || 'gmail'}`);
-    console.log(`   Desde: ${process.env.EMAIL_USER}`);
+    if (!process.env.MAILERSEND_FROM_EMAIL) {
+      throw new Error('MAILERSEND_FROM_EMAIL no configurado en .env');
+    }
 
-    const mailOptions = {
-      from: `"Edumon" <${process.env.EMAIL_USER}>`,
-      to: usuario.correo,
-      subject: obtenerTituloPush(notificacion.tipo),
-      html: generarHTMLEmail(usuario, notificacion)
-    };
+    console.log(`   Servidor: MailerSend API`);
+    console.log(`   Desde: ${process.env.MAILERSEND_FROM_EMAIL}`);
 
-    console.log(`    Enviando email...`);
-    const info = await transporter.sendMail(mailOptions);
+    // Llamar a la API de MailerSend
+    const response = await axios.post(
+      "https://api.mailersend.com/v1/email",
+      {
+        from: { 
+          email: process.env.MAILERSEND_FROM_EMAIL,
+          name: "Edumon"
+        },
+        to: [{ 
+          email: usuario.correo,
+          name: `${usuario.nombre} ${usuario.apellido}`
+        }],
+        subject: obtenerTituloPush(notificacion.tipo),
+        html: generarHTMLEmail(usuario, notificacion)
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MAILERSEND_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log(`   Email enviado exitosamente`);
+    console.log(`   Message ID: ${response.data.message || 'N/A'}`);
     
-    console.log(`   Email enviado`);
-    console.log(`   Message ID: ${info.messageId}`);
-    
-    return info;
+    return response.data;
   } catch (error) {
     console.error(`\n ERROR en enviarNotificacionEmail:`);
     console.error(`   Error: ${error.message}`);
-    console.error(`   Código: ${error.code}`);
     
-    // Errores específicos de Gmail
-    if (error.code === 'EAUTH') {
-      console.error(`    ERROR DE AUTENTICACIÓN`);
-      console.error(`   - Verifica que EMAIL_USER sea correcto`);
-      console.error(`   - Para Gmail, usa App Password (no tu contraseña normal)`);
-      console.error(`   - Activa verificación en 2 pasos en Google`);
+    if (error.response) {
+      console.error(`   Status: ${error.response.status}`);
+      console.error(`   Data:`, error.response.data);
+      
+      // Errores específicos de MailerSend
+      if (error.response.status === 401) {
+        console.error(`    ERROR DE AUTENTICACIÓN`);
+        console.error(`   - Verifica que MAILERSEND_API_KEY sea correcto`);
+      } else if (error.response.status === 422) {
+        console.error(`    ERROR DE VALIDACIÓN`);
+        console.error(`   - Verifica que el email del remitente esté verificado en MailerSend`);
+        console.error(`   - Verifica que el email del destinatario sea válido`);
+      }
     }
     
     throw error;
@@ -354,31 +336,133 @@ function generarHTMLEmail(usuario, notificacion) {
     <head>
       <meta charset="UTF-8">
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
-        .footer { background: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 8px 8px; }
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          background: #F8FAFC;
+        }
+
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+
+        /* Header con avatar */
+        .header {
+          background: #ffffff;
+          text-align: center;
+          padding: 25px;
+          border-radius: 12px 12px 0 0;
+          position: relative;
+          overflow: hidden;
+        }
+
+        /* Burbujas degradadas */
+        .bubble {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(40px);
+          opacity: 0.55;
+        }
+
+        .bubble1 {
+          width: 140px;
+          height: 140px;
+          top: -30px;
+          left: -20px;
+          background: linear-gradient(135deg, #00B9F0, #0082B3); /* GradienteAzul */
+        }
+
+        .bubble2 {
+          width: 110px;
+          height: 110px;
+          top: 20px;
+          right: -25px;
+          background: linear-gradient(135deg, #FE327B, #D91E5B); /* GradienteFucsia */
+        }
+
+        .bubble3 {
+          width: 120px;
+          height: 120px;
+          bottom: -40px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: linear-gradient(135deg, #FA6D00, #FE327B); /* GradienteSunset */
+        }
+
+        /* Avatar */
+        .avatar-container {
+          z-index: 2;
+          position: relative;
+        }
+
+        .avatar {
+          width: 120px;
+          height: 120px;
+          border-radius: 50%;
+          border: 6px solid #ffffff;
+          background: #ffffff;
+          object-fit: cover;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .title {
+          margin-top: 18px;
+          color: #0082B3;
+          font-size: 22px;
+          font-weight: bold;
+        }
+
+        .content {
+          background: #f9fafb;
+          padding: 30px;
+          border: 1px solid #e5e7eb;
+        }
+
+        .footer {
+          background: #f3f4f6;
+          padding: 15px;
+          text-align: center;
+          font-size: 12px;
+          color: #6b7280;
+          border-radius: 0 0 12px 12px;
+        }
       </style>
     </head>
+
     <body>
       <div class="container">
+
         <div class="header">
-          <h1>${obtenerTituloPush(notificacion.tipo)}</h1>
+          <div class="bubble bubble1"></div>
+          <div class="bubble bubble2"></div>
+          <div class="bubble bubble3"></div>
+
+          <div class="avatar-container">
+            <img class="avatar" src="https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp" alt="Avatar">
+            <h1 class="title">${obtenerTituloPush(notificacion.tipo)}</h1>
+          </div>
         </div>
+
         <div class="content">
           <p>Hola <strong>${usuario.nombre}</strong>,</p>
           <p>${notificacion.mensaje}</p>
         </div>
+
         <div class="footer">
           <p>Este es un correo automático de <strong>Edumon</strong>. Por favor no responder.</p>
           <p>&copy; ${new Date().getFullYear()} Edumon. Todos los derechos reservados.</p>
         </div>
+
       </div>
     </body>
     </html>
   `;
 }
+
+
 
 
 // Funciones suscripciones push
