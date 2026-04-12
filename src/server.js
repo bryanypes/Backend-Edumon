@@ -19,16 +19,21 @@ import calendarioRoutes from './routes/calendarioRoutes.js';
 import foroRoutes from './routes/foroRoutes.js';
 import mensajeForoRoutes from './routes/mensajeForoRoutes.js';
 
-
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+];
+
+
 // Configurar Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -36,22 +41,36 @@ const io = new Server(server, {
   pingInterval: 25000
 });
 
-// Hacer io global para acceder desde otros archivos
+// Hacer io global
 global.io = io;
 
 // Configurar Socket handlers
 setupSocketIO(io);
 
-// Middlewares
+
+// Middleware CORS (permite localhost + Vercel)
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Permite requests sin origin (Postman, mobile apps, etc.)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('No permitido por CORS'));
+    }
+  },
   credentials: true
 }));
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
 // Conectar a MongoDB
 connectDB();
+
 
 // Rutas
 app.use('/api/auth', authRoutes);
@@ -66,6 +85,7 @@ app.use('/api/calendario', calendarioRoutes);
 app.use('/api/foros', foroRoutes);
 app.use('/api/mensajes-foro', mensajeForoRoutes);
 
+
 // Ruta de prueba
 app.get('/', (req, res) => {
   res.json({ 
@@ -73,6 +93,7 @@ app.get('/', (req, res) => {
     websocket: 'Socket.IO habilitado'
   });
 });
+
 
 // Manejo de errores global
 app.use((err, req, res, next) => {
@@ -82,6 +103,7 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err : {}
   });
 });
+
 
 const PORT = process.env.PORT || 5000;
 

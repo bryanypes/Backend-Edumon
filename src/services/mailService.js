@@ -21,7 +21,7 @@ export async function enviarCorreo(usuario, notificacion) {
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error API Mailersend:", error.response?.data || error);
+    console.error("Error API Mailersend:", error.response?.data || error);
     throw error;
   }
 }
