@@ -481,7 +481,7 @@ export const eliminarArchivoEntrega = async (req, res) => {
 export const getAllEntregas = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
     const { estado } = req.query;
 
@@ -542,7 +542,7 @@ export const getEntregasByTarea = async (req, res) => {
   try {
     const { tareaId } = req.params;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
     const { estado } = req.query;
 
@@ -616,7 +616,7 @@ export const getEntregasByPadre = async (req, res) => {
   try {
     const { padreId } = req.params;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
     const { estado } = req.query;
 

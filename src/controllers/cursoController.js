@@ -260,7 +260,7 @@ export const createCurso = async (req, res) => {
 export const getCursos = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
 
     const { estado, docenteId } = req.query;
@@ -335,7 +335,7 @@ export const getMisCursos = async (req, res) => {
   try {
     const usuarioId = req.user.userId;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
 
     const cursos = await Curso.find({
