@@ -1,44 +1,40 @@
+// src/services/notificacionService.js
 import axios from 'axios';
 import mongoose from 'mongoose';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import twilio from 'twilio';
-import webpush from 'web-push';
+import admin from 'firebase-admin';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
-import dotenv from "dotenv";
-dotenv.config({ path: "./.env" }); // fuerza la carga del .env en la raíz
-// Configuraciones
+import dotenv from 'dotenv';
+dotenv.config({ path: './.env' });
 
-// Configurar Web Push
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// ─────────────────────────────────────────────
+// INICIALIZACIÓN FIREBASE ADMIN
+// Solo inicializa una vez
+// ─────────────────────────────────────────────
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      // Las \n deben ser reales en la clave privada
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    })
+  });
+}
 
-// Ejemplo de envío (para pruebas)
-export const sendNotification = async (subscription, payload) => {
-  try {
-    await webpush.sendNotification(subscription, JSON.stringify(payload));
-    console.log("Notificación enviada");
-  } catch (err) {
-    console.error("Error enviando notificación:", err);
-  }
-};
-
-// Configurar Twilio (para WhatsApp)
+// ─────────────────────────────────────────────
+// TWILIO (WhatsApp)
+// ─────────────────────────────────────────────
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
-// Función principal
-
-/**
- * Crea y envía una notificación por los canales apropiados
- * @param {Object} datos - Datos de la notificación
- * @returns {Promise<Object>} - Notificación creada
- */
+// ─────────────────────────────────────────────
+// CORE: Crear y enviar notificación a UN usuario
+// ─────────────────────────────────────────────
 export const crearYEnviarNotificacion = async (datos) => {
   try {
     const {
@@ -51,22 +47,10 @@ export const crearYEnviarNotificacion = async (datos) => {
       metadata = {}
     } = datos;
 
-    console.log(`\n [NUEVA NOTIFICACIÓN]`);
-    console.log(`   Usuario: ${usuarioId}`);
-    console.log(`   Tipo: ${tipo}`);
-    console.log(`   Prioridad: ${prioridad}`);
-
-    // Obtener usuario
     const usuario = await User.findById(usuarioId);
-    if (!usuario) {
-      throw new Error(`Usuario no encontrado: ${usuarioId}`);
-    }
+    if (!usuario) throw new Error(`Usuario no encontrado: ${usuarioId}`);
 
-    console.log(`   Usuario encontrado: ${usuario.nombre} ${usuario.apellido} (${usuario.rol})`);
-    console.log(`   Correo: ${usuario.correo}`);
-    console.log(`   Teléfono: ${usuario.telefono || 'N/A'}`);
-
-    // Crear notificación en BD
+    // Guardar en BD
     const notificacion = new Notificacion({
       usuarioId,
       tipo,
@@ -76,248 +60,571 @@ export const crearYEnviarNotificacion = async (datos) => {
       referenciaModelo,
       metadata
     });
-
     await notificacion.save();
-    console.log(`    Notificación guardada en BD (${notificacion._id})`);
 
-    //  WEBSOCKET
+    // WebSocket
     try {
       await emitirNotificacion(notificacion);
       notificacion.canalEnviado.websocket = true;
-      console.log(`    WebSocket enviado`);
-    } catch (error) {
-      console.error(`    Error WebSocket:`, error.message);
+    } catch (e) {
+      console.error('[WS Error]', e.message);
     }
 
-    //  PUSH
-    try {
-      await enviarNotificacionPush(usuario, notificacion);
-      notificacion.canalEnviado.push = true;
-      console.log(`    Push enviado`);
-    } catch (error) {
-      console.error(`    Error Push:`, error.message);
+    // FCM Push
+    if (usuario.fcmToken) {
+      try {
+        await enviarFCM(usuario.fcmToken, {
+          title: obtenerTitulo(tipo),
+          body: mensaje,
+          data: {
+            notificacionId: notificacion._id.toString(),
+            tipo,
+            url: obtenerUrl(notificacion)
+          }
+        });
+        notificacion.canalEnviado.push = true;
+      } catch (e) {
+        console.error('[FCM Error]', e.message);
+        // Si el token expiró, limpiarlo
+        if (e.code === 'messaging/registration-token-not-registered') {
+          await User.findByIdAndUpdate(usuarioId, { fcmToken: null });
+        }
+      }
     }
 
-    //  EMAIL - SIEMPRE INTENTAR
-    console.log(`\n [EMAIL] Verificando envío...`);
-    console.log(`   ¿Tiene correo? ${usuario.correo ? 'SÍ' : 'NO'}`);
-    
+    // Email
     if (usuario.correo) {
       try {
-        console.log(`    Intentando enviar email a ${usuario.correo}...`);
-        await enviarNotificacionEmail(usuario, notificacion);
+        await enviarEmail(usuario, notificacion);
         notificacion.canalEnviado.email = true;
-        console.log(`    Email enviado exitosamente`);
-      } catch (error) {
-        console.error(`    Error enviando Email:`);
-        console.error(`      Mensaje: ${error.message}`);
-        console.error(`      Stack:`, error.stack);
+      } catch (e) {
+        console.error('[Email Error]', e.message);
       }
-    } else {
-      console.warn(`    No se puede enviar: usuario sin correo`);
     }
 
-    //  WHATSAPP - SIEMPRE INTENTAR
-    console.log(`\n [WHATSAPP] Verificando envío...`);
-    console.log(`   ¿Tiene teléfono? ${usuario.telefono ? 'SÍ' : 'NO'}`);
-    
+    // WhatsApp
     if (usuario.telefono) {
       try {
-        console.log(`    Intentando enviar WhatsApp a ${usuario.telefono}...`);
-        await enviarNotificacionWhatsApp(usuario, notificacion);
+        await enviarWhatsApp(usuario, notificacion);
         notificacion.canalEnviado.whatsapp = true;
-        console.log(`    WhatsApp enviado exitosamente`);
-      } catch (error) {
-        console.error(`    Error enviando WhatsApp:`);
-        console.error(`      Mensaje: ${error.message}`);
+      } catch (e) {
+        console.error('[WhatsApp Error]', e.message);
       }
-    } else {
-      console.warn(`    No se puede enviar: usuario sin teléfono`);
     }
 
-    // Guardar canales enviados
     await notificacion.save();
-
-    console.log(`\n Proceso completado`);
-    console.log(`   Canales exitosos:`);
-    console.log(`      WebSocket: ${notificacion.canalEnviado.websocket}`);
-    console.log(`      Push: ${notificacion.canalEnviado.push}`);
-    console.log(`      Email: ${notificacion.canalEnviado.email}`);
-    console.log(`      WhatsApp: ${notificacion.canalEnviado.whatsapp}`);
-
     return notificacion;
+
   } catch (error) {
-    console.error('\n ERROR CRÍTICO en crearYEnviarNotificacion:', error);
-    console.error('Stack:', error.stack);
+    console.error('[crearYEnviarNotificacion] ERROR:', error.message);
     throw error;
   }
 };
 
-// Funciones de envio
-
-/**
- * Envía notificación push
- */
-export const enviarNotificacionPush = async (usuario, notificacion) => {
+// ─────────────────────────────────────────────
+// CORE: Notificar a TODA UNA FAMILIA
+// Este es el método central del bloque familiar
+// ─────────────────────────────────────────────
+export const notificarFamilia = async (usuarioId, datos) => {
   try {
-    // Obtener suscripciones push del usuario (debes guardarlas en tu BD)
-    const suscripciones = await obtenerSuscripcionesPush(usuario._id);
+    // Buscar la familia del usuario
+    const familia = await FamiliaBloque.encontrarPorMiembro(usuarioId);
 
-    if (!suscripciones || suscripciones.length === 0) {
-      console.log('Usuario sin suscripciones push');
-      return;
+    if (!familia) {
+      // Si no tiene familia, notificar solo al usuario
+      console.log(`[FAMILIA] Usuario ${usuarioId} sin bloque familiar, notificando solo a él`);
+      return await crearYEnviarNotificacion({ ...datos, usuarioId });
     }
 
-    const payload = JSON.stringify({
-      title: obtenerTituloPush(notificacion.tipo),
-      body: notificacion.mensaje,
-      icon: '/icon-192x192.png',
-      badge: '/badge-72x72.png',
-      data: {
-        notificacionId: notificacion._id,
-        tipo: notificacion.tipo,
-        url: obtenerUrlNotificacion(notificacion)
-      }
-    });
+    const miembros = familia.obtenerMiembrosActivos();
+    console.log(`[FAMILIA] Notificando a ${miembros.length} miembros del bloque "${familia.nombre}"`);
 
-    const promesas = suscripciones.map(suscripcion =>
-      webpush.sendNotification(suscripcion, payload)
-        .catch(error => {
-          console.error('Error al enviar a suscripción:', error);
-          // Si la suscripción expiró, eliminarla de la BD
-          if (error.statusCode === 410) {
-            eliminarSuscripcionPush(suscripcion.endpoint);
-          }
-        })
+    const promesas = miembros.map(miembroId =>
+      crearYEnviarNotificacion({ ...datos, usuarioId: miembroId })
+        .catch(e => console.error(`[FAMILIA] Error notificando a ${miembroId}:`, e.message))
     );
 
     await Promise.allSettled(promesas);
-    console.log(`Push enviado a ${usuario.nombre}`);
   } catch (error) {
-    console.error('Error en enviarNotificacionPush:', error);
-    throw error;
+    console.error('[notificarFamilia] ERROR:', error.message);
   }
 };
 
-/**
- * Envía notificación por WhatsApp
- */
-export const enviarNotificacionWhatsApp = async (usuario, notificacion) => {
-  try {
-    if (!usuario.telefono) {
-      console.log('Usuario sin teléfono');
-      return;
-    }
-
-    const mensaje = `
-🔔 *${obtenerTituloPush(notificacion.tipo)}*
-
-${notificacion.mensaje}
-
----
-_Notificación de Edumon_
-    `.trim();
-
-    await twilioClient.messages.create({
-      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-      to: `whatsapp:${usuario.telefono}`,
-      body: mensaje
-    });
-
-    console.log(`WhatsApp enviado a ${usuario.nombre}`);
-  } catch (error) {
-    console.error('Error en enviarNotificacionWhatsApp:', error);
-    throw error;
-  }
-};
-
-/**
- * Envía notificación por email usando MailerSend
- */
-export const enviarNotificacionEmail = async (usuario, notificacion) => {
-  try {
-    console.log(`\n [ENVIAR EMAIL] Iniciando...`);
-    console.log(`   Para: ${usuario.nombre} ${usuario.apellido}`);
-    console.log(`   Email: ${usuario.correo}`);
-    console.log(`   Tipo: ${notificacion.tipo}`);
-
-    // Verificar configuración de MailerSend
-    if (!process.env.MAILERSEND_API_KEY) {
-      throw new Error('MAILERSEND_API_KEY no configurado en .env');
-    }
-
-    if (!process.env.MAILERSEND_FROM_EMAIL) {
-      throw new Error('MAILERSEND_FROM_EMAIL no configurado en .env');
-    }
-
-    console.log(`   Servidor: MailerSend API`);
-    console.log(`   Desde: ${process.env.MAILERSEND_FROM_EMAIL}`);
-
-    // Llamar a la API de MailerSend
-    const response = await axios.post(
-      "https://api.mailersend.com/v1/email",
-      {
-        from: { 
-          email: process.env.MAILERSEND_FROM_EMAIL,
-          name: "Edumon"
-        },
-        to: [{ 
-          email: usuario.correo,
-          name: `${usuario.nombre} ${usuario.apellido}`
-        }],
-        subject: obtenerTituloPush(notificacion.tipo),
-        html: generarHTMLEmail(usuario, notificacion)
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.MAILERSEND_API_KEY}`,
-          "Content-Type": "application/json"
+// ─────────────────────────────────────────────
+// FCM: Enviar push via Firebase
+// ─────────────────────────────────────────────
+export const enviarFCM = async (fcmToken, { title, body, data = {} }) => {
+  const message = {
+    token: fcmToken,
+    notification: { title, body },
+    data: Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, String(v)])
+    ),
+    android: {
+      priority: 'high',
+      notification: {
+        icon: 'ic_notification',
+        color: '#00B9F0',
+        sound: 'default'
+      }
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: 'default',
+          badge: 1
         }
       }
-    );
-
-    console.log(`   Email enviado exitosamente`);
-    console.log(`   Message ID: ${response.data.message || 'N/A'}`);
-    
-    return response.data;
-  } catch (error) {
-    console.error(`\n ERROR en enviarNotificacionEmail:`);
-    console.error(`   Error: ${error.message}`);
-    
-    if (error.response) {
-      console.error(`   Status: ${error.response.status}`);
-      console.error(`   Data:`, error.response.data);
-      
-      // Errores específicos de MailerSend
-      if (error.response.status === 401) {
-        console.error(`    ERROR DE AUTENTICACIÓN`);
-        console.error(`   - Verifica que MAILERSEND_API_KEY sea correcto`);
-      } else if (error.response.status === 422) {
-        console.error(`    ERROR DE VALIDACIÓN`);
-        console.error(`   - Verifica que el email del remitente esté verificado en MailerSend`);
-        console.error(`   - Verifica que el email del destinatario sea válido`);
+    },
+    webpush: {
+      notification: {
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        requireInteraction: true
       }
     }
-    
+  };
+
+  const response = await admin.messaging().send(message);
+  console.log(`[FCM] Enviado exitosamente: ${response}`);
+  return response;
+};
+
+// ─────────────────────────────────────────────
+// FCM: Enviar a múltiples tokens (batch)
+// ─────────────────────────────────────────────
+export const enviarFCMMultiple = async (fcmTokens, payload) => {
+  if (!fcmTokens || fcmTokens.length === 0) return;
+
+  // FCM permite hasta 500 tokens por batch
+  const chunks = [];
+  for (let i = 0; i < fcmTokens.length; i += 500) {
+    chunks.push(fcmTokens.slice(i, i + 500));
+  }
+
+  for (const chunk of chunks) {
+    const message = {
+      tokens: chunk,
+      notification: {
+        title: payload.title,
+        body: payload.body
+      },
+      data: Object.fromEntries(
+        Object.entries(payload.data || {}).map(([k, v]) => [k, String(v)])
+      )
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log(`[FCM Batch] Éxito: ${response.successCount}, Fallos: ${response.failureCount}`);
+
+    // Limpiar tokens inválidos
+    response.responses.forEach(async (resp, idx) => {
+      if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
+        await User.findOneAndUpdate(
+          { fcmToken: chunk[idx] },
+          { fcmToken: null }
+        );
+      }
+    });
+  }
+};
+
+// ─────────────────────────────────────────────
+// WhatsApp
+// ─────────────────────────────────────────────
+export const enviarWhatsApp = async (usuario, notificacion) => {
+  if (!usuario.telefono) return;
+
+  const mensaje = `🔔 *${obtenerTitulo(notificacion.tipo)}*\n\n${notificacion.mensaje}\n\n_Notificación de Edumon_`;
+
+  await twilioClient.messages.create({
+    from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+    to: `whatsapp:${usuario.telefono}`,
+    body: mensaje
+  });
+};
+
+// ─────────────────────────────────────────────
+// Email (MailerSend)
+// ─────────────────────────────────────────────
+export const enviarEmail = async (usuario, notificacion) => {
+  if (!process.env.MAILERSEND_API_KEY || !process.env.MAILERSEND_FROM_EMAIL) {
+    throw new Error('MailerSend no configurado');
+  }
+
+  await axios.post(
+    'https://api.mailersend.com/v1/email',
+    {
+      from: { email: process.env.MAILERSEND_FROM_EMAIL, name: 'Edumon' },
+      to: [{ email: usuario.correo, name: `${usuario.nombre} ${usuario.apellido}` }],
+      subject: obtenerTitulo(notificacion.tipo),
+      html: generarHTMLEmail(usuario, notificacion)
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.MAILERSEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+};
+
+// ─────────────────────────────────────────────
+// EVENTOS DE DOMINIO
+// Cada función determina a quién notificar y llama
+// crearYEnviarNotificacion o notificarFamilia
+// ─────────────────────────────────────────────
+
+/**
+ * Nueva tarea — notifica a los padres destinatarios
+ * y a TODOS los miembros de sus familias
+ */
+export const notificarNuevaTarea = async (tarea) => {
+  try {
+    const Curso = (await import('../models/Curso.js')).default;
+
+    let curso = tarea.cursoId?.participantes
+      ? tarea.cursoId
+      : await Curso.findById(tarea.cursoId).populate({
+          path: 'participantes.usuarioId',
+          select: 'nombre apellido correo telefono fcmToken familiaId'
+        });
+
+    if (!curso) { console.error('[notificarNuevaTarea] Curso no encontrado'); return; }
+
+    let destinatarios = await resolverDestinatarios(tarea, curso);
+    if (destinatarios.length === 0) return;
+
+    const fechaFormateada = new Date(tarea.fechaEntrega).toLocaleDateString('es-CO', {
+      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const datos = {
+      tipo: 'tarea',
+      mensaje: `Nueva tarea: "${tarea.titulo}". Entrega: ${fechaFormateada}`,
+      prioridad: 'critica',
+      referenciaId: tarea._id,
+      referenciaModelo: 'Tarea',
+      metadata: {
+        cursoNombre: curso.nombre,
+        tareaTitulo: tarea.titulo,
+        fechaEntrega: tarea.fechaEntrega
+      }
+    };
+
+    // notificarFamilia se encarga de expandir al bloque completo
+    await Promise.allSettled(
+      destinatarios.map(u => notificarFamilia(u._id, datos))
+    );
+
+    console.log(`[notificarNuevaTarea] Completado para ${destinatarios.length} padre(s)`);
+  } catch (error) {
+    console.error('[notificarNuevaTarea]', error);
+  }
+};
+
+/**
+ * Tarea cerrada
+ */
+export const notificarTareaCerrada = async (tarea) => {
+  try {
+    const Curso = (await import('../models/Curso.js')).default;
+    let curso = tarea.cursoId?.participantes
+      ? tarea.cursoId
+      : await Curso.findById(tarea.cursoId).populate({
+          path: 'participantes.usuarioId',
+          select: 'nombre apellido correo telefono fcmToken familiaId'
+        });
+
+    if (!curso) return;
+
+    const destinatarios = await resolverDestinatarios(tarea, curso);
+    const datos = {
+      tipo: 'tarea',
+      mensaje: `La tarea "${tarea.titulo}" ha sido cerrada. Ya no se aceptan entregas.`,
+      prioridad: 'critica',
+      referenciaId: tarea._id,
+      referenciaModelo: 'Tarea',
+      metadata: { cursoNombre: curso.nombre, tareaTitulo: tarea.titulo }
+    };
+
+    await Promise.allSettled(
+      destinatarios.map(u => notificarFamilia(u._id, datos))
+    );
+  } catch (error) {
+    console.error('[notificarTareaCerrada]', error);
+  }
+};
+
+/**
+ * Nueva entrega — notifica al docente
+ */
+export const notificarNuevaEntrega = async (entrega) => {
+  try {
+    if (!entrega.tareaId?.docenteId || !entrega.padreId) return;
+
+    const tarea = entrega.tareaId;
+    const docente = tarea.docenteId;
+    const padre = entrega.padreId;
+
+    await crearYEnviarNotificacion({
+      usuarioId: docente._id,
+      tipo: 'entrega',
+      mensaje: `${padre.nombre} ${padre.apellido} entregó "${tarea.titulo}". Ya puedes calificarla.`,
+      prioridad: 'critica',
+      referenciaId: entrega._id,
+      referenciaModelo: 'Entrega',
+      metadata: { tareaTitulo: tarea.titulo, padreNombre: `${padre.nombre} ${padre.apellido}` }
+    });
+  } catch (error) {
+    console.error('[notificarNuevaEntrega]', error);
+  }
+};
+
+/**
+ * Calificación — notifica al padre y su bloque familiar
+ */
+export const notificarCalificacion = async (entrega) => {
+  try {
+    const [Tarea, User] = await Promise.all([
+      import('../models/Tarea.js').then(m => m.default),
+      import('../models/User.js').then(m => m.default)
+    ]);
+
+    const [tarea, padre, docente] = await Promise.all([
+      Tarea.findById(entrega.tareaId),
+      User.findById(entrega.padreId),
+      User.findById(entrega.calificacion.docenteId)
+    ]);
+
+    if (!tarea || !padre || !docente) return;
+
+    const datos = {
+      tipo: 'calificacion',
+      mensaje: `"${tarea.titulo}" calificada por ${docente.nombre} ${docente.apellido}. Nota: ${entrega.calificacion.nota}/100`,
+      prioridad: 'critica',
+      referenciaId: entrega._id,
+      referenciaModelo: 'Entrega',
+      metadata: {
+        tareaTitulo: tarea.titulo,
+        nota: entrega.calificacion.nota,
+        comentario: entrega.calificacion.comentario
+      }
+    };
+
+    // Notificar al bloque familiar del padre
+    await notificarFamilia(padre._id, datos);
+  } catch (error) {
+    console.error('[notificarCalificacion]', error);
+  }
+};
+
+/**
+ * Tarea próxima a vencer — solo a quienes no han entregado
+ */
+export const notificarTareaProximaVencer = async (tarea) => {
+  try {
+    const [Curso, Entrega, User] = await Promise.all([
+      import('../models/Curso.js').then(m => m.default),
+      import('../models/Entrega.js').then(m => m.default),
+      import('../models/User.js').then(m => m.default)
+    ]);
+
+    const [curso, entregasRealizadas] = await Promise.all([
+      Curso.findById(tarea.cursoId).populate({
+        path: 'participantes.usuarioId',
+        select: 'nombre apellido correo telefono fcmToken'
+      }),
+      Entrega.find({
+        tareaId: tarea._id,
+        estado: { $in: ['enviada', 'tarde'] }
+      }).distinct('padreId')
+    ]);
+
+    if (!curso) return;
+
+    let destinatarios = [];
+    const yaEntregaron = new Set(entregasRealizadas.map(id => id.toString()));
+
+    if (tarea.asignacionTipo === 'todos') {
+      destinatarios = curso.participantes
+        .filter(p => p.usuarioId && p.etiqueta === 'padre' && !yaEntregaron.has(p.usuarioId._id.toString()))
+        .map(p => p.usuarioId);
+    } else {
+      destinatarios = await User.find({
+        _id: { $in: tarea.participantesSeleccionados.filter(id => !yaEntregaron.has(id.toString())) },
+        rol: 'padre'
+      });
+    }
+
+    const datos = {
+      tipo: 'tarea',
+      mensaje: `Recordatorio: "${tarea.titulo}" vence en 24 horas`,
+      prioridad: 'critica',
+      referenciaId: tarea._id,
+      referenciaModelo: 'Tarea',
+      metadata: { fechaEntrega: tarea.fechaEntrega, esRecordatorio: true }
+    };
+
+    await Promise.allSettled(
+      destinatarios.map(u => notificarFamilia(u._id, datos))
+    );
+
+    console.log(`[Recordatorios] Enviados a ${destinatarios.length} familias`);
+  } catch (error) {
+    console.error('[notificarTareaProximaVencer]', error);
+  }
+};
+
+/**
+ * Bienvenida
+ */
+export const notificarBienvenida = async (usuarioOId) => {
+  try {
+    let usuario = typeof usuarioOId === 'string' || usuarioOId instanceof mongoose.Types.ObjectId
+      ? await User.findById(usuarioOId)
+      : usuarioOId;
+
+    if (!usuario) throw new Error('Usuario no encontrado');
+
+    await crearYEnviarNotificacion({
+      usuarioId: usuario._id,
+      tipo: 'sistema',
+      mensaje: `¡Bienvenido ${usuario.nombre} ${usuario.apellido}! Tu cuenta fue creada exitosamente. Usa tu cédula como contraseña.`,
+      prioridad: 'critica',
+      referenciaId: usuario._id,
+      referenciaModelo: 'User',
+      metadata: { rol: usuario.rol, primerInicio: true }
+    });
+  } catch (error) {
+    console.error('[notificarBienvenida]', error);
     throw error;
   }
 };
 
-// Funciones auxiliares
+/**
+ * Agregado a curso — notifica al usuario y su familia
+ */
+export const notificarAgregarCurso = async (usuarioId, curso) => {
+  try {
+    const datos = {
+      tipo: 'sistema',
+      mensaje: `Has sido agregado al curso "${curso.nombre}"`,
+      prioridad: 'critica',
+      referenciaId: curso._id,
+      referenciaModelo: 'Curso',
+      metadata: { cursoNombre: curso.nombre, cursoCodigo: curso.codigoCurso }
+    };
 
-function obtenerTituloPush(tipo) {
+    await notificarFamilia(usuarioId, datos);
+  } catch (error) {
+    console.error('[notificarAgregarCurso]', error);
+    throw error;
+  }
+};
+
+/**
+ * Nuevo evento — notifica al docente creador y a los padres de los cursos
+ */
+export const notificarNuevoEvento = async (evento) => {
+  try {
+    const Curso = (await import('../models/Curso.js')).default;
+
+    // Notificar al docente
+    await crearYEnviarNotificacion({
+      usuarioId: evento.docenteId._id,
+      tipo: 'evento',
+      mensaje: `Creaste el evento "${evento.titulo}". Los participantes han sido notificados.`,
+      prioridad: 'critica',
+      referenciaId: evento._id,
+      referenciaModelo: 'Evento',
+      metadata: { eventoTitulo: evento.titulo, esCreador: true }
+    });
+
+    // Obtener padres únicos de todos los cursos
+    const cursos = await Curso.find({
+      _id: { $in: evento.cursosIds.map(c => c._id) }
+    }).populate({
+      path: 'participantes.usuarioId',
+      select: 'nombre apellido correo telefono fcmToken'
+    });
+
+    const padresMap = new Map();
+    cursos.forEach(curso => {
+      curso.participantes.forEach(p => {
+        if (p.usuarioId && p.etiqueta === 'padre') {
+          padresMap.set(p.usuarioId._id.toString(), p.usuarioId);
+        }
+      });
+    });
+
+    const padres = Array.from(padresMap.values());
+
+    const fechaInicio = new Date(evento.fechaInicio);
+    const fechaFormateada = fechaInicio.toLocaleDateString('es-CO', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
+
+    const datos = {
+      tipo: 'evento',
+      mensaje: `Nuevo evento: "${evento.titulo}" — ${fechaFormateada} a las ${evento.hora}. Lugar: ${evento.ubicacion}`,
+      prioridad: 'critica',
+      referenciaId: evento._id,
+      referenciaModelo: 'Evento',
+      metadata: {
+        eventoTitulo: evento.titulo,
+        fechaInicio: evento.fechaInicio,
+        ubicacion: evento.ubicacion
+      }
+    };
+
+    await Promise.allSettled(
+      padres.map(p => notificarFamilia(p._id, datos))
+    );
+
+    console.log(`[notificarNuevoEvento] Notificado a ${padres.length} familias`);
+  } catch (error) {
+    console.error('[notificarNuevoEvento]', error);
+  }
+};
+
+// ─────────────────────────────────────────────
+// UTILIDADES INTERNAS
+// ─────────────────────────────────────────────
+
+/**
+ * Resuelve destinatarios según asignacionTipo de la tarea
+ */
+async function resolverDestinatarios(tarea, curso) {
+  if (tarea.asignacionTipo === 'todos') {
+    return curso.participantes
+      .filter(p => p.usuarioId && p.etiqueta === 'padre')
+      .map(p => p.usuarioId);
+  }
+
+  if (tarea.asignacionTipo === 'seleccionados') {
+    const User = (await import('../models/User.js')).default;
+    const ids = tarea.participantesSeleccionados.map(p => p._id || p);
+    return User.find({ _id: { $in: ids }, rol: 'padre' })
+      .select('nombre apellido correo telefono fcmToken');
+  }
+
+  return [];
+}
+
+function obtenerTitulo(tipo) {
   const titulos = {
     tarea: '📝 Nueva Tarea',
     entrega: '📤 Nueva Entrega',
-    calificacion: '⭐ Nueva Calificación',
+    calificacion: '⭐ Calificación',
     foro: '💬 Nuevo Mensaje en Foro',
     evento: '📅 Nuevo Evento',
-    sistema: '🔔 Notificación del Sistema'
+    sistema: '🔔 Notificación'
   };
   return titulos[tipo] || '🔔 Notificación';
 }
 
-function obtenerUrlNotificacion(notificacion) {
+function obtenerUrl(notificacion) {
   const urls = {
     tarea: `/tareas/${notificacion.referenciaId}`,
     entrega: `/entregas/${notificacion.referenciaId}`,
@@ -330,902 +637,50 @@ function obtenerUrlNotificacion(notificacion) {
 }
 
 function generarHTMLEmail(usuario, notificacion) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          background: #F8FAFC;
-        }
-
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-
-        /* Header con avatar */
-        .header {
-          background: #ffffff;
-          text-align: center;
-          padding: 25px;
-          border-radius: 12px 12px 0 0;
-          position: relative;
-          overflow: hidden;
-        }
-
-        /* Burbujas degradadas */
-        .bubble {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(40px);
-          opacity: 0.55;
-        }
-
-        .bubble1 {
-          width: 140px;
-          height: 140px;
-          top: -30px;
-          left: -20px;
-          background: linear-gradient(135deg, #00B9F0, #0082B3); /* GradienteAzul */
-        }
-
-        .bubble2 {
-          width: 110px;
-          height: 110px;
-          top: 20px;
-          right: -25px;
-          background: linear-gradient(135deg, #FE327B, #D91E5B); /* GradienteFucsia */
-        }
-
-        .bubble3 {
-          width: 120px;
-          height: 120px;
-          bottom: -40px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: linear-gradient(135deg, #FA6D00, #FE327B); /* GradienteSunset */
-        }
-
-        /* Avatar */
-        .avatar-container {
-          z-index: 2;
-          position: relative;
-        }
-
-        .avatar {
-          width: 120px;
-          height: 120px;
-          border-radius: 50%;
-          border: 6px solid #ffffff;
-          background: #ffffff;
-          object-fit: cover;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .title {
-          margin-top: 18px;
-          color: #0082B3;
-          font-size: 22px;
-          font-weight: bold;
-        }
-
-        .content {
-          background: #f9fafb;
-          padding: 30px;
-          border: 1px solid #e5e7eb;
-        }
-
-        .footer {
-          background: #f3f4f6;
-          padding: 15px;
-          text-align: center;
-          font-size: 12px;
-          color: #6b7280;
-          border-radius: 0 0 12px 12px;
-        }
-      </style>
-    </head>
-
-    <body>
-      <div class="container">
-
-        <div class="header">
-          <div class="bubble bubble1"></div>
-          <div class="bubble bubble2"></div>
-          <div class="bubble bubble3"></div>
-
-          <div class="avatar-container">
-            <img class="avatar" src="https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp" alt="Avatar">
-            <h1 class="title">${obtenerTituloPush(notificacion.tipo)}</h1>
-          </div>
-        </div>
-
-        <div class="content">
-          <p>Hola <strong>${usuario.nombre}</strong>,</p>
-          <p>${notificacion.mensaje}</p>
-        </div>
-
-        <div class="footer">
-          <p>Este es un correo automático de <strong>Edumon</strong>. Por favor no responder.</p>
-          <p>&copy; ${new Date().getFullYear()} Edumon. Todos los derechos reservados.</p>
-        </div>
-
-      </div>
-    </body>
-    </html>
-  `;
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; background: #F8FAFC; color: #333; }
+  .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+  .header { background: #ffffff; text-align: center; padding: 25px; border-radius: 12px 12px 0 0; position: relative; overflow: hidden; }
+  .bubble { position: absolute; border-radius: 50%; filter: blur(40px); opacity: 0.55; }
+  .bubble1 { width: 140px; height: 140px; top: -30px; left: -20px; background: linear-gradient(135deg, #00B9F0, #0082B3); }
+  .bubble2 { width: 110px; height: 110px; top: 20px; right: -25px; background: linear-gradient(135deg, #FE327B, #D91E5B); }
+  .bubble3 { width: 120px; height: 120px; bottom: -40px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FA6D00, #FE327B); }
+  .title { margin-top: 18px; color: #0082B3; font-size: 22px; font-weight: bold; position: relative; z-index: 2; }
+  .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+  .footer { background: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 12px 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="bubble bubble1"></div>
+    <div class="bubble bubble2"></div>
+    <div class="bubble bubble3"></div>
+    <h1 class="title">${obtenerTitulo(notificacion.tipo)}</h1>
+  </div>
+  <div class="content">
+    <p>Hola <strong>${usuario.nombre}</strong>,</p>
+    <p>${notificacion.mensaje}</p>
+  </div>
+  <div class="footer">
+    <p>Correo automático de <strong>Edumon</strong>. No responder.</p>
+    <p>&copy; ${new Date().getFullYear()} Edumon.</p>
+  </div>
+</div>
+</body>
+</html>`;
 }
 
-
-
-
-// Funciones suscripciones push
-
-/**
- * Obtener suscripciones push de un usuario
- * Debes crear un modelo PushSubscription para guardarlas
- */
-
-// Reemplaza las funciones por estas versiones corregidas:
-async function obtenerSuscripcionesPush(usuarioId) {
-  try {
-    const suscripciones = await PushSubscription.find({
-      usuarioId,
-      activa: true
-    });
-    console.log(`📱 Suscripciones push encontradas: ${suscripciones.length}`);
-    return suscripciones;
-  } catch (error) {
-    console.error(' Error al obtener suscripciones:', error);
-    return [];
-  }
-}
-
-async function eliminarSuscripcionPush(endpoint) {
-  try {
-    await PushSubscription.deleteOne({ endpoint });
-    console.log('🗑️ Suscripción expirada eliminada');
-  } catch (error) {
-    console.error('❌ Error al eliminar suscripción:', error);
-  }
-}
-
-/**
- * Notificación cuando se crea una tarea
- */
-/**
- * Notificación cuando se crea una tarea
- */
-export const notificarNuevaTarea = async (tarea) => {
-  try {
-    console.log(`\n [NUEVA TAREA] Iniciando notificaciones`);
-    console.log(`Tarea: ${tarea.titulo} (${tarea._id})`);
-    console.log(`Curso ID: ${tarea.cursoId?._id || tarea.cursoId}`);
-    console.log(`Asignación tipo: ${tarea.asignacionTipo}`);
-
-    // Obtener curso con participantes si no está poblado
-    const Curso = (await import('../models/Curso.js')).default;
-    let curso;
-    
-    if (tarea.cursoId?.participantes) {
-      // Ya está poblado
-      curso = tarea.cursoId;
-      console.log(`Curso ya poblado: ${curso.nombre}`);
-    } else {
-      // Poblar curso
-      curso = await Curso.findById(tarea.cursoId).populate({
-        path: 'participantes.usuarioId',
-        select: 'nombre apellido correo telefono rol'
-      });
-      console.log(`Curso poblado: ${curso.nombre}`);
-    }
-
-    if (!curso) {
-      console.error('Curso no encontrado');
-      return;
-    }
-
-    console.log(`Total participantes en curso: ${curso.participantes.length}`);
-
-    // Determinar destinatarios según asignación
-    let destinatarios = [];
-
-    if (tarea.asignacionTipo === 'todos') {
-      console.log(`Asignación a todos los padres del curso`);
-      
-      // Filtrar solo padres activos
-      destinatarios = curso.participantes
-        .filter(p => {
-          const usuario = p.usuarioId;
-          if (!usuario) {
-            console.log(`Participante sin usuario (null)`);
-            return false;
-          }
-          if (p.etiqueta !== 'padre') {
-            console.log(`Saltando ${usuario.nombre} (${p.etiqueta})`);
-            return false;
-          }
-          console.log(`Incluir ${usuario.nombre} ${usuario.apellido} (${usuario._id})`);
-          return true;
-        })
-        .map(p => p.usuarioId);
-
-    } else if (tarea.asignacionTipo === 'seleccionados') {
-      console.log(` Asignación a participantes SELECCIONADOS`);
-      console.log(`IDs seleccionados:`, tarea.participantesSeleccionados);
-      
-      const User = (await import('../models/User.js')).default;
-      
-      // Siempre obtener desde la BD para tener el campo 'rol'
-      const participantesIds = tarea.participantesSeleccionados.map(p => {
-        // Si ya está poblado, obtener el _id
-        if (p._id) return p._id;
-        // Si es un ObjectId directo
-        return p;
-      });
-
-      console.log(`IDs a buscar en BD:`, participantesIds);
-
-      destinatarios = await User.find({
-        _id: { $in: participantesIds },
-        rol: 'padre' // Solo traer padres
-      }).select('nombre apellido correo telefono rol');
-
-      console.log(`Participantes encontrados en BD: ${destinatarios.length}`);
-      
-      destinatarios.forEach(u => {
-        console.log(`  - ${u.nombre} ${u.apellido} (${u._id}) - Rol: ${u.rol} - Tel: ${u.telefono || 'N/A'}`);
-      });
-    }
-
-    console.log(`\nTotal destinatarios a notificar: ${destinatarios.length}`);
-
-    if (destinatarios.length === 0) {
-      console.log(`No hay destinatarios para notificar`);
-      
-      // Debug adicional
-      if (tarea.asignacionTipo === 'seleccionados') {
-        console.log(`\nDEBUG: Revisando participantes seleccionados...`);
-        const User = (await import('../models/User.js')).default;
-        const participantesIds = tarea.participantesSeleccionados.map(p => p._id || p);
-        
-        const todosLosUsuarios = await User.find({
-          _id: { $in: participantesIds }
-        }).select('nombre apellido rol');
-        
-        console.log(`Total usuarios encontrados (sin filtro de rol): ${todosLosUsuarios.length}`);
-        todosLosUsuarios.forEach(u => {
-          console.log(`  - ${u.nombre} ${u.apellido} - Rol: ${u.rol} ${u.rol === 'padre' ? '✅' : '❌ (no es padre)'}`);
-        });
-      }
-      
-      return;
-    }
-
-    // Formatear fecha de entrega
-    const fechaEntrega = new Date(tarea.fechaEntrega);
-    const fechaFormateada = fechaEntrega.toLocaleDateString('es-CO', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    // Crear notificaciones para cada destinatario
-    const promesas = destinatarios.map(async (usuario, index) => {
-      try {
-        console.log(`\n[${index + 1}/${destinatarios.length}] Notificando a ${usuario.nombre} ${usuario.apellido}`);
-        console.log(`  - ID: ${usuario._id}`);
-        console.log(`  - Rol: ${usuario.rol}`);
-        console.log(`  - Tel: ${usuario.telefono || 'N/A'}`);
-        
-        await crearYEnviarNotificacion({
-          usuarioId: usuario._id,
-          tipo: 'tarea',
-          mensaje: `Nueva tarea asignada: "${tarea.titulo}". Fecha de entrega: ${fechaFormateada}`,
-          prioridad: 'critica',
-          referenciaId: tarea._id,
-          referenciaModelo: 'Tarea',
-          metadata: {
-            cursoNombre: curso.nombre,
-            tareaTitulo: tarea.titulo,
-            fechaEntrega: tarea.fechaEntrega,
-            tipoEntrega: tarea.tipoEntrega,
-            asignacionTipo: tarea.asignacionTipo
-          }
-        });
-
-        console.log(`Notificación enviada exitosamente`);
-        return { success: true, usuario: usuario._id };
-      } catch (error) {
-        console.error(`Error al notificar a ${usuario.nombre}:`, error.message);
-        return { success: false, usuario: usuario._id, error: error.message };
-      }
-    });
-
-    const resultados = await Promise.allSettled(promesas);
-    
-    const exitosos = resultados.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const fallidos = resultados.filter(r => r.status === 'rejected' || !r.value.success).length;
-
-    console.log(`\nResumen de notificaciones de tarea:`);
-    console.log(`  Exitosas: ${exitosos}`);
-    console.log(`  Fallidas: ${fallidos}`);
-    console.log(`  Total: ${destinatarios.length}`);
-
-  } catch (error) {
-    console.error('Error en notificarNuevaTarea:', error);
-    console.error('Stack:', error.stack);
-  }
-};
-
-/**
- * Notificación cuando se cierra una tarea
- */
-export const notificarTareaCerrada = async (tarea) => {
-  try {
-    console.log(`\n[TAREA CERRADA] Iniciando notificaciones`);
-    console.log(`Tarea: ${tarea.titulo} (${tarea._id})`);
-
-    // Obtener curso con participantes
-    const Curso = (await import('../models/Curso.js')).default;
-    let curso;
-    
-    if (tarea.cursoId?.participantes) {
-      curso = tarea.cursoId;
-    } else {
-      curso = await Curso.findById(tarea.cursoId).populate({
-        path: 'participantes.usuarioId',
-        select: 'nombre apellido correo telefono rol'
-      });
-    }
-
-    if (!curso) {
-      console.error('Curso no encontrado');
-      return;
-    }
-
-    let destinatarios = [];
-
-    if (tarea.asignacionTipo === 'todos') {
-      destinatarios = curso.participantes
-        .filter(p => p.usuarioId && p.etiqueta === 'padre')
-        .map(p => p.usuarioId);
-    } else if (tarea.asignacionTipo === 'seleccionados') {
-      const User = (await import('../models/User.js')).default;
-      
-      if (tarea.participantesSeleccionados?.[0]?.nombre) {
-        destinatarios = tarea.participantesSeleccionados.filter(u => u.rol === 'padre');
-      } else {
-        destinatarios = await User.find({
-          _id: { $in: tarea.participantesSeleccionados },
-          rol: 'padre'
-        });
-      }
-    }
-
-    console.log(`Total destinatarios: ${destinatarios.length}`);
-
-    const promesas = destinatarios.map(usuario =>
-      crearYEnviarNotificacion({
-        usuarioId: usuario._id,
-        tipo: 'tarea',
-        mensaje: `La tarea "${tarea.titulo}" ha sido cerrada. Ya no se aceptan más entregas.`,
-        prioridad: 'critica',
-        referenciaId: tarea._id,
-        referenciaModelo: 'Tarea',
-        metadata: {
-          cursoNombre: curso.nombre,
-          tareaTitulo: tarea.titulo,
-          fechaCierre: new Date()
-        }
-      })
-    );
-
-    const resultados = await Promise.allSettled(promesas);
-    const exitosos = resultados.filter(r => r.status === 'fulfilled').length;
-
-    console.log(`Notificaciones de cierre enviadas: ${exitosos}/${destinatarios.length}`);
-  } catch (error) {
-    console.error('Error en notificarTareaCerrada:', error);
-  }
-};
-
-export const notificarNuevaEntrega = async (entrega) => {
-  try {
-    console.log(`\n[NUEVA ENTREGA] Iniciando notificación`);
-    
-    // Verificar que entrega esté completamente poblada
-    if (!entrega.tareaId) {
-      console.error('entrega.tareaId no está poblada');
-      return;
-    }
-    
-    if (!entrega.tareaId.docenteId) {
-      console.error('entrega.tareaId.docenteId no está poblada');
-      return;
-    }
-    
-    if (!entrega.padreId) {
-      console.error(' entrega.padreId no está poblada');
-      return;
-    }
-
-    const tarea = entrega.tareaId;
-    const docente = tarea.docenteId;
-    const padre = entrega.padreId;
-
-    console.log(`  Datos verificados:`);
-    console.log(`  Tarea: ${tarea.titulo}`);
-    console.log(`  Docente: ${docente.nombre} ${docente.apellido} (${docente.correo})`);
-    console.log(`  Padre: ${padre.nombre} ${padre.apellido}`);
-
-    // LOGS DE DEBUG CRÍTICOS
-    console.log(`\n [DEBUG] Verificando IDs antes de notificar:`);
-    console.log(`   Usuario a notificar (docente._id): ${docente._id}`);
-    console.log(`   Rol del docente: ${docente.rol}`);
-    console.log(`   Email del docente: ${docente.correo}`);
-    console.log(`   NO debe ser padre._id: ${padre._id}`);
-
-    await crearYEnviarNotificacion({
-      usuarioId: docente._id,
-      tipo: 'entrega',
-      mensaje: `${padre.nombre} ${padre.apellido} ha enviado la entrega de "${tarea.titulo}". Ya puedes calificarla.`,
-      prioridad: 'critica',
-      referenciaId: entrega._id,
-      referenciaModelo: 'Entrega',
-      metadata: {
-        tareaTitulo: tarea.titulo,
-        padreNombre: `${padre.nombre} ${padre.apellido}`,
-        estado: entrega.estado,
-        fechaEntrega: entrega.fechaEntrega
-      }
-    });
-
-    console.log('Notificación de entrega enviada al docente (con email)');
-  } catch (error) {
-    console.error('Error en notificarNuevaEntrega:', error);
-    console.error('Stack:', error.stack);
-  }
-};
-
-/**
- * Notificación cuando se califica una entrega
- *  Envía SOLO WHATSAPP al padre (sin email ni push)
- */
-export const notificarCalificacion = async (entrega) => {
-  try {
-    console.log(`\n[CALIFICACIÓN] Iniciando notificación`);
-    
-    const Tarea = (await import('../models/Tarea.js')).default;
-    const User = (await import('../models/User.js')).default;
-    
-    const tarea = await Tarea.findById(entrega.tareaId);
-    if (!tarea) {
-      console.error('Tarea no encontrada');
-      return;
-    }
-
-    const padre = await User.findById(entrega.padreId);
-    if (!padre) {
-      console.error('Padre no encontrado');
-      return;
-    }
-
-    const docente = await User.findById(entrega.calificacion.docenteId);
-    if (!docente) {
-      console.error('Docente no encontrado');
-      return;
-    }
-
-    console.log(`Tarea: ${tarea.titulo}`);
-    console.log(`Padre: ${padre.nombre} ${padre.apellido} (${padre.telefono || 'sin teléfono'})`);
-    console.log(`Nota: ${entrega.calificacion.nota}/100`);
-
-    // ENVÍO PERSONALIZADO: Solo WhatsApp al padre
-    const notificacion = new Notificacion({
-      usuarioId: padre._id,
-      tipo: 'calificacion',
-      mensaje: `Tu entrega de "${tarea.titulo}" ha sido calificada por ${docente.nombre} ${docente.apellido}. Nota: ${entrega.calificacion.nota}/100`,
-      prioridad: 'critica',
-      referenciaId: entrega._id,
-      referenciaModelo: 'Entrega',
-      metadata: {
-        tareaTitulo: tarea.titulo,
-        nota: entrega.calificacion.nota,
-        comentario: entrega.calificacion.comentario,
-        docenteNombre: `${docente.nombre} ${docente.apellido}`,
-        fechaCalificacion: entrega.calificacion.fechaCalificacion
-      }
-    });
-
-    await notificacion.save();
-
-    //  WebSocket (siempre)
-    try {
-      await emitirNotificacion(notificacion);
-      notificacion.canalEnviado.websocket = true;
-      console.log('WebSocket enviado');
-    } catch (error) {
-      console.error('Error al enviar WebSocket:', error);
-    }
-
-    //  WhatsApp (solo si tiene teléfono)
-    if (padre.telefono) {
-      try {
-        await enviarNotificacionWhatsApp(padre, notificacion);
-        notificacion.canalEnviado.whatsapp = true;
-        console.log(`WhatsApp enviado a ${padre.telefono}`);
-      } catch (error) {
-        console.error('Error al enviar WhatsApp:', error);
-      }
-    } else {
-      console.warn(`Padre sin teléfono, no se envió WhatsApp`);
-    }
-
-    await notificacion.save();
-    console.log('Notificación de calificación enviada (WhatsApp únicamente)');
-  } catch (error) {
-    console.error('Error en notificarCalificacion:', error);
-  }
-};
-
-/**
- * Notificación cuando una tarea está próxima a vencer (24 horas)
- */
-export const notificarTareaProximaVencer = async (tarea) => {
-  try {
-    const Curso = (await import('../models/curso.model.js')).default;
-    const Entrega = (await import('../models/entrega.model.js')).default;
-
-    const curso = await Curso.findById(tarea.cursoId).populate('participantes');
-    if (!curso) return;
-
-    // Obtener padres que AÚN NO han entregado
-    const entregasRealizadas = await Entrega.find({
-      tareaId: tarea._id,
-      estado: { $in: ['enviada', 'tarde'] }
-    }).distinct('padreId');
-
-    let destinatarios = [];
-    if (tarea.asignacionTipo === 'todos') {
-      destinatarios = curso.participantes.filter(p =>
-        p.rol === 'padre' &&
-        !entregasRealizadas.some(id => id.equals(p._id))
-      );
-    } else if (tarea.asignacionTipo === 'seleccionados') {
-      destinatarios = await User.find({
-        _id: {
-          $in: tarea.participantesSeleccionados.filter(id =>
-            !entregasRealizadas.some(entregaId => entregaId.equals(id))
-          )
-        },
-        rol: 'padre'
-      });
-    }
-
-    const promesas = destinatarios.map(usuario =>
-      crearYEnviarNotificacion({
-        usuarioId: usuario._id,
-        tipo: 'tarea',
-        mensaje: `Recordatorio: La tarea "${tarea.titulo}" vence en 24 horas`,
-        prioridad: 'critica',
-        referenciaId: tarea._id,
-        referenciaModelo: 'Tarea',
-        metadata: {
-          cursoNombre: curso.nombre,
-          fechaEntrega: tarea.fechaEntrega,
-          esRecordatorio: true
-        }
-      })
-    );
-
-    await Promise.allSettled(promesas);
-    console.log(`Recordatorios enviados a ${destinatarios.length} usuarios`);
-  } catch (error) {
-    console.error('Error en notificarTareaProximaVencer:', error);
-  }
-};
-
-/**
- * Notificación de bienvenida a nuevo usuario
- */
-// DESPUÉS - Acepta ID o usuario completo
-export const notificarBienvenida = async (usuarioOId) => {
-  try {
-    console.log(`\n [BIENVENIDA] Iniciando notificación`);
-    
-    // Si recibe un string/ObjectId, buscar el usuario
-    let usuario;
-    if (typeof usuarioOId === 'string' || usuarioOId instanceof mongoose.Types.ObjectId) {
-      console.log(`   Buscando usuario por ID: ${usuarioOId}`);
-      usuario = await User.findById(usuarioOId);
-      
-      if (!usuario) {
-        console.error(`    Usuario no encontrado: ${usuarioOId}`);
-        throw new Error('Usuario no encontrado');
-      }
-    } else {
-      // Ya es un objeto usuario
-      usuario = usuarioOId;
-    }
-
-    console.log(`   Usuario: ${usuario.nombre} ${usuario.apellido}`);
-    console.log(`   Email: ${usuario.correo}`);
-    console.log(`   Teléfono: ${usuario.telefono || 'N/A'}`);
-
-    await crearYEnviarNotificacion({
-      usuarioId: usuario._id,
-      tipo: 'sistema',
-      mensaje: `¡Bienvenido ${usuario.nombre} ${usuario.apellido}! Tu cuenta ha sido creada exitosamente. Usa tu cédula como contraseña para iniciar sesión.`,
-      prioridad: 'critica',
-      referenciaId: usuario._id,
-      referenciaModelo: 'User',
-      metadata: {
-        rol: usuario.rol,
-        fechaRegistro: usuario.fechaRegistro,
-        primerInicio: true
-      }
-    });
-
-    console.log(`    Notificación de bienvenida enviada`);
-  } catch (error) {
-    console.error(' Error en notificarBienvenida:', error);
-    console.error('Stack:', error.stack);
-    throw error;
-  }
-};
-
-/**
- * Notificación cuando se agrega a un curso
- */
-export const notificarAgregarCurso = async (usuarioId, curso) => {
-  try {
-    const usuario = await User.findById(usuarioId);
-    
-    if (!usuario) {
-      console.error('Usuario no encontrado para notificar');
-      return;
-    }
-
-    // Crear notificación
-    const notificacion = new Notificacion({
-      usuarioId,
-      tipo: 'sistema',
-      mensaje: `Has sido agregado al curso "${curso.nombre}"`,
-      prioridad: 'critica', 
-      referenciaId: curso._id,
-      referenciaModelo: 'Curso',
-      metadata: {
-        cursoNombre: curso.nombre,
-        cursoCodigo: curso.codigoCurso,
-        docenteNombre: curso.docenteId ? `${curso.docenteId.nombre} ${curso.docenteId.apellido}` : 'N/A'
-      }
-    });
-
-    await notificacion.save();
-
-    // WebSocket
-    try {
-      await emitirNotificacion(notificacion);
-      notificacion.canalEnviado.websocket = true;
-    } catch (error) {
-      console.error('Error al enviar por WebSocket:', error);
-    }
-
-    // Push
-    try {
-      await enviarNotificacionPush(usuario, notificacion);
-      notificacion.canalEnviado.push = true;
-    } catch (error) {
-      console.error('Error al enviar Push:', error);
-    }
-
-    // Verifica que el usuario tenga teléfono antes de enviar WhatsApp
-    if (usuario.telefono) {
-      try {
-        await enviarNotificacionWhatsApp(usuario, notificacion);
-        notificacion.canalEnviado.whatsapp = true;
-        console.log(`WhatsApp enviado a ${usuario.nombre} ${usuario.apellido} (${usuario.telefono})`);
-      } catch (error) {
-        console.error(`Error al enviar WhatsApp a ${usuario.telefono}:`, error);
-      }
-    } else {
-      console.warn(`Usuario ${usuario.nombre} ${usuario.apellido} sin teléfono registrado`);
-    }
-
-    await notificacion.save();
-    console.log('Notificación de nuevo curso enviada');
-  } catch (error) {
-    console.error('Error en notificarAgregarCurso:', error);
-    throw error;
-  }
-};
-
-/**
- * Notificación cuando se crea un nuevo evento
- * Envía notificaciones a:
- * - DOCENTE que creó el evento (email + push + whatsapp)
- * - PADRES de los cursos seleccionados (email + push + whatsapp)
- */
-export const notificarNuevoEvento = async (evento) => {
-  try {
-    console.log(`\n[NUEVO EVENTO] Iniciando notificaciones`);
-    console.log(`Evento: ${evento.titulo} (${evento._id})`);
-    console.log(`Docente: ${evento.docenteId.nombre} ${evento.docenteId.apellido}`);
-    console.log(`Cursos: ${evento.cursosIds.map(c => c.nombre).join(', ')}`);
-
-    const Curso = (await import('../models/Curso.js')).default;
-    const User = (await import('../models/User.js')).default;
-
-    // 1️Notificar al DOCENTE que creó el evento
-    try {
-      console.log(`\nNotificando al docente creador...`);
-      
-      await crearYEnviarNotificacion({
-        usuarioId: evento.docenteId._id,
-        tipo: 'evento',
-        mensaje: `Has creado el evento "${evento.titulo}" para ${evento.cursosIds.length} curso(s). Los participantes han sido notificados.`,
-        prioridad: 'critica',
-        referenciaId: evento._id,
-        referenciaModelo: 'Evento',
-        metadata: {
-          eventoTitulo: evento.titulo,
-          categoria: evento.categoria,
-          fechaInicio: evento.fechaInicio,
-          fechaFin: evento.fechaFin,
-          hora: evento.hora,
-          ubicacion: evento.ubicacion,
-          cursosNombres: evento.cursosIds.map(c => c.nombre),
-          esCreador: true
-        }
-      });
-
-      console.log(`Docente notificado exitosamente`);
-    } catch (error) {
-      console.error(`Error al notificar al docente:`, error);
-    }
-
-    // Obtener todos los PADRES de los cursos seleccionados
-    console.log(`\nObteniendo padres de los cursos...`);
-    
-    const cursos = await Curso.find({
-      _id: { $in: evento.cursosIds.map(c => c._id) }
-    }).populate({
-      path: 'participantes.usuarioId',
-      select: 'nombre apellido correo telefono rol'
-    });
-
-    console.log(`${cursos.length} curso(s) encontrado(s)`);
-
-    // Recolectar padres únicos (un padre puede estar en múltiples cursos)
-    const padresSet = new Set();
-    const padresMap = new Map();
-
-    cursos.forEach(curso => {
-      console.log(`\n Curso: ${curso.nombre}`);
-      console.log(`   Participantes totales: ${curso.participantes.length}`);
-      
-      curso.participantes.forEach(p => {
-        const usuario = p.usuarioId;
-        
-        if (!usuario) {
-          console.log(`    Participante sin usuario (null)`);
-          return;
-        }
-        
-        if (p.etiqueta !== 'padre') {
-          console.log(`    Saltando ${usuario.nombre} (${p.etiqueta})`);
-          return;
-        }
-
-        const padreId = usuario._id.toString();
-        
-        if (!padresSet.has(padreId)) {
-          padresSet.add(padreId);
-          padresMap.set(padreId, usuario);
-          console.log(`    Agregado: ${usuario.nombre} ${usuario.apellido} (${usuario.correo})`);
-        } else {
-          console.log(`    Ya agregado: ${usuario.nombre} ${usuario.apellido}`);
-        }
-      });
-    });
-
-    const padres = Array.from(padresMap.values());
-    console.log(`\n Total padres únicos a notificar: ${padres.length}`);
-
-    if (padres.length === 0) {
-      console.log(` No hay padres para notificar`);
-      return;
-    }
-
-    // Formatear fechas para el mensaje
-    const fechaInicio = new Date(evento.fechaInicio);
-    const fechaFin = new Date(evento.fechaFin);
-    
-    const fechaInicioFormateada = fechaInicio.toLocaleDateString('es-CO', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-    
-    const fechaFinFormateada = fechaFin.toLocaleDateString('es-CO', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-
-    const mensajeFecha = fechaInicio.toDateString() === fechaFin.toDateString()
-      ? `${fechaInicioFormateada} a las ${evento.hora}`
-      : `Del ${fechaInicioFormateada} al ${fechaFinFormateada} a las ${evento.hora}`;
-
-    // Enviar notificaciones a cada padre
-    const promesas = padres.map(async (padre, index) => {
-      try {
-        console.log(`\n[${index + 1}/${padres.length}] Notificando a ${padre.nombre} ${padre.apellido}`);
-        console.log(`  - ID: ${padre._id}`);
-        console.log(`  - Email: ${padre.correo}`);
-        console.log(`  - Tel: ${padre.telefono || 'N/A'}`);
-        
-        await crearYEnviarNotificacion({
-          usuarioId: padre._id,
-          tipo: 'evento',
-          mensaje: `Nuevo evento "${evento.titulo}": ${mensajeFecha}. Ubicación: ${evento.ubicacion}`,
-          prioridad: 'critica',
-          referenciaId: evento._id,
-          referenciaModelo: 'Evento',
-          metadata: {
-            eventoTitulo: evento.titulo,
-            categoria: evento.categoria,
-            descripcion: evento.descripcion,
-            fechaInicio: evento.fechaInicio,
-            fechaFin: evento.fechaFin,
-            hora: evento.hora,
-            ubicacion: evento.ubicacion,
-            docenteNombre: `${evento.docenteId.nombre} ${evento.docenteId.apellido}`,
-            cursosNombres: evento.cursosIds.map(c => c.nombre)
-          }
-        });
-
-        console.log(` Notificación enviada exitosamente`);
-        return { success: true, padre: padre._id };
-      } catch (error) {
-        console.error(` Error al notificar a ${padre.nombre}:`, error.message);
-        return { success: false, padre: padre._id, error: error.message };
-      }
-    });
-
-    const resultados = await Promise.allSettled(promesas);
-    
-    const exitosos = resultados.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const fallidos = resultados.filter(r => r.status === 'rejected' || !r.value.success).length;
-
-    console.log(`\n Resumen de notificaciones de evento:`);
-    console.log(`   Exitosas: ${exitosos}`);
-    console.log(`   Fallidas: ${fallidos}`);
-    console.log(`   Total padres: ${padres.length}`);
-    console.log(`   Docente notificado: 1`);
-    console.log(`   Total notificaciones: ${padres.length + 1}`);
-
-  } catch (error) {
-    console.error(' Error en notificarNuevoEvento:', error);
-    console.error('Stack:', error.stack);
-  }
-};
-
-//Exportar las funciones
 export default {
   crearYEnviarNotificacion,
-  enviarNotificacionPush,
-  enviarNotificacionWhatsApp,
-  enviarNotificacionEmail,
+  notificarFamilia,
+  enviarFCM,
+  enviarFCMMultiple,
+  enviarWhatsApp,
+  enviarEmail,
   notificarNuevaTarea,
   notificarNuevaEntrega,
   notificarCalificacion,

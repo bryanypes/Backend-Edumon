@@ -85,7 +85,7 @@ const procesarArchivosAdjuntos = async (files) => {
       console.error(` Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
-        error: error.message || 'Error al subir el archivo'
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined || 'Error al subir el archivo'
       });
     }
   }
@@ -210,7 +210,7 @@ export const obtenerForosPorCurso = async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener foros:', error);
-    res.status(500).json({ message: 'Error al obtener los foros', error: error.message });
+    res.status(500).json({ message: 'Error al obtener los foros', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -241,7 +241,7 @@ export const obtenerForoPorId = async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener foro:', error);
-    res.status(500).json({ message: 'Error al obtener el foro', error: error.message });
+    res.status(500).json({ message: 'Error al obtener el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -285,7 +285,7 @@ export const actualizarForo = async (req, res) => {
 
   } catch (error) {
     console.error('Error al actualizar foro:', error);
-    res.status(500).json({ message: 'Error al actualizar el foro', error: error.message });
+    res.status(500).json({ message: 'Error al actualizar el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -342,7 +342,7 @@ export const eliminarForo = async (req, res) => {
 
   } catch (error) {
     console.error('Error al eliminar foro:', error);
-    res.status(500).json({ message: 'Error al eliminar el foro', error: error.message });
+    res.status(500).json({ message: 'Error al eliminar el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -385,6 +385,6 @@ export const cambiarEstadoForo = async (req, res) => {
 
   } catch (error) {
     console.error('Error al cambiar estado:', error);
-    res.status(500).json({ message: 'Error al cambiar el estado', error: error.message });
+    res.status(500).json({ message: 'Error al cambiar el estado', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };

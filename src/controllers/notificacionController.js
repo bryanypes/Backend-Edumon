@@ -2,9 +2,9 @@ import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';
 import { 
-  enviarNotificacionPush, 
-  enviarNotificacionWhatsApp, 
-  enviarNotificacionEmail 
+  enviarFCM,
+  enviarWhatsApp, 
+  enviarEmail 
 } from '../services/notificacionService.js';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
 
@@ -30,7 +30,7 @@ export const createNotificacion = async (req, res) => {
     console.error('❌ Error al crear notificación:', error);
     res.status(500).json({ 
       message: 'Error al crear la notificación', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -149,7 +149,7 @@ export const getMisNotificaciones = async (req, res) => {
     console.error('   Stack:', error.stack);
     res.status(500).json({ 
       message: 'Error al obtener las notificaciones', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -186,7 +186,7 @@ export const getNotificacionById = async (req, res) => {
     console.error(' Error al obtener notificación:', error);
     res.status(500).json({ 
       message: 'Error al obtener la notificación', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -239,7 +239,7 @@ export const marcarComoLeida = async (req, res) => {
     console.error('❌ Error al marcar notificación:', error);
     res.status(500).json({ 
       message: 'Error al actualizar la notificación', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -285,7 +285,7 @@ export const marcarVariasLeidas = async (req, res) => {
     console.error(' Error al marcar notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -320,7 +320,7 @@ export const marcarTodasLeidas = async (req, res) => {
     console.error('❌ Error al marcar todas las notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -368,7 +368,7 @@ export const deleteNotificacion = async (req, res) => {
     console.error('❌ Error al eliminar notificación:', error);
     res.status(500).json({ 
       message: 'Error al eliminar la notificación', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -404,7 +404,7 @@ export const eliminarLeidasAntiguas = async (req, res) => {
     console.error(' Error al eliminar notificaciones antiguas:', error);
     res.status(500).json({ 
       message: 'Error al eliminar notificaciones', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -430,7 +430,7 @@ export const getConteoNoLeidas = async (req, res) => {
     console.error(' Error al obtener conteo:', error);
     res.status(500).json({ 
       message: 'Error al obtener el conteo', 
-      error: error.message 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
