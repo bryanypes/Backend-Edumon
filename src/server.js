@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import connectDB from './config/database.js';
 import { setupSocketIO } from './socket/socketHandlers.js';
 import { iniciarSchedulerTareas } from './schedulers/tareaScheduler.js';
-import { registrarObservers } from './events/notificacionObservers.js';
+import { registrarObservers } from './events/NotificacionObservers.js';
 
 // Rutas
 import authRoutes from './routes/authRoutes.js';
