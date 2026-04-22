@@ -15,12 +15,12 @@ export const createTarea = async (req, res) => {
     }
 
     // VALIDAR QUE LOS PARTICIPANTES SELECCIONADOS PERTENEZCAN AL CURSO
-    if (req.body.asignacionTipo === 'seleccionados' && 
-        req.body.participantesSeleccionados?.length > 0) {
-      
+    if (req.body.asignacionTipo === 'seleccionados' &&
+      req.body.participantesSeleccionados?.length > 0) {
+
       const Curso = (await import('../models/Curso.js')).default;
       const curso = await Curso.findById(req.body.cursoId);
-      
+
       if (!curso) {
         return res.status(404).json({
           message: "Curso no encontrado"
@@ -49,7 +49,7 @@ export const createTarea = async (req, res) => {
 
     // PROCESAR ARCHIVOS ADJUNTOS
     const archivosAdjuntos = [];
-    
+
     // 1. Subir archivos a Cloudinary (si hay)
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
@@ -59,7 +59,7 @@ export const createTarea = async (req, res) => {
           'archivos-adjuntos-tareas',
           file.originalname
         );
-        
+
         archivosAdjuntos.push({
           tipo: 'archivo',
           url: resultado.url,
@@ -92,8 +92,8 @@ export const createTarea = async (req, res) => {
     // Popular la tarea guardada
     await savedTarea.populate([
       { path: 'docenteId', select: 'nombre apellido' },
-      { 
-        path: 'cursoId', 
+      {
+        path: 'cursoId',
         select: 'nombre nivel participantes',
         populate: {
           path: 'participantes.usuarioId',
@@ -104,7 +104,7 @@ export const createTarea = async (req, res) => {
       { path: 'participantesSeleccionados', select: 'nombre apellido correo' }
     ]);
 
-     eventBus.publicar(EVENTOS.TAREA_CREADA, savedTarea);
+    eventBus.publicar(EVENTOS.TAREA_CREADA, savedTarea);
 
     res.status(201).json({
       message: "Tarea creada exitosamente",
@@ -126,17 +126,17 @@ export const getTareas = async (req, res) => {
     console.log('Usuario ID:', req.user.userId);
     console.log('Rol:', req.user.rol);
     console.log('Query params:', req.query);
-    
+
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
     const { cursoId, moduloId, docenteId, estado, asignacionTipo } = req.query;
-    
+
     const userId = req.user.userId;
     const userRole = req.user.rol;
 
     const filter = {};
-    
+
     // Filtros básicos opcionales
     if (cursoId) filter.cursoId = cursoId;
     if (moduloId) filter.moduloId = moduloId;
@@ -149,17 +149,17 @@ export const getTareas = async (req, res) => {
       // Docentes ven SOLO sus tareas
       filter.docenteId = userId;
       console.log('Filtro docente aplicado');
-    } 
-    else if (userRole === 'estudiante' || userRole === 'padre') { 
-      
+    }
+    else if (userRole === 'estudiante' || userRole === 'padre') {
+
       // Obtener cursos donde el usuario participa
       const Curso = (await import('../models/Curso.js')).default;
       const cursosDelUsuario = await Curso.find({
         'participantes.usuarioId': userId
       }).select('_id');
-      
+
       const cursoIds = cursosDelUsuario.map(c => c._id);
-      
+
       console.log('Cursos del usuario:', cursoIds);
 
       if (cursoIds.length === 0) {
@@ -207,7 +207,7 @@ export const getTareas = async (req, res) => {
       .sort({ fechaEntrega: -1 });
 
     const total = await Tarea.countDocuments(filter);
-    
+
     console.log('Tareas encontradas con filtro:', tareas.length);
     console.log('Total con filtro:', total);
 
@@ -241,7 +241,7 @@ export const getTareaById = async (req, res) => {
       });
     }
 
-    const tarea = await Tarea.findById(req.params.id) 
+    const tarea = await Tarea.findById(req.params.id)
       .populate('docenteId', 'nombre apellido correo')
       .populate({
         path: 'cursoId',
@@ -316,7 +316,7 @@ export const updateTarea = async (req, res) => {
           'archivos-adjuntos-tareas',
           file.originalname
         );
-        
+
         archivosAdjuntos.push({
           tipo: 'archivo',
           url: resultado.url,

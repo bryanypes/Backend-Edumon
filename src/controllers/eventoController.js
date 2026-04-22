@@ -58,7 +58,7 @@ export const createEvento = async (req, res) => {
       const cursosDelDocente = cursosExisten.filter(
         curso => curso.docenteId.toString() === userId
       );
-      
+
       if (cursosDelDocente.length !== cursosIds.length) {
         return res.status(403).json({
           message: "Solo puedes crear eventos para tus propios cursos"
@@ -99,7 +99,7 @@ export const createEvento = async (req, res) => {
       .populate('cursosIds', 'nombre codigoCurso');
 
     // Enviar notificaciones a todos los participantes
-eventBus.publicar(EVENTOS.EVENTO_CREADO, eventoCompleto);
+    eventBus.publicar(EVENTOS.EVENTO_CREADO, eventoCompleto);
 
     res.status(201).json({
       message: "Evento creado exitosamente",
@@ -119,13 +119,13 @@ export const getEventos = async (req, res) => {
   try {
     const { userId, rol } = req.user;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     const skip = (page - 1) * limit;
     const { categoria, estado, cursoId } = req.query;
 
     // Construir filtro
     const filter = {};
-    
+
     if (categoria) filter.categoria = categoria;
     if (estado) filter.estado = estado;
     if (cursoId) filter.cursosIds = cursoId;
@@ -134,14 +134,14 @@ export const getEventos = async (req, res) => {
     if (rol === 'docente') {
       filter.docenteId = userId;
     }
-    
+
     // Si es padre, solo ver eventos de sus cursos
     if (rol === 'padre') {
       const cursosDelPadre = await Curso.find({
         'participantes.usuarioId': userId,
         'participantes.etiqueta': 'padre'
       }).distinct('_id');
-      
+
       filter.cursosIds = { $in: cursosDelPadre };
     }
 
@@ -215,11 +215,11 @@ export const getEventoById = async (req, res) => {
         'participantes.usuarioId': userId,
         'participantes.etiqueta': 'padre'
       }).distinct('_id');
-      
-      const tieneAcceso = evento.cursosIds.some(curso => 
+
+      const tieneAcceso = evento.cursosIds.some(curso =>
         cursosDelPadre.some(id => id.equals(curso._id))
       );
-      
+
       if (!tieneAcceso) {
         return res.status(403).json({
           message: "No tienes permiso para ver este evento"
@@ -357,10 +357,10 @@ export const deleteEvento = async (req, res) => {
 export const getEventosHoy = async (req, res) => {
   try {
     const { userId, rol } = req.user;
-    
+
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    
+
     const mañana = new Date(hoy);
     mañana.setDate(mañana.getDate() + 1);
 
@@ -379,7 +379,7 @@ export const getEventosHoy = async (req, res) => {
         'participantes.usuarioId': userId,
         'participantes.etiqueta': 'padre'
       }).distinct('_id');
-      
+
       filter.cursosIds = { $in: cursosDelPadre };
     }
 
