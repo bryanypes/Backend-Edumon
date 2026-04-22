@@ -1,14 +1,14 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
-import { notificarBienvenida } from '../services/notificacionService.js';
+import { eventBus, EVENTOS } from '../events/EventBus.js';
 
 // Generar JWT
 const generateToken = (userId) => {
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
   );
 };
 
@@ -51,7 +51,7 @@ export const register = async (req, res) => {
       rol,
       telefono,
       fechaRegistro: new Date(),
-      fotoPerfilUrl: 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp' 
+      fotoPerfilUrl: 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp'
     });
 
     const savedUser = await newUser.save();
@@ -59,7 +59,7 @@ export const register = async (req, res) => {
     // Generar token
     const token = generateToken(savedUser._id);
 
-    await notificarBienvenida(savedUser);
+    eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, savedUser);
 
     res.status(201).json({
       message: "Usuario registrado exitosamente",
@@ -129,12 +129,12 @@ export const login = async (req, res) => {
 
     // Actualizar último acceso
     user.ultimoAcceso = new Date();
-    
+
     // MARCAR COMO NO PRIMER INICIO después del login
     if (user.primerInicioSesion) {
       user.primerInicioSesion = false;
     }
-    
+
     await user.save();
 
     // Generar token
@@ -154,7 +154,7 @@ export const login = async (req, res) => {
         estado: user.estado,
         ultimoAcceso: user.ultimoAcceso
       },
-      primerInicioSesion: esPrimerInicio 
+      primerInicioSesion: esPrimerInicio
     });
 
   } catch (error) {

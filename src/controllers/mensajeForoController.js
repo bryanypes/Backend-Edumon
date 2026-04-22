@@ -73,7 +73,7 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
       console.error(` Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -230,7 +230,7 @@ export const obtenerMensajesPorForo = async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener mensajes:', error);
-    res.status(500).json({ message: 'Error al obtener los mensajes', error: error.message });
+    res.status(500).json({ message: 'Error al obtener los mensajes', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -265,7 +265,7 @@ export const toggleLikeMensaje = async (req, res) => {
 
   } catch (error) {
     console.error('Error al dar like:', error);
-    res.status(500).json({ message: 'Error al actualizar like', error: error.message });
+    res.status(500).json({ message: 'Error al actualizar like', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -324,7 +324,7 @@ export const eliminarMensaje = async (req, res) => {
 
   } catch (error) {
     console.error('Error al eliminar mensaje:', error);
-    res.status(500).json({ message: 'Error al eliminar el mensaje', error: error.message });
+    res.status(500).json({ message: 'Error al eliminar el mensaje', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 

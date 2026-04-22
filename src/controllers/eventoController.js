@@ -3,7 +3,7 @@ import Curso from '../models/Curso.js';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
-import { notificarNuevoEvento } from '../services/notificacionService.js';
+import { eventBus, EVENTOS } from '../events/EventBus.js';
 
 // Crear evento
 export const createEvento = async (req, res) => {
@@ -99,7 +99,7 @@ export const createEvento = async (req, res) => {
       .populate('cursosIds', 'nombre codigoCurso');
 
     // Enviar notificaciones a todos los participantes
-    await notificarNuevoEvento(eventoCompleto);
+eventBus.publicar(EVENTOS.EVENTO_CREADO, eventoCompleto);
 
     res.status(201).json({
       message: "Evento creado exitosamente",

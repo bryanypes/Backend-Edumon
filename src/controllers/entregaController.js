@@ -2,7 +2,7 @@ import Entrega from '../models/Entrega.js';
 import Tarea from '../models/Tarea.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
-import { notificarNuevaEntrega, notificarCalificacion } from '../services/notificacionService.js';
+import { eventBus, EVENTOS } from '../events/EventBus.js';
 
 //Crear entrega
 //Crear entrega
@@ -10,7 +10,7 @@ export const createEntrega = async (req, res) => {
   try {
     console.log(' Body recibido:', req.body);
     console.log(' Archivos recibidos:', req.files?.length || 0);
-    
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -53,11 +53,11 @@ export const createEntrega = async (req, res) => {
     let archivosAdjuntos = [];
     if (req.files && req.files.length > 0) {
       console.log(` Procesando ${req.files.length} archivo(s)...`);
-      
+
       for (const file of req.files) {
         try {
           console.log(` Subiendo: ${file.originalname} (${file.mimetype}, ${file.size} bytes)`);
-          
+
           const archivoSubido = await subirArchivoCloudinary(
             file.buffer,
             file.mimetype,
@@ -72,14 +72,14 @@ export const createEntrega = async (req, res) => {
             tipoArchivo: file.mimetype,
             tamano: file.size
           });
-          
+
           console.log(` Archivo subido: ${file.originalname}`);
         } catch (uploadError) {
           console.error(` Error subiendo ${file.originalname}:`, uploadError);
           // Continuar con los demás archivos
         }
       }
-      
+
       console.log(` Total archivos subidos: ${archivosAdjuntos.length}`);
     } else {
       console.log(' No se recibieron archivos');
@@ -101,7 +101,7 @@ export const createEntrega = async (req, res) => {
     //  NOTIFICAR SI SE ENVIÓ DIRECTAMENTE (no es borrador)
     if (estado === 'enviada' || estado === 'tarde') {
       console.log(`\n [CREATE ENTREGA] Entrega enviada directamente, poblando para notificar...`);
-      
+
       // Poblar la entrega con todos los datos necesarios
       const entregaCompleta = await Entrega.findById(savedEntrega._id)
         .populate({
@@ -132,8 +132,10 @@ export const createEntrega = async (req, res) => {
       console.log(`      Padre: ${entregaCompleta.padreId.nombre} ${entregaCompleta.padreId.apellido}`);
 
       // Enviar notificación (no bloquea la respuesta)
-      notificarNuevaEntrega(entregaCompleta).catch(error => {
-        console.error(` Error al notificar entrega:`, error);
+      eventBus.publicar(EVENTOS.ENTREGA_CREADA, {
+        entrega: entregaCompleta,
+        tarea: entregaCompleta.tareaId,
+        padre: entregaCompleta.padreId
       });
 
       // Responder con la entrega completa poblada
@@ -329,7 +331,11 @@ export const enviarEntrega = async (req, res) => {
     console.log('Padre:', entregaCompleta.padreId.nombre, entregaCompleta.padreId.apellido);
 
     // Ahora sí enviar la notificación con todos los datos poblados
-    await notificarNuevaEntrega(entregaCompleta);
+    eventBus.publicar(EVENTOS.ENTREGA_CREADA, {
+      entrega: entregaCompleta,
+      tarea: entregaCompleta.tareaId,
+      padre: entregaCompleta.padreId
+    });
 
     res.json({
       message: `Entrega ${estado === 'tarde' ? 'enviada con retraso' : 'enviada exitosamente'}`,
@@ -375,7 +381,7 @@ export const deleteEntrega = async (req, res) => {
     // Eliminar archivos adjuntos de Cloudinary
     if (entrega.archivosAdjuntos && entrega.archivosAdjuntos.length > 0) {
       console.log(` Eliminando ${entrega.archivosAdjuntos.length} archivo(s) de Cloudinary...`);
-      
+
       for (const archivo of entrega.archivosAdjuntos) {
         // Determinar el resource_type según el tipo de archivo
         let resourceType = 'raw';
@@ -384,7 +390,7 @@ export const deleteEntrega = async (req, res) => {
         } else if (archivo.tipoArchivo.startsWith('video/')) {
           resourceType = 'video';
         }
-        
+
         await eliminarArchivoCloudinary(archivo.publicId, resourceType);
       }
     }
@@ -440,7 +446,7 @@ export const eliminarArchivoEntrega = async (req, res) => {
 
     // Eliminar de Cloudinary
     const archivo = entrega.archivosAdjuntos[archivoIndex];
-    
+
     // Determinar el resource_type según el tipo de archivo
     let resourceType = 'raw';
     if (archivo.tipoArchivo.startsWith('image/')) {
@@ -448,7 +454,7 @@ export const eliminarArchivoEntrega = async (req, res) => {
     } else if (archivo.tipoArchivo.startsWith('video/')) {
       resourceType = 'video';
     }
-    
+
     await eliminarArchivoCloudinary(archivo.publicId, resourceType);
 
     // Eliminar del array
@@ -549,11 +555,11 @@ export const getEntregasByTarea = async (req, res) => {
     }
 
     // Filtro base - SOLO ESTADOS ENVIADA Y TARDE
-    const filter = { 
+    const filter = {
       tareaId,
       estado: { $in: ['enviada', 'tarde'] }
     };
-    
+
     // Si se especifica un estado en la query, verificar que sea válido
     if (estado && (estado === 'enviada' || estado === 'tarde')) {
       filter.estado = estado;
@@ -615,11 +621,11 @@ export const getEntregasByPadre = async (req, res) => {
     const { estado } = req.query;
 
     // Filtro base - SOLO ESTADOS ENVIADA Y TARDE
-    const filter = { 
+    const filter = {
       padreId,
       estado: { $in: ['enviada', 'tarde'] }
     };
-    
+
     // Si se especifica un estado en la query, verificar que sea válido
     if (estado && (estado === 'enviada' || estado === 'tarde')) {
       filter.estado = estado;
@@ -705,15 +711,16 @@ export const calificarEntrega = async (req, res) => {
       .populate('calificacion.docenteId', 'nombre apellido');
 
     // Notificar según si es nueva calificación o actualización
-    if (esActualizacion) {
-      await notificarActualizacionCalificacion(entrega);
-    } else {
-      await notificarCalificacion(entrega);
-    }
+    eventBus.publicar(EVENTOS.ENTREGA_CALIFICADA, {
+      entrega: updatedEntrega,
+      tarea: updatedEntrega.tareaId,
+      padre: updatedEntrega.padreId,
+      docente: updatedEntrega.calificacion.docenteId
+    });
 
     res.json({
-      message: esActualizacion 
-        ? "Calificación actualizada exitosamente" 
+      message: esActualizacion
+        ? "Calificación actualizada exitosamente"
         : "Entrega calificada exitosamente",
       entrega: updatedEntrega,
       esActualizacion

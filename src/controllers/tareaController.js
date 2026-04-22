@@ -1,7 +1,7 @@
 import Tarea from '../models/Tarea.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
-import { notificarNuevaTarea, notificarTareaCerrada } from '../services/notificacionService.js';
+import { eventBus, EVENTOS } from '../events/EventBus.js';
 
 // Crear tarea
 export const createTarea = async (req, res) => {
@@ -104,7 +104,7 @@ export const createTarea = async (req, res) => {
       { path: 'participantesSeleccionados', select: 'nombre apellido correo' }
     ]);
 
-     await notificarNuevaTarea(savedTarea);
+     eventBus.publicar(EVENTOS.TAREA_CREADA, savedTarea);
 
     res.status(201).json({
       message: "Tarea creada exitosamente",
@@ -401,7 +401,7 @@ export const closeTarea = async (req, res) => {
       });
     }
 
-    await notificarTareaCerrada(updatedTarea); 
+    eventBus.publicar(EVENTOS.TAREA_CERRADA, updatedTarea);
 
     res.json({
       message: "Tarea cerrada exitosamente",

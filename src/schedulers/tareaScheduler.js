@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import Tarea from '../models/Tarea.js';
-import { notificarTareaProximaVencer } from '../services/notificationService.js';
+import { notificarTareaProximaVencer } from '../services/notificacionService.js';
 
 /**
  * Ejecutar cada hora para verificar tareas próximas a vencer

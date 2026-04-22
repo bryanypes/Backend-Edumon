@@ -29,7 +29,7 @@ export const registerValidator = [
     .withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
   
   body('rol')
-    .isIn(['padre', 'docente', 'administrador'])
+    .isIn(['padre', 'docente', 'administrador','superadmin'])
     .withMessage('El rol debe ser: padre, docente o administrador'),
   
   body('telefono')
