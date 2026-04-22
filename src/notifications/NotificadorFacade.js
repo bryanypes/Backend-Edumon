@@ -3,7 +3,7 @@ import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import { FCMStrategy } from './strategies/FCMStrategy.js';
 import { EmailStrategy } from './strategies/EmailStrategy.js';
-import { WhatsAppStrategy } from './strategies/WhatsAppStrategy.js';
+import { WhatsAppStrategy } from './strategies/WhatsappStrategy.js';
 import { WebSocketStrategy } from './strategies/WebSocketStrategy.js';
 
 /**
