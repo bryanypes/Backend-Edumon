@@ -64,3 +64,31 @@ export const changePasswordValidator = [
     .isLength({ min: 6, max: 128 })
     .withMessage('La contraseña nueva debe tener entre 6 y 128 caracteres')
 ];
+
+export const forgotPasswordValidator = [
+  body('correo')
+    .isEmail()
+    .withMessage('El correo electrónico no es válido')
+    .normalizeEmail()
+];
+
+export const resetPasswordValidator = [
+  body('correo')
+    .isEmail()
+    .withMessage('El correo electrónico no es válido')
+    .normalizeEmail(),
+
+  body('codigo')
+    .notEmpty()
+    .withMessage('El código es requerido')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('El código debe tener 6 dígitos')
+    .isNumeric()
+    .withMessage('El código solo debe contener números'),
+
+  body('contraseñaNueva')
+    .isLength({ min: 6, max: 128 })
+    .withMessage('La contraseña debe tener entre 6 y 128 caracteres')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número')
+];

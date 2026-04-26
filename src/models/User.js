@@ -65,7 +65,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    // Después de fcmTokenActualizadoEn:
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
     esTitular: {
       type: Boolean,
       default: true // todos los User son titulares por definición
