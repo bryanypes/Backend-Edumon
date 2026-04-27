@@ -35,6 +35,7 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+const isDev = process.env.NODE_ENV === 'development';
 
 
 // ─── Middlewares tempranos ──────────────
@@ -45,6 +46,10 @@ app.use(compression());
 // ─── Orígenes permitidos ─────────────────
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:4000',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -65,6 +70,9 @@ app.use(
         connectSrc: [
           "'self'",
           'http://localhost:3000',
+          'http://localhost:5173',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:5173',
           process.env.FRONTEND_URL
         ].filter(Boolean),
         frameAncestors: ["'none'"],
@@ -78,7 +86,7 @@ app.use(
 
 
 // Permissions policy
-app.use((req,res,next)=>{
+app.use((req, res, next) => {
   res.setHeader(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()"
@@ -88,21 +96,21 @@ app.use((req,res,next)=>{
 
 
 // Cache control
-app.use((req,res,next)=>{
-  res.setHeader("Cache-Control","no-store");
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
   next();
 });
 
 
 // Sanitización
-app.use((req,res,next)=>{
-  const sanitize=(obj)=>{
-    if(!obj || typeof obj!=='object') return;
+app.use((req, res, next) => {
+  const sanitize = (obj) => {
+    if (!obj || typeof obj !== 'object') return;
 
-    Object.keys(obj).forEach(key=>{
-      if(key.startsWith('$') || key.includes('.')){
+    Object.keys(obj).forEach(key => {
+      if (key.startsWith('$') || key.includes('.')) {
         delete obj[key];
-      }else if(typeof obj[key]==='object'){
+      } else if (typeof obj[key] === 'object') {
         sanitize(obj[key]);
       }
     });
@@ -111,10 +119,10 @@ app.use((req,res,next)=>{
   sanitize(req.body);
   sanitize(req.params);
 
-  if(req.query){
-    Object.keys(req.query).forEach(key=>{
-      if(typeof req.query[key]==='string'){
-        req.query[key]=req.query[key].replace(/\$|\{|\}/g,'_');
+  if (req.query) {
+    Object.keys(req.query).forEach(key => {
+      if (typeof req.query[key] === 'string') {
+        req.query[key] = req.query[key].replace(/\$|\{|\}/g, '_');
       }
     });
   }
@@ -125,15 +133,15 @@ app.use((req,res,next)=>{
 
 // ─── Rate limit ──────────────────────────
 app.use('/api/', rateLimit({
-  windowMs:15*60*1000,
-  max:100,
-  message:{ message:'Demasiadas solicitudes, intenta más tarde'}
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { message: 'Demasiadas solicitudes, intenta más tarde' }
 }));
 
-const limiterAuth=rateLimit({
-  windowMs:15*60*1000,
-  max:10,
-  message:{message:'Demasiados intentos de autenticación'}
+const limiterAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Demasiados intentos de autenticación' }
 });
 
 app.use('/api/auth/login', limiterAuth);
@@ -142,32 +150,30 @@ app.use('/api/auth/register', limiterAuth);
 
 // ─── CORS ────────────────────────────────
 app.use(cors({
-  origin:process.env.NODE_ENV==='development'
-    ? '*'
-    : allowedOrigins,
-  credentials:true,
-  methods:['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders:['Content-Type','Authorization']
+  origin: isDev ? '*' : allowedOrigins,
+  credentials: !isDev,  // credentials es incompatible con origin: '*'
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 
 // ─── Body parsers ────────────────────────
 app.use(express.json());
-app.use(express.urlencoded({extended:true}));
+app.use(express.urlencoded({ extended: true }));
 
 
 // ─── Socket.IO ───────────────────────────
-const io=new Server(server,{
-  cors:{
-    origin:allowedOrigins,
-    methods:['GET','POST'],
-    credentials:true
+const io = new Server(server, {
+  cors: {
+    origin: isDev ? '*' : allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: !isDev  // credentials es incompatible con origin: '*'
   },
-  pingTimeout:60000,
-  pingInterval:25000
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
-global.io=io;
+global.io = io;
 
 setupSocketIO(io);
 registrarObservers();
@@ -179,59 +185,58 @@ iniciarSchedulerTareas();
 
 
 // ─── Rutas ──────────────────────────────
-app.use('/api/auth',authRoutes);
-app.use('/api/users',userRoutes);
-app.use('/api/cursos',cursoRoutes);
-app.use('/api/modulos',moduloRoutes);
-app.use('/api/tareas',tareaRoutes);
-app.use('/api/entregas',entregaRoutes);
-app.use('/api/notificaciones',notificacionRoutes);
-app.use('/api/eventos',eventoRoutes);
-app.use('/api/calendario',calendarioRoutes);
-app.use('/api/foros',foroRoutes);
-app.use('/api/mensajes-foro',mensajeForoRoutes);
-app.use('/api/instituciones',institucionRoutes);
-app.use('/api/perfiles',perfilFamiliarRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/cursos', cursoRoutes);
+app.use('/api/modulos', moduloRoutes);
+app.use('/api/tareas', tareaRoutes);
+app.use('/api/entregas', entregaRoutes);
+app.use('/api/notificaciones', notificacionRoutes);
+app.use('/api/eventos', eventoRoutes);
+app.use('/api/calendario', calendarioRoutes);
+app.use('/api/foros', foroRoutes);
+app.use('/api/mensajes-foro', mensajeForoRoutes);
+app.use('/api/instituciones', institucionRoutes);
+app.use('/api/perfiles', perfilFamiliarRoutes);
 
 
 // ─── Health check ───────────────────────
-app.get('/',(req,res)=>{
+app.get('/', (req, res) => {
   res.json({
-    message:'API funcionando correctamente',
-    websocket:'Socket.IO habilitado',
-    entorno:process.env.NODE_ENV || 'development'
+    message: 'API funcionando correctamente',
+    websocket: 'Socket.IO habilitado',
+    entorno: process.env.NODE_ENV || 'development'
   });
 });
 
 
 // ─── 404 handler ────────────────────────
-app.use((req,res)=>{
+app.use((req, res) => {
   res.status(404).json({
-    message:'Ruta no encontrada'
+    message: 'Ruta no encontrada'
   });
 });
 
 
 // ─── Error handler ──────────────────────
-app.use((err,req,res,next)=>{
+app.use((err, req, res, next) => {
   console.error(err.stack);
 
-  res.status(err.status||500).json({
-    message:err.message || 'Error interno del servidor',
-    error:process.env.NODE_ENV==='development'
-      ? err
-      : {}
+  res.status(err.status || 500).json({
+    message: err.message || 'Error interno del servidor',
+    error: isDev ? err : {}
   });
 });
 
 
 // ─── Start ──────────────────────────────
-const PORT=process.env.PORT || 4000;
+const PORT = process.env.PORT || 4000;
 
-server.listen(PORT,()=>{
+server.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
   console.log(`WebSocket habilitado`);
+  if (isDev) console.log(`CORS: abierto para desarrollo (*)`);
 });
 
 export default app;
