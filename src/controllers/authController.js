@@ -25,7 +25,15 @@ export const register = async (req, res) => {
       });
     }
 
-    const { nombre, apellido, cedula, correo, contraseña, rol, telefono } = req.body;
+    // CORRECCIÓN: incluir cedula e institucionId
+    const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
+
+    const existingCedula = await User.findOne({ cedula });
+    if (existingCedula) {
+      return res.status(409).json({
+        message: "Ya existe un usuario con esta cédula"
+      });
+    }
 
     const existingUser = await User.findOne({
       $or: [{ correo }, { telefono }]
@@ -46,6 +54,8 @@ export const register = async (req, res) => {
       contraseña,
       rol,
       telefono,
+      // NUEVO: asignar institución (nunca para superadmin, aunque el validator ya lo bloquea en registro público)
+      institucionId: rol !== 'superadmin' ? (institucionId || null) : null,
       fechaRegistro: new Date(),
       fotoPerfilUrl: 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp'
     });
@@ -66,7 +76,8 @@ export const register = async (req, res) => {
         correo: savedUser.correo,
         rol: savedUser.rol,
         telefono: savedUser.telefono,
-        estado: savedUser.estado
+        estado: savedUser.estado,
+        institucionId: savedUser.institucionId
       }
     });
 
@@ -133,7 +144,8 @@ export const login = async (req, res) => {
         rol: user.rol,
         telefono: user.telefono,
         estado: user.estado,
-        ultimoAcceso: user.ultimoAcceso
+        ultimoAcceso: user.ultimoAcceso,
+        institucionId: user.institucionId
       },
       primerInicioSesion: esPrimerInicio
     });
@@ -166,7 +178,8 @@ export const getProfile = async (req, res) => {
         fechaRegistro: user.fechaRegistro,
         ultimoAcceso: user.ultimoAcceso,
         fotoPerfilUrl: user.fotoPerfilUrl,
-        preferencias: user.preferencias
+        preferencias: user.preferencias,
+        institucionId: user.institucionId
       }
     });
 
@@ -176,7 +189,7 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// Cambiar contraseña
+// Cambiar contraseña (usuario autenticado sobre su propia cuenta)
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
