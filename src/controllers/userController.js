@@ -3,6 +3,9 @@ import { validationResult } from 'express-validator';
 import cloudinary from '../config/cloudinary.js';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 
+// URL del avatar predeterminado (avatar1)
+const AVATAR_PREDETERMINADO = 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp';
+
 // Crear usuario (desde panel de administración)
 export const createUser = async (req, res) => {
   try {
@@ -14,14 +17,19 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // CORRECCIÓN: incluir institucionId
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
-    // Contraseña temporal estándar si no viene o es igual a la cédula
-    const contraseñaFinal = (!contraseña || contraseña === cedula)
-      ? `Temporal${cedula}!`
-      : contraseña;
 
-    // Verificar si ya existe un usuario con esa cédula
+    // Regla: solo puede existir un superadmin en el sistema
+    if (rol === 'superadmin') {
+      const superadminExistente = await User.findOne({ rol: 'superadmin' });
+      if (superadminExistente) {
+        return res.status(409).json({
+          message: "Ya existe un superadmin en el sistema. Solo puede haber uno."
+        });
+      }
+    }
+
+    // Verificar cédula duplicada
     const existingCedula = await User.findOne({ cedula });
     if (existingCedula) {
       return res.status(409).json({
@@ -29,7 +37,7 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Verificar si el usuario ya existe por correo
+    // Verificar correo duplicado
     const existingUser = await User.findOne({ correo });
     if (existingUser) {
       return res.status(409).json({
@@ -37,7 +45,7 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Verificar si ya existe un usuario con ese teléfono
+    // Verificar teléfono duplicado
     if (telefono) {
       const existingTelefono = await User.findOne({ telefono });
       if (existingTelefono) {
@@ -45,6 +53,12 @@ export const createUser = async (req, res) => {
           message: "Ya existe un usuario con este teléfono"
         });
       }
+    }
+
+    // institucionId: solo aplica para docente y administrador
+    let institucionFinal = null;
+    if (rol === 'docente' || rol === 'administrador') {
+      institucionFinal = institucionId;
     }
 
     const newUser = new User({
@@ -55,9 +69,8 @@ export const createUser = async (req, res) => {
       contraseña,
       rol,
       telefono,
-      // NUEVO: superadmin no tiene institución
-      institucionId: rol !== 'superadmin' ? (institucionId || null) : null,
-      fotoPerfilUrl: 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp'
+      institucionId: institucionFinal,
+      fotoPerfilUrl: AVATAR_PREDETERMINADO   // siempre avatar1 al crear
     });
 
     const savedUser = await newUser.save();
@@ -228,7 +241,7 @@ export const changePassword = async (req, res) => {
       return res.status(401).json({ message: "La contraseña actual es incorrecta" });
     }
 
-    user.contraseña = nuevaContraseña; // pre-save hook hashea automáticamente
+    user.contraseña = nuevaContraseña;
     await user.save();
 
     res.json({ message: "Contraseña actualizada exitosamente" });
@@ -368,8 +381,6 @@ export const updateFcmToken = async (req, res) => {
 
     const { userId } = req.user;
     const { fcmToken } = req.body;
-
-    console.log(`Actualizando FCM token para usuario: ${userId}`);
 
     const user = await User.findByIdAndUpdate(
       userId,

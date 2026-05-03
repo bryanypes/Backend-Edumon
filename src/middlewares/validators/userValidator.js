@@ -1,6 +1,5 @@
 import { body, param } from 'express-validator';
 
-// CORRECCIÓN: contraseña ahora exige complejidad, no solo longitud
 export const createUserValidator = [
   body('nombre')
     .notEmpty()
@@ -34,7 +33,6 @@ export const createUserValidator = [
     .withMessage('El correo electrónico no es válido')
     .normalizeEmail(),
 
-  // CORRECCIÓN: exige complejidad igual que registerValidator y resetPasswordValidator
   body('contraseña')
     .notEmpty()
     .withMessage('La contraseña es requerida')
@@ -55,11 +53,12 @@ export const createUserValidator = [
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
-  // NUEVO: institucionId requerido para todos excepto superadmin
+  // institucionId es requerido SOLO para docente y administrador.
+  // padre y superadmin no la necesitan.
   body('institucionId')
-    .if((value, { req }) => req.body.rol !== 'superadmin')
+    .if(body('rol').isIn(['docente', 'administrador']))
     .notEmpty()
-    .withMessage('La institución es requerida')
+    .withMessage('La institución es requerida para docentes y administradores')
     .isMongoId()
     .withMessage('ID de institución inválido'),
 ];

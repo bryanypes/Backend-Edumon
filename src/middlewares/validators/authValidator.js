@@ -39,7 +39,7 @@ export const registerValidator = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
 
-  // CORRECCIÓN: superadmin excluido del registro público
+  // superadmin bloqueado del registro público
   body('rol')
     .notEmpty()
     .withMessage('El rol es requerido')
@@ -52,10 +52,12 @@ export const registerValidator = [
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
-  // NUEVO: institución requerida para todos los roles del registro público
+  // institucionId requerido solo para docente y administrador.
+  // padre puede registrarse sin institución.
   body('institucionId')
+    .if(body('rol').isIn(['docente', 'administrador']))
     .notEmpty()
-    .withMessage('La institución es requerida')
+    .withMessage('La institución es requerida para docentes y administradores')
     .isMongoId()
     .withMessage('ID de institución inválido'),
 ];
@@ -72,7 +74,6 @@ export const loginValidator = [
     .withMessage('La contraseña es requerida'),
 ];
 
-// CORRECCIÓN: contraseñaNueva ahora exige el mismo estándar de complejidad
 export const changePasswordValidator = [
   body('contraseñaActual')
     .notEmpty()
