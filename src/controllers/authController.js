@@ -5,6 +5,9 @@ import { eventBus, EVENTOS } from '../events/EventBus.js';
 import crypto from 'crypto';
 import { enviarCorreoRecuperacion } from '../services/mailService.js';
 
+// URL del avatar predeterminado (avatar1)
+const AVATAR_PREDETERMINADO = 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp';
+
 // Generar JWT
 const generateToken = (userId) => {
   return jwt.sign(
@@ -14,7 +17,7 @@ const generateToken = (userId) => {
   );
 };
 
-// Registro de usuario
+// Registro de usuario (registro público — superadmin bloqueado por validator)
 export const register = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -25,7 +28,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // CORRECCIÓN: incluir cedula e institucionId
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
 
     const existingCedula = await User.findOne({ cedula });
@@ -46,6 +48,14 @@ export const register = async (req, res) => {
       });
     }
 
+    // institucionId: solo aplica para docente y administrador.
+    // El registro público actual permite padre, docente y administrador (ver authValidator).
+    // padre no requiere institución aunque la envíe — se ignora.
+    let institucionFinal = null;
+    if (rol === 'docente' || rol === 'administrador') {
+      institucionFinal = institucionId || null;
+    }
+
     const newUser = new User({
       nombre,
       apellido,
@@ -54,10 +64,9 @@ export const register = async (req, res) => {
       contraseña,
       rol,
       telefono,
-      // NUEVO: asignar institución (nunca para superadmin, aunque el validator ya lo bloquea en registro público)
-      institucionId: rol !== 'superadmin' ? (institucionId || null) : null,
+      institucionId: institucionFinal,
       fechaRegistro: new Date(),
-      fotoPerfilUrl: 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp'
+      fotoPerfilUrl: AVATAR_PREDETERMINADO   // siempre avatar1 al registrar
     });
 
     const savedUser = await newUser.save();
@@ -77,7 +86,8 @@ export const register = async (req, res) => {
         rol: savedUser.rol,
         telefono: savedUser.telefono,
         estado: savedUser.estado,
-        institucionId: savedUser.institucionId
+        institucionId: savedUser.institucionId,
+        fotoPerfilUrl: savedUser.fotoPerfilUrl
       }
     });
 
@@ -145,7 +155,8 @@ export const login = async (req, res) => {
         telefono: user.telefono,
         estado: user.estado,
         ultimoAcceso: user.ultimoAcceso,
-        institucionId: user.institucionId
+        institucionId: user.institucionId,
+        fotoPerfilUrl: user.fotoPerfilUrl
       },
       primerInicioSesion: esPrimerInicio
     });
