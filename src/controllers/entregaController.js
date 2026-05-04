@@ -169,15 +169,13 @@ export const createEntrega = async (req, res) => {
 export const getEntregasByPadreAndTarea = async (req, res) => {
   try {
     const { tareaId } = req.params;
-    const padreId = req.user.userId; // ID del padre autenticado
+    const padreId = req.user.userId;
 
-    const entregas = await Entrega.find({
-      tareaId,
-      padreId
-    })
+    const entregas = await Entrega.find({ tareaId, padreId })
       .populate('tareaId', 'titulo descripcion fechaEntrega criterios')
-      .populate('calificacion.docenteId', 'nombre apellido')
-      .sort({ fechaEntrega: -1 });
+      .populate('padreId', 'nombre apellido correo')
+      .populate('calificacion.docenteId', 'nombre apellido correo')
+      .sort({ createdAt: -1 });
 
     res.json({
       entregas,
@@ -191,7 +189,6 @@ export const getEntregasByPadreAndTarea = async (req, res) => {
     });
   }
 };
-
 // Actualizar entrega (solo en borrador)
 export const updateEntrega = async (req, res) => {
   try {
