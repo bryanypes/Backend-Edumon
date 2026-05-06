@@ -1,8 +1,15 @@
-import Tarea from '../models/Tarea.js';
-import Evento from '../models/Evento.js';
+// controllers/cursoController.js
 import Curso from '../models/Curso.js';
+import User from '../models/User.js';
+import { validationResult } from 'express-validator';
+import csv from 'csv-parser';
+import { Readable } from 'stream';
+import mongoose from 'mongoose';
+import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
+import { eventBus, EVENTOS } from '../events/EventBus.js';
+import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 
-// ─── HELPERS ────────────────────────────────────────────────────────────────
+// ─── HELPER DOCENTE ──────────────────────────────────────────────────────────
 
 function formatearDocente(docenteId) {
   if (!docenteId) return null;
@@ -15,465 +22,727 @@ function formatearDocente(docenteId) {
   };
 }
 
-function formatearCurso(curso) {
-  return {
-    id: curso._id,
-    nombre: curso.nombre,
-    docente: formatearDocente(curso.docenteId)
+// ─── FUNCIÓN AUXILIAR: Procesar CSV ─────────────────────────────────────────
+
+async function procesarUsuariosCSV(file, cursoId) {
+  const resultados = {
+    exitosos: [],
+    errores: [],
+    duplicados: []
   };
-}
 
-function obtenerColorTarea(estado, fechaEntrega) {
-  const ahora = new Date();
-  const fecha = new Date(fechaEntrega);
-  if (estado === 'cerrada') return '#9E9E9E';
-  if (fecha < ahora) return '#F44336';
-  const diasRestantes = Math.ceil((fecha - ahora) / (1000 * 60 * 60 * 24));
-  if (diasRestantes <= 2) return '#FF9800';
-  if (diasRestantes <= 7) return '#FFC107';
-  return '#4CAF50';
-}
-
-function obtenerColorEvento(categoria) {
-  const colores = {
-    escuela_padres: '#2196F3',
-    tarea: '#9C27B0',
-    institucional: '#00BCD4'
-  };
-  return colores[categoria] || '#607D8B';
-}
-
-function obtenerIconoEvento(categoria) {
-  const iconos = {
-    escuela_padres: 'groups',
-    tarea: 'assignment',
-    institucional: 'school'
-  };
-  return iconos[categoria] || 'event';
-}
-
-function agruparPorFecha(items) {
-  return items.reduce((grupos, item) => {
-    const fecha = new Date(item.fecha).toISOString().split('T')[0];
-    if (!grupos[fecha]) grupos[fecha] = [];
-    grupos[fecha].push(item);
-    return grupos;
-  }, {});
-}
-
-// ─── 1. CALENDARIO DE UN CURSO ───────────────────────────────────────────────
-
-export const obtenerCalendarioCurso = async (req, res) => {
   try {
-    const { cursoId } = req.params;
-    const { mes, anio } = req.query;
-
     const curso = await Curso.findById(cursoId)
       .populate('docenteId', 'nombre apellido correo');
 
     if (!curso) {
-      return res.status(404).json({ error: 'Curso no encontrado' });
+      throw new Error("Curso no encontrado");
     }
 
-    let filtroFechas = {};
-    if (mes && anio) {
-      const inicioMes = new Date(anio, mes - 1, 1);
-      const finMes = new Date(anio, mes, 0, 23, 59, 59);
-      filtroFechas = { $gte: inicioMes, $lte: finMes };
-    }
+    console.log(' Procesando CSV para curso:', curso.nombre);
 
-    const tareas = await Tarea.find({
-      cursoId,
-      ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
-    })
-      .populate('moduloId', 'titulo')
-      .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega')
-      .sort({ fechaEntrega: 1 })
-      .lean();
+    const stream = Readable.from(file.buffer.toString());
+    const usuarios = [];
 
-    const eventos = await Evento.find({
-      cursosIds: cursoId,
-      ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
-    })
-      .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado')
-      .sort({ fechaInicio: 1 })
-      .lean();
+    await new Promise((resolve, reject) => {
+      stream
+        .pipe(csv({
+          headers: ['nombre', 'apellido', 'telefono', 'cedula'],
+          skipEmptyLines: true
+        }))
+        .on('data', (data) => {
+          if (data.nombre === 'nombre' && data.apellido === 'apellido') return;
+          if (data.nombre && data.apellido && data.cedula && data.telefono) {
+            usuarios.push({
+              nombre: data.nombre.trim(),
+              apellido: data.apellido.trim(),
+              telefono: normalizarTelefono(data.telefono) || data.telefono?.trim() || '',
+              cedula: data.cedula.trim(),
+              contraseña: data.cedula.trim()
+            });
+          }
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
 
-    const cursoInfo = formatearCurso(curso);
+    console.log(` Total usuarios a procesar: ${usuarios.length}`);
 
-    const tareasCalendario = tareas.map(tarea => ({
-      id: tarea._id,
-      tipo: 'tarea',
-      titulo: tarea.titulo,
-      descripcion: tarea.descripcion,
-      fecha: tarea.fechaEntrega,
-      fechaInicio: tarea.fechaEntrega,
-      fechaFin: tarea.fechaEntrega,
-      estado: tarea.estado,
-      modulo: tarea.moduloId?.titulo || 'Sin módulo',
-      moduloId: tarea.moduloId?._id || null,
-      tipoEntrega: tarea.tipoEntrega,
-      curso: cursoInfo,
-      color: obtenerColorTarea(tarea.estado, tarea.fechaEntrega),
-      icono: 'assignment'
-    }));
+    for (const userData of usuarios) {
+      try {
+        const { nombre, apellido, telefono, cedula, contraseña } = userData;
+        const correoTemporal = `${cedula}@temp.com`;
+        const telefonoNormalizado = normalizarTelefono(telefono) || telefono;
 
-    const eventosCalendario = eventos.map(evento => ({
-      id: evento._id,
-      tipo: 'evento',
-      titulo: evento.titulo,
-      descripcion: evento.descripcion,
-      fecha: evento.fechaInicio,
-      fechaInicio: evento.fechaInicio,
-      fechaFin: evento.fechaFin,
-      hora: evento.hora,
-      ubicacion: evento.ubicacion,
-      categoria: evento.categoria,
-      estado: evento.estado,
-      curso: cursoInfo,
-      color: obtenerColorEvento(evento.categoria),
-      icono: obtenerIconoEvento(evento.categoria)
-    }));
+        let usuario = await User.findOne({
+          $or: [{ cedula }, { correo: correoTemporal }]
+        });
 
-    const itemsCalendario = [...tareasCalendario, ...eventosCalendario]
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        let esNuevoUsuario = false;
 
-    res.status(200).json({
-      success: true,
-      curso: cursoInfo,
-      items: itemsCalendario,
-      itemsAgrupados: agruparPorFecha(itemsCalendario),
-      estadisticas: {
-        totalTareas: tareasCalendario.length,
-        totalEventos: eventosCalendario.length,
-        tareasVencidas: tareasCalendario.filter(t =>
-          t.estado === 'publicada' && new Date(t.fecha) < new Date()
-        ).length,
-        eventosProximos: eventosCalendario.filter(e =>
-          e.estado === 'programado' && new Date(e.fechaInicio) > new Date()
-        ).length
+        if (usuario) {
+          if (curso.esParticipante(usuario._id)) {
+            resultados.duplicados.push({
+              nombre: `${usuario.nombre} ${usuario.apellido}`,
+              cedula,
+              motivo: 'Ya está inscrito en este curso'
+            });
+            continue;
+          }
+
+          curso.agregarParticipante(usuario._id, 'padre');
+          resultados.exitosos.push({
+            nombre: `${usuario.nombre} ${usuario.apellido}`,
+            cedula,
+            accion: 'Usuario existente agregado al curso'
+          });
+
+        } else {
+          const nuevoUsuario = new User({
+            nombre,
+            apellido,
+            telefono: telefonoNormalizado,
+            cedula,
+            correo: correoTemporal,
+            contraseña,
+            rol: 'padre',
+            estado: 'activo'
+          });
+
+          usuario = await nuevoUsuario.save();
+          esNuevoUsuario = true;
+          curso.agregarParticipante(usuario._id, 'padre');
+
+          resultados.exitosos.push({
+            nombre: `${usuario.nombre} ${usuario.apellido}`,
+            cedula,
+            accion: 'Usuario creado y agregado al curso'
+          });
+        }
+
+        try {
+          if (esNuevoUsuario) {
+            eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, usuario);
+          }
+          eventBus.publicar(EVENTOS.USUARIO_AGREGADO_CURSO, { usuarioId: usuario._id, curso });
+        } catch (notifError) {
+          console.error('Error notificaciones:', notifError.message);
+        }
+
+      } catch (error) {
+        if (error.code === 11000) {
+          resultados.duplicados.push({
+            datos: userData,
+            motivo: 'Cédula o correo ya registrado en el sistema'
+          });
+        } else {
+          resultados.errores.push({
+            datos: userData,
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+          });
+        }
       }
-    });
-
-  } catch (error) {
-    console.error('Error al obtener calendario:', error);
-    res.status(500).json({ error: 'Error al obtener el calendario del curso', details: error.message });
-  }
-};
-
-// ─── 2. EVENTOS DE UN DÍA ESPECÍFICO ────────────────────────────────────────
-
-export const obtenerEventosDia = async (req, res) => {
-  try {
-    const { cursoId } = req.params;
-    const { fecha } = req.query;
-
-    if (!fecha) {
-      return res.status(400).json({ error: 'La fecha es requerida' });
     }
 
-    const curso = await Curso.findById(cursoId)
-      .populate('docenteId', 'nombre apellido correo');
+    await curso.save();
+    console.log(`\nCSV procesado completamente`);
 
-    if (!curso) {
-      return res.status(404).json({ error: 'Curso no encontrado' });
-    }
-
-    const inicioDia = new Date(fecha);
-    inicioDia.setHours(0, 0, 0, 0);
-    const finDia = new Date(fecha);
-    finDia.setHours(23, 59, 59, 999);
-
-    const tareas = await Tarea.find({
-      cursoId,
-      fechaEntrega: { $gte: inicioDia, $lte: finDia }
-    })
-      .populate('moduloId', 'titulo')
-      .lean();
-
-    const eventos = await Evento.find({
-      cursosIds: cursoId,
-      fechaInicio: { $lte: finDia },
-      fechaFin: { $gte: inicioDia }
-    }).lean();
-
-    const cursoInfo = formatearCurso(curso);
-
-    res.status(200).json({
-      success: true,
-      fecha,
-      curso: cursoInfo,
-      tareas: tareas.map(t => ({
-        ...t,
-        tipo: 'tarea',
-        modulo: t.moduloId?.titulo || 'Sin módulo',
-        curso: cursoInfo,
-        color: obtenerColorTarea(t.estado, t.fechaEntrega)
-      })),
-      eventos: eventos.map(e => ({
-        ...e,
-        tipo: 'evento',
-        curso: cursoInfo,
-        color: obtenerColorEvento(e.categoria)
-      }))
-    });
+    return {
+      resumen: {
+        total: usuarios.length,
+        exitosos: resultados.exitosos.length,
+        errores: resultados.errores.length,
+        duplicados: resultados.duplicados.length
+      },
+      detalles: resultados
+    };
 
   } catch (error) {
-    console.error('Error al obtener eventos del día:', error);
-    res.status(500).json({ error: 'Error al obtener eventos del día', details: error.message });
+    console.error('Error en procesarUsuariosCSV:', error);
+    throw error;
   }
-};
+}
 
-// ─── 3. PRÓXIMOS EVENTOS DE UN CURSO ────────────────────────────────────────
+// ─── CREAR CURSO ─────────────────────────────────────────────────────────────
 
-export const obtenerProximosEventos = async (req, res) => {
+export const createCurso = async (req, res) => {
   try {
-    const { cursoId } = req.params;
-    const { limite = 10 } = req.query;
-
-    const curso = await Curso.findById(cursoId)
-      .populate('docenteId', 'nombre apellido correo');
-
-    if (!curso) {
-      return res.status(404).json({ error: 'Curso no encontrado' });
-    }
-
-    const ahora = new Date();
-    const cursoInfo = formatearCurso(curso);
-
-    const tareas = await Tarea.find({
-      cursoId,
-      fechaEntrega: { $gte: ahora },
-      estado: 'publicada'
-    })
-      .populate('moduloId', 'titulo')
-      .sort({ fechaEntrega: 1 })
-      .limit(parseInt(limite))
-      .lean();
-
-    const eventos = await Evento.find({
-      cursosIds: cursoId,
-      fechaInicio: { $gte: ahora },
-      estado: { $in: ['programado', 'en_curso'] }
-    })
-      .sort({ fechaInicio: 1 })
-      .limit(parseInt(limite))
-      .lean();
-
-    const proximosEventos = [
-      ...tareas.map(t => ({
-        id: t._id,
-        tipo: 'tarea',
-        titulo: t.titulo,
-        fecha: t.fechaEntrega,
-        modulo: t.moduloId?.titulo || 'Sin módulo',
-        moduloId: t.moduloId?._id || null,
-        curso: cursoInfo
-      })),
-      ...eventos.map(e => ({
-        id: e._id,
-        tipo: 'evento',
-        titulo: e.titulo,
-        fecha: e.fechaInicio,
-        categoria: e.categoria,
-        curso: cursoInfo
-      }))
-    ]
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-      .slice(0, parseInt(limite));
-
-    res.status(200).json({ success: true, proximosEventos });
-
-  } catch (error) {
-    console.error('Error al obtener próximos eventos:', error);
-    res.status(500).json({ error: 'Error al obtener próximos eventos', details: error.message });
-  }
-};
-
-// ─── 4. CALENDARIO GENERAL DEL DOCENTE (todos sus cursos) ───────────────────
-
-export const obtenerCalendarioDocente = async (req, res) => {
-  try {
-    const docenteId = req.user._id;
-    const { mes, anio } = req.query;
-
-    const cursos = await Curso.find({ docenteId })
-      .select('_id nombre docenteId')
-      .populate('docenteId', 'nombre apellido correo')
-      .lean();
-
-    if (!cursos.length) {
-      return res.status(200).json({
-        success: true,
-        items: [],
-        itemsAgrupados: {},
-        estadisticas: { totalTareas: 0, totalEventos: 0, tareasVencidas: 0, eventosProximos: 0 }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
       });
     }
 
-    const cursosIds = cursos.map(c => c._id);
-    const cursoMap = Object.fromEntries(
-      cursos.map(c => [c._id.toString(), formatearCurso(c)])
-    );
+    const { nombre, descripcion, docenteId, fotoPortadaUrl } = req.body;
 
-    let filtroFechas = {};
-    if (mes && anio) {
-      const inicioMes = new Date(anio, mes - 1, 1);
-      const finMes = new Date(anio, mes, 0, 23, 59, 59);
-      filtroFechas = { $gte: inicioMes, $lte: finMes };
+    const docente = await User.findById(docenteId);
+    if (!docente || docente.rol !== 'docente') {
+      return res.status(400).json({
+        message: "El docenteId debe corresponder a un usuario con rol docente"
+      });
     }
 
-    const tareas = await Tarea.find({
-      cursoId: { $in: cursosIds },
-      ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
-    })
-      .populate('moduloId', 'titulo')
-      .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega cursoId')
-      .sort({ fechaEntrega: 1 })
-      .lean();
+    let urlFoto = fotoPortadaUrl || null;
+    let publicIdFoto = null;
 
-    const eventos = await Evento.find({
-      cursosIds: { $in: cursosIds },
-      ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
-    })
-      .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado cursosIds')
-      .sort({ fechaInicio: 1 })
-      .lean();
+    if (req.files?.fotoPortada?.[0]) {
+      const resultadoCloudinary = await subirImagenCloudinary(
+        req.files.fotoPortada[0].buffer,
+        req.files.fotoPortada[0].mimetype,
+        'fotos_cursos_portada'
+      );
+      urlFoto = resultadoCloudinary.url;
+      publicIdFoto = resultadoCloudinary.publicId;
+    } else if (req.file && req.file.fieldname === 'fotoPortada') {
+      const resultadoCloudinary = await subirImagenCloudinary(
+        req.file.buffer,
+        req.file.mimetype,
+        'fotos_cursos_portada'
+      );
+      urlFoto = resultadoCloudinary.url;
+      publicIdFoto = resultadoCloudinary.publicId;
+    }
 
-    const tareasCalendario = tareas.map(tarea => ({
-      id: tarea._id,
-      tipo: 'tarea',
-      titulo: tarea.titulo,
-      descripcion: tarea.descripcion,
-      fecha: tarea.fechaEntrega,
-      fechaInicio: tarea.fechaEntrega,
-      fechaFin: tarea.fechaEntrega,
-      estado: tarea.estado,
-      modulo: tarea.moduloId?.titulo || 'Sin módulo',
-      moduloId: tarea.moduloId?._id || null,
-      tipoEntrega: tarea.tipoEntrega,
-      curso: cursoMap[tarea.cursoId?.toString()] || null,
-      color: obtenerColorTarea(tarea.estado, tarea.fechaEntrega),
-      icono: 'assignment'
+    const institucionId = req.user.institucionId;
+    if (!institucionId) {
+      return res.status(400).json({
+        message: "No tienes institución asignada. Contacta al administrador."
+      });
+    }
+
+    const nuevoCurso = new Curso({
+      nombre,
+      descripcion,
+      fotoPortadaUrl: urlFoto,
+      fotoPortadaPublicId: publicIdFoto,
+      docenteId,
+      institucionId,
+      participantes: [{ usuarioId: docenteId, etiqueta: 'docente' }]
+    });
+
+    const cursoGuardado = await nuevoCurso.save();
+
+    let resultadosCarga = null;
+    if (req.files?.archivoCSV?.[0]) {
+      resultadosCarga = await procesarUsuariosCSV(req.files.archivoCSV[0], cursoGuardado._id);
+      await cursoGuardado.populate('participantes.usuarioId', 'nombre apellido correo rol');
+    } else if (req.file && req.file.fieldname === 'archivoCSV') {
+      resultadosCarga = await procesarUsuariosCSV(req.file, cursoGuardado._id);
+      await cursoGuardado.populate('participantes.usuarioId', 'nombre apellido correo rol');
+    }
+
+    await cursoGuardado.populate('docenteId', 'nombre apellido correo');
+
+    const respuesta = {
+      message: "Curso creado exitosamente",
+      curso: {
+        ...cursoGuardado.toObject(),
+        docente: formatearDocente(cursoGuardado.docenteId)
+      }
+    };
+
+    if (resultadosCarga) {
+      respuesta.cargaMasiva = resultadosCarga;
+    }
+
+    res.status(201).json(respuesta);
+
+  } catch (error) {
+    console.error('Error al crear curso:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// ─── LISTAR CURSOS ───────────────────────────────────────────────────────────
+
+export const getCursos = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
+
+    const { estado, docenteId } = req.query;
+
+    const filtro = {};
+    filtro.estado = estado || { $in: ['activo', 'archivado'] };
+    if (docenteId) filtro.docenteId = docenteId;
+
+    const cursos = await Curso.find(filtro)
+      .populate('docenteId', 'nombre apellido correo telefono')
+      .populate('participantes.usuarioId', 'nombre apellido correo rol')
+      .skip(skip)
+      .limit(limit)
+      .sort({ fechaCreacion: -1 });
+
+    const total = await Curso.countDocuments(filtro);
+
+    const cursosConDocente = cursos.map(c => ({
+      ...c.toObject(),
+      docente: formatearDocente(c.docenteId)
     }));
 
-    const eventosCalendario = eventos.map(evento => ({
-      id: evento._id,
-      tipo: 'evento',
-      titulo: evento.titulo,
-      descripcion: evento.descripcion,
-      fecha: evento.fechaInicio,
-      fechaInicio: evento.fechaInicio,
-      fechaFin: evento.fechaFin,
-      hora: evento.hora,
-      ubicacion: evento.ubicacion,
-      categoria: evento.categoria,
-      estado: evento.estado,
-      cursos: evento.cursosIds
-        .map(id => cursoMap[id.toString()])
-        .filter(Boolean),
-      color: obtenerColorEvento(evento.categoria),
-      icono: obtenerIconoEvento(evento.categoria)
-    }));
+    res.json({
+      cursos: cursosConDocente,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalCursos: total,
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1,
+      },
+    });
 
-    const itemsCalendario = [...tareasCalendario, ...eventosCalendario]
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  } catch (error) {
+    console.error('Error al obtener cursos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
 
-    res.status(200).json({
-      success: true,
-      docente: formatearDocente(cursos[0].docenteId),
-      totalCursos: cursos.length,
-      cursos: cursos.map(c => formatearCurso(c)),
-      items: itemsCalendario,
-      itemsAgrupados: agruparPorFecha(itemsCalendario),
-      estadisticas: {
-        totalTareas: tareasCalendario.length,
-        totalEventos: eventosCalendario.length,
-        tareasVencidas: tareasCalendario.filter(t =>
-          t.estado === 'publicada' && new Date(t.fecha) < new Date()
-        ).length,
-        eventosProximos: eventosCalendario.filter(e =>
-          e.estado === 'programado' && new Date(e.fechaInicio) > new Date()
-        ).length
+// ─── OBTENER CURSO POR ID ────────────────────────────────────────────────────
+
+export const getCursoById = async (req, res) => {
+  try {
+    const curso = await Curso.findById(req.params.id)
+      .populate('docenteId', 'nombre apellido correo telefono')
+      .populate('participantes.usuarioId', 'nombre apellido correo rol telefono');
+
+    if (!curso) {
+      return res.status(404).json({ message: "Curso no encontrado" });
+    }
+
+    res.json({
+      curso: {
+        ...curso.toObject(),
+        docente: formatearDocente(curso.docenteId)
       }
     });
 
   } catch (error) {
-    console.error('Error al obtener calendario del docente:', error);
-    res.status(500).json({ error: 'Error al obtener el calendario del docente', details: error.message });
+    console.error('Error al obtener curso:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// ─── 5. PRÓXIMOS EVENTOS DEL DOCENTE (todos sus cursos) ─────────────────────
+// ─── MIS CURSOS ──────────────────────────────────────────────────────────────
 
-export const obtenerProximosEventosDocente = async (req, res) => {
+export const getMisCursos = async (req, res) => {
   try {
-    const docenteId = req.user._id;
-    const { limite = 10 } = req.query;
+    const usuarioId = req.user.userId;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
 
-    const cursos = await Curso.find({ docenteId })
-      .select('_id nombre docenteId')
+    const cursos = await Curso.find({
+      'participantes.usuarioId': usuarioId,
+      estado: 'activo'
+    })
       .populate('docenteId', 'nombre apellido correo')
-      .lean();
+      .populate('participantes.usuarioId', 'nombre apellido correo rol')
+      .skip(skip)
+      .limit(limit)
+      .sort({ fechaCreacion: -1 });
 
-    if (!cursos.length) {
-      return res.status(200).json({ success: true, proximosEventos: [] });
-    }
+    const total = await Curso.countDocuments({
+      'participantes.usuarioId': usuarioId,
+      estado: 'activo'
+    });
 
-    const cursosIds = cursos.map(c => c._id);
-    const cursoMap = Object.fromEntries(
-      cursos.map(c => [c._id.toString(), formatearCurso(c)])
-    );
+    const cursosConDocente = cursos.map(c => ({
+      ...c.toObject(),
+      docente: formatearDocente(c.docenteId)
+    }));
 
-    const ahora = new Date();
-
-    const tareas = await Tarea.find({
-      cursoId: { $in: cursosIds },
-      fechaEntrega: { $gte: ahora },
-      estado: 'publicada'
-    })
-      .populate('moduloId', 'titulo')
-      .sort({ fechaEntrega: 1 })
-      .limit(parseInt(limite))
-      .lean();
-
-    const eventos = await Evento.find({
-      cursosIds: { $in: cursosIds },
-      fechaInicio: { $gte: ahora },
-      estado: { $in: ['programado', 'en_curso'] }
-    })
-      .sort({ fechaInicio: 1 })
-      .limit(parseInt(limite))
-      .lean();
-
-    const proximosEventos = [
-      ...tareas.map(t => ({
-        id: t._id,
-        tipo: 'tarea',
-        titulo: t.titulo,
-        fecha: t.fechaEntrega,
-        modulo: t.moduloId?.titulo || 'Sin módulo',
-        moduloId: t.moduloId?._id || null,
-        curso: cursoMap[t.cursoId?.toString()] || null
-      })),
-      ...eventos.map(e => ({
-        id: e._id,
-        tipo: 'evento',
-        titulo: e.titulo,
-        fecha: e.fechaInicio,
-        categoria: e.categoria,
-        cursos: e.cursosIds
-          .map(id => cursoMap[id.toString()])
-          .filter(Boolean)
-      }))
-    ]
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-      .slice(0, parseInt(limite));
-
-    res.status(200).json({ success: true, proximosEventos });
+    res.json({
+      cursos: cursosConDocente,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalCursos: total,
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1
+      }
+    });
 
   } catch (error) {
-    console.error('Error al obtener próximos eventos del docente:', error);
-    res.status(500).json({ error: 'Error al obtener próximos eventos del docente', details: error.message });
+    console.error('Error al obtener mis cursos:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// ─── ACTUALIZAR CURSO ────────────────────────────────────────────────────────
+
+export const updateCurso = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
+      });
+    }
+
+    const { id } = req.params;
+    const updateData = { ...req.body };
+
+    delete updateData.participantes;
+    delete updateData.fechaCreacion;
+    delete updateData.fotoPortadaPublicId;
+
+    if (req.file) {
+      const cursoAntiguo = await Curso.findById(id);
+      if (cursoAntiguo?.fotoPortadaPublicId) {
+        await eliminarArchivoCloudinary(cursoAntiguo.fotoPortadaPublicId, 'image');
+      }
+      const resultadoCloudinary = await subirImagenCloudinary(
+        req.file.buffer,
+        req.file.mimetype,
+        'fotos_cursos_portada'
+      );
+      updateData.fotoPortadaUrl = resultadoCloudinary.url;
+      updateData.fotoPortadaPublicId = resultadoCloudinary.publicId;
+    }
+
+    const cursoActualizado = await Curso.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('docenteId', 'nombre apellido correo')
+      .populate('participantes.usuarioId', 'nombre apellido correo rol');
+
+    if (!cursoActualizado) {
+      return res.status(404).json({ message: "Curso no encontrado" });
+    }
+
+    res.json({
+      message: "Curso actualizado exitosamente",
+      curso: {
+        ...cursoActualizado.toObject(),
+        docente: formatearDocente(cursoActualizado.docenteId)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar curso:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// ─── ARCHIVAR CURSO ──────────────────────────────────────────────────────────
+
+export const archivarCurso = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuarioLogueado = req.user;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de curso no válido" });
+    }
+
+    const curso = await Curso.findById(id);
+    if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+    if (curso.estado === 'archivado') {
+      return res.status(400).json({ message: "El curso ya está archivado" });
+    }
+
+    if (usuarioLogueado.rol === 'docente' &&
+      curso.docenteId.toString() !== usuarioLogueado.userId) {
+      return res.status(403).json({ message: "No tienes permisos para archivar este curso" });
+    }
+
+    curso.estado = 'archivado';
+    await curso.save();
+
+    await curso.populate('docenteId', 'nombre apellido correo');
+    await curso.populate('participantes.usuarioId', 'nombre apellido correo rol');
+
+    res.json({
+      message: "Curso archivado exitosamente",
+      curso: {
+        ...curso.toObject(),
+        docente: formatearDocente(curso.docenteId)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al archivar curso:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// ─── AGREGAR PARTICIPANTE ────────────────────────────────────────────────────
+
+export const agregarParticipante = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, apellido, cedula, contraseña, telefono } = req.body;
+    const usuarioLogueado = req.user;
+
+    console.log(`\nAgregando participante individual al curso ${id}`);
+
+    if (!nombre || !apellido || !cedula) {
+      return res.status(400).json({
+        message: "Los campos nombre, apellido y cedula son requeridos"
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de curso no válido" });
+    }
+
+    const curso = await Curso.findById(id)
+      .populate('docenteId', 'nombre apellido correo');
+
+    if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+
+    if (usuarioLogueado.rol === 'docente' &&
+      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+      return res.status(403).json({
+        message: "No tienes permisos para agregar participantes a este curso"
+      });
+    }
+
+    const correoTemporal = `${cedula.trim()}@temp.com`;
+    let detalles = {};
+    let usuarioFinalId = null;
+    let esNuevoUsuario = false;
+
+    let usuario = await User.findOne({
+      $or: [{ cedula: cedula.trim() }, { correo: correoTemporal }]
+    });
+
+    if (usuario) {
+      if (curso.esParticipante(usuario._id)) {
+        return res.status(400).json({
+          message: "El usuario ya está inscrito en este curso",
+          usuario: { nombre: `${usuario.nombre} ${usuario.apellido}`, cedula }
+        });
+      }
+
+      curso.agregarParticipante(usuario._id, 'padre');
+      usuarioFinalId = usuario._id;
+      detalles = {
+        nombre: `${usuario.nombre} ${usuario.apellido}`,
+        cedula: cedula.trim(),
+        accion: "Agregado al curso (usuario existente)"
+      };
+
+    } else {
+      const nuevoUsuario = new User({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        cedula: cedula.trim(),
+        telefono: telefono?.trim() || '',
+        correo: correoTemporal,
+        contraseña: contraseña?.trim() || cedula.trim(),
+        rol: 'padre',
+        estado: 'activo'
+      });
+
+      usuario = await nuevoUsuario.save();
+      esNuevoUsuario = true;
+      curso.agregarParticipante(usuario._id, 'padre');
+      usuarioFinalId = usuario._id;
+      detalles = {
+        nombre: `${usuario.nombre} ${usuario.apellido}`,
+        cedula: cedula.trim(),
+        accion: "Usuario creado y agregado al curso"
+      };
+    }
+
+    await curso.save();
+    await curso.populate('participantes.usuarioId', 'nombre apellido correo rol cedula telefono');
+
+    try {
+      if (esNuevoUsuario) {
+        eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, usuario);
+      }
+      eventBus.publicar(EVENTOS.USUARIO_AGREGADO_CURSO, { usuarioId: usuarioFinalId, curso });
+    } catch (notifError) {
+      console.error('Error al enviar notificaciones:', notifError);
+    }
+
+    res.json({
+      message: "Participante agregado exitosamente",
+      detalles,
+      curso: {
+        ...curso.toObject(),
+        docente: formatearDocente(curso.docenteId)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al agregar participante:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Ya existe un usuario con esta cédula o correo" });
+    }
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// ─── REMOVER PARTICIPANTE ────────────────────────────────────────────────────
+
+export const removerParticipante = async (req, res) => {
+  try {
+    const { id, usuarioId } = req.params;
+
+    const curso = await Curso.findById(id)
+      .populate('docenteId', 'nombre apellido correo');
+
+    if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+
+    if (curso.docenteId._id.toString() === usuarioId) {
+      return res.status(400).json({ message: "No se puede remover al docente principal del curso" });
+    }
+
+    if (!curso.esParticipante(usuarioId)) {
+      return res.status(400).json({ message: "El usuario no es participante de este curso" });
+    }
+
+    curso.removerParticipante(usuarioId);
+    await curso.save();
+    await curso.populate('participantes.usuarioId', 'nombre apellido correo rol');
+
+    res.json({
+      message: "Participante removido exitosamente",
+      curso: {
+        ...curso.toObject(),
+        docente: formatearDocente(curso.docenteId)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al remover participante:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// ─── CARGA MASIVA CSV ────────────────────────────────────────────────────────
+
+export const registrarUsuariosMasivo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuarioLogueado = req.user;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No se ha subido ningún archivo CSV" });
+    }
+
+    const curso = await Curso.findById(id)
+      .populate('docenteId', 'nombre apellido correo');
+
+    if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+
+    if (usuarioLogueado.rol === 'docente' &&
+      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+      return res.status(403).json({ message: "No tienes permisos para agregar usuarios a este curso" });
+    }
+
+    const resultadosCarga = await procesarUsuariosCSV(req.file, id);
+
+    res.status(200).json({
+      message: "Proceso de registro masivo completado",
+      docente: formatearDocente(curso.docenteId),
+      ...resultadosCarga
+    });
+
+  } catch (error) {
+    console.error('Error en registro masivo:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// ─── OBTENER PARTICIPANTES ───────────────────────────────────────────────────
+
+export const getParticipantesCurso = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { etiqueta, search, page = 1, limit = 50 } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de curso no válido" });
+    }
+
+    const curso = await Curso.findById(id)
+      .populate('docenteId', 'nombre apellido correo')
+      .populate({
+        path: 'participantes.usuarioId',
+        select: 'nombre apellido correo telefono rol estado fotoPerfilUrl'
+      });
+
+    if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+
+    let participantes = curso.participantes.filter(p => p.usuarioId !== null);
+
+    if (etiqueta) {
+      participantes = participantes.filter(p => p.etiqueta === etiqueta);
+    }
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      participantes = participantes.filter(p => {
+        const u = p.usuarioId;
+        return (
+          u.nombre.toLowerCase().includes(searchLower) ||
+          u.apellido.toLowerCase().includes(searchLower) ||
+          u.correo.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    const skip = (page - 1) * limit;
+    const total = participantes.length;
+    const paginados = participantes.slice(skip, skip + parseInt(limit));
+
+    const participantesFormateados = paginados.map(p => ({
+      _id: p.usuarioId._id,
+      nombre: p.usuarioId.nombre,
+      apellido: p.usuarioId.apellido,
+      correo: p.usuarioId.correo,
+      telefono: p.usuarioId.telefono,
+      rol: p.usuarioId.rol,
+      estado: p.usuarioId.estado,
+      etiqueta: p.etiqueta,
+      fotoPerfilUrl: p.usuarioId.fotoPerfilUrl,
+      nombreCompleto: `${p.usuarioId.nombre} ${p.usuarioId.apellido}`
+    }));
+
+    res.json({
+      cursoId: curso._id,
+      cursoNombre: curso.nombre,
+      docente: formatearDocente(curso.docenteId),
+      participantes: participantesFormateados,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalParticipantes: total,
+        hasNextPage: parseInt(page) < Math.ceil(total / limit),
+        hasPrevPage: parseInt(page) > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener participantes del curso:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
