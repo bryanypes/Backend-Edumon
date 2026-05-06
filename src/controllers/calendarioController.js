@@ -284,3 +284,186 @@ function agruparPorFecha(items) {
     return grupos;
   }, {});
 }
+
+// Obtener calendario general del docente (todos sus cursos)
+export const obtenerCalendarioDocente = async (req, res) => {
+  try {
+    const docenteId = req.user._id; // viene del authMiddleware
+    const { mes, anio } = req.query;
+
+    // Obtener todos los cursos del docente
+    const cursos = await Curso.find({ docenteId }).select('_id nombre').lean();
+
+    if (!cursos.length) {
+      return res.status(200).json({
+        success: true,
+        items: [],
+        itemsAgrupados: {},
+        estadisticas: { totalTareas: 0, totalEventos: 0, tareasVencidas: 0, eventosProximos: 0 }
+      });
+    }
+
+    const cursosIds = cursos.map(c => c._id);
+    const cursoMap = Object.fromEntries(cursos.map(c => [c._id.toString(), c.nombre]));
+
+    // Filtro de fechas opcional
+    let filtroFechas = {};
+    if (mes && anio) {
+      const inicioMes = new Date(anio, mes - 1, 1);
+      const finMes = new Date(anio, mes, 0, 23, 59, 59);
+      filtroFechas = { $gte: inicioMes, $lte: finMes };
+    }
+
+    // Tareas de todos los cursos
+    const tareas = await Tarea.find({
+      cursoId: { $in: cursosIds },
+      ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
+    })
+      .populate('moduloId', 'titulo')
+      .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega cursoId')
+      .sort({ fechaEntrega: 1 })
+      .lean();
+
+    // Eventos de todos los cursos
+    const eventos = await Evento.find({
+      cursosIds: { $in: cursosIds },
+      ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
+    })
+      .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado cursosIds')
+      .sort({ fechaInicio: 1 })
+      .lean();
+
+    const tareasCalendario = tareas.map(tarea => ({
+      id: tarea._id,
+      tipo: 'tarea',
+      titulo: tarea.titulo,
+      descripcion: tarea.descripcion,
+      fecha: tarea.fechaEntrega,
+      fechaInicio: tarea.fechaEntrega,
+      fechaFin: tarea.fechaEntrega,
+      estado: tarea.estado,
+      modulo: tarea.moduloId?.titulo || 'Sin módulo',
+      moduloId: tarea.moduloId?._id || null,
+      tipoEntrega: tarea.tipoEntrega,
+      cursoId: tarea.cursoId,
+      cursoNombre: cursoMap[tarea.cursoId?.toString()] || 'Sin curso',
+      color: obtenerColorTarea(tarea.estado, tarea.fechaEntrega),
+      icono: 'assignment'
+    }));
+
+    const eventosCalendario = eventos.map(evento => ({
+      id: evento._id,
+      tipo: 'evento',
+      titulo: evento.titulo,
+      descripcion: evento.descripcion,
+      fecha: evento.fechaInicio,
+      fechaInicio: evento.fechaInicio,
+      fechaFin: evento.fechaFin,
+      hora: evento.hora,
+      ubicacion: evento.ubicacion,
+      categoria: evento.categoria,
+      estado: evento.estado,
+      // Un evento puede pertenecer a múltiples cursos — exponemos cuáles
+      cursosIds: evento.cursosIds,
+      cursosNombres: evento.cursosIds
+        .map(id => cursoMap[id.toString()])
+        .filter(Boolean),
+      color: obtenerColorEvento(evento.categoria),
+      icono: obtenerIconoEvento(evento.categoria)
+    }));
+
+    const itemsCalendario = [...tareasCalendario, ...eventosCalendario]
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+    res.status(200).json({
+      success: true,
+      docente: { id: docenteId },
+      totalCursos: cursos.length,
+      cursos: cursos, // útil para que el frontend pueda filtrar por curso en cliente
+      items: itemsCalendario,
+      itemsAgrupados: agruparPorFecha(itemsCalendario),
+      estadisticas: {
+        totalTareas: tareasCalendario.length,
+        totalEventos: eventosCalendario.length,
+        tareasVencidas: tareasCalendario.filter(t =>
+          t.estado === 'publicada' && new Date(t.fecha) < new Date()
+        ).length,
+        eventosProximos: eventosCalendario.filter(e =>
+          e.estado === 'programado' && new Date(e.fechaInicio) > new Date()
+        ).length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener calendario del docente:', error);
+    res.status(500).json({
+      error: 'Error al obtener el calendario del docente',
+      details: error.message
+    });
+  }
+};
+
+// Próximos eventos del docente (todos sus cursos)
+export const obtenerProximosEventosDocente = async (req, res) => {
+  try {
+    const docenteId = req.user._id;
+    const { limite = 10 } = req.query;
+
+    const cursos = await Curso.find({ docenteId }).select('_id nombre').lean();
+    const cursosIds = cursos.map(c => c._id);
+    const cursoMap = Object.fromEntries(cursos.map(c => [c._id.toString(), c.nombre]));
+
+    const ahora = new Date();
+
+    const tareas = await Tarea.find({
+      cursoId: { $in: cursosIds },
+      fechaEntrega: { $gte: ahora },
+      estado: 'publicada'
+    })
+      .populate('moduloId', 'titulo')
+      .sort({ fechaEntrega: 1 })
+      .limit(parseInt(limite))
+      .lean();
+
+    const eventos = await Evento.find({
+      cursosIds: { $in: cursosIds },
+      fechaInicio: { $gte: ahora },
+      estado: { $in: ['programado', 'en_curso'] }
+    })
+      .sort({ fechaInicio: 1 })
+      .limit(parseInt(limite))
+      .lean();
+
+    const proximosEventos = [
+      ...tareas.map(t => ({
+        id: t._id,
+        tipo: 'tarea',
+        titulo: t.titulo,
+        fecha: t.fechaEntrega,
+        modulo: t.moduloId?.titulo || 'Sin módulo',
+        moduloId: t.moduloId?._id || null,
+        cursoId: t.cursoId,
+        cursoNombre: cursoMap[t.cursoId?.toString()] || 'Sin curso'
+      })),
+      ...eventos.map(e => ({
+        id: e._id,
+        tipo: 'evento',
+        titulo: e.titulo,
+        fecha: e.fechaInicio,
+        categoria: e.categoria,
+        cursosNombres: e.cursosIds.map(id => cursoMap[id.toString()]).filter(Boolean)
+      }))
+    ]
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+      .slice(0, parseInt(limite));
+
+    res.status(200).json({ success: true, proximosEventos });
+
+  } catch (error) {
+    console.error('Error al obtener próximos eventos del docente:', error);
+    res.status(500).json({
+      error: 'Error al obtener próximos eventos del docente',
+      details: error.message
+    });
+  }
+};
