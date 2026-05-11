@@ -1,32 +1,32 @@
 import mongoose from "mongoose";
 
 const notificacionSchema = new mongoose.Schema({
-  usuarioId: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  usuarioId: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'El ID del usuario es obligatorio']
   },
-  tipo: { 
-    type: String, 
+  tipo: {
+    type: String,
+    // DESPUÉS
     enum: {
-      values: ["tarea", "entrega", "calificacion", "foro", "evento", "sistema", "evento"],
-      message: '{VALUE} no es un tipo válido'
+      values: ["tarea", "entrega", "calificacion", "foro", "evento", "sistema"],
     },
     required: [true, 'El tipo es obligatorio']
   },
-  mensaje: { 
+  mensaje: {
     type: String,
     required: [true, 'El mensaje es obligatorio'],
     trim: true,
     maxlength: [500, 'El mensaje no puede exceder 500 caracteres']
   },
-  leido: { 
-    type: Boolean, 
-    default: false 
+  leido: {
+    type: Boolean,
+    default: false
   },
-  fecha: { 
-    type: Date, 
-    default: Date.now 
+  fecha: {
+    type: Date,
+    default: Date.now
   },
   // Referencia al recurso que generó la notificación
   referenciaId: {
@@ -35,7 +35,7 @@ const notificacionSchema = new mongoose.Schema({
   },
   referenciaModelo: {
     type: String,
-    enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento']
+    enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento', 'Buzon']
   },
   // Datos adicionales para la notificación
   metadata: {
@@ -63,7 +63,7 @@ const notificacionSchema = new mongoose.Schema({
   agrupacionId: {
     type: String
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
@@ -77,24 +77,24 @@ notificacionSchema.index({ agrupacionId: 1 });
 notificacionSchema.index({ fecha: 1 }, { expireAfterSeconds: 7776000 }); // 90 días
 
 // Virtual para saber si es reciente (últimas 24h)
-notificacionSchema.virtual('esReciente').get(function() {
+notificacionSchema.virtual('esReciente').get(function () {
   const unDia = 24 * 60 * 60 * 1000;
   return (Date.now() - this.fecha.getTime()) < unDia;
 });
 
 // Método estático para marcar múltiples como leídas
-notificacionSchema.statics.marcarVariasLeidas = async function(usuarioId, notificacionIds) {
+notificacionSchema.statics.marcarVariasLeidas = async function (usuarioId, notificacionIds) {
   return this.updateMany(
-    { 
-      usuarioId, 
-      _id: { $in: notificacionIds } 
+    {
+      usuarioId,
+      _id: { $in: notificacionIds }
     },
     { leido: true }
   );
 };
 
 // Método estático para marcar todas como leídas
-notificacionSchema.statics.marcarTodasLeidas = async function(usuarioId) {
+notificacionSchema.statics.marcarTodasLeidas = async function (usuarioId) {
   return this.updateMany(
     { usuarioId, leido: false },
     { leido: true }
@@ -102,14 +102,14 @@ notificacionSchema.statics.marcarTodasLeidas = async function(usuarioId) {
 };
 
 // Método estático para obtener no leídas
-notificacionSchema.statics.obtenerNoLeidas = async function(usuarioId) {
+notificacionSchema.statics.obtenerNoLeidas = async function (usuarioId) {
   return this.find({ usuarioId, leido: false })
     .sort({ fecha: -1 })
     .populate('referenciaId');
 };
 
 // Método estático para contar no leídas
-notificacionSchema.statics.contarNoLeidas = async function(usuarioId) {
+notificacionSchema.statics.contarNoLeidas = async function (usuarioId) {
   return this.countDocuments({ usuarioId, leido: false });
 };
 

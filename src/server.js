@@ -28,6 +28,7 @@ import foroRoutes from './routes/foroRoutes.js';
 import mensajeForoRoutes from './routes/mensajeForoRoutes.js';
 import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
+import buzonRoutes from './routes/buzonRoutes.js';
 
 
 // ─── Config inicial ─────────────────────
@@ -200,6 +201,7 @@ app.use('/api/foros', foroRoutes);
 app.use('/api/mensajes-foro', mensajeForoRoutes);
 app.use('/api/instituciones', institucionRoutes);
 app.use('/api/perfiles', perfilFamiliarRoutes);
+app.use('/api/buzon', buzonRoutes);
 
 
 // ─── Health check ───────────────────────

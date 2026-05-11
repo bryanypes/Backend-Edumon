@@ -55,6 +55,7 @@ export const EVENTOS = {
   EVENTO_CREADO: 'evento.creado',
   USUARIO_BIENVENIDA: 'usuario.bienvenida',
   USUARIO_AGREGADO_CURSO: 'usuario.agregado_curso',
+  BUZON_MENSAJE_RECIBIDO: 'buzon.mensaje_recibido',
 };
 
 export default eventBus;
