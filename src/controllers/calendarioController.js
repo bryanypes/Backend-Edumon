@@ -285,14 +285,37 @@ function agruparPorFecha(items) {
   }, {});
 }
 
-// Obtener calendario general del docente (todos sus cursos)
-export const obtenerCalendarioDocente = async (req, res) => {
+// ─── Helpers de rol ──────────────────────────────────────────────────────────
+
+async function obtenerCursosDelUsuario(userId, rol, institucionId) {
+  switch (rol) {
+    case 'docente':
+      return Curso.find({ docenteId: userId }).select('_id nombre').lean();
+
+    case 'padre':
+      return Curso.find({
+        'participantes.usuarioId': userId
+      }).select('_id nombre').lean();
+
+    case 'administrador':
+      return Curso.find({ institucionId }).select('_id nombre').lean();
+
+    case 'superadmin':
+      return Curso.find({}).select('_id nombre').lean();
+
+    default:
+      return [];
+  }
+}
+
+// ─── Calendario general del usuario autenticado ───────────────────────────────
+
+export const obtenerCalendarioUsuario = async (req, res) => {
   try {
-    const docenteId = req.user._id; // viene del authMiddleware
+    const { userId, rol, institucionId } = req.user;
     const { mes, anio } = req.query;
 
-    // Obtener todos los cursos del docente
-    const cursos = await Curso.find({ docenteId }).select('_id nombre').lean();
+    const cursos = await obtenerCursosDelUsuario(userId, rol, institucionId);
 
     if (!cursos.length) {
       return res.status(200).json({
@@ -306,7 +329,6 @@ export const obtenerCalendarioDocente = async (req, res) => {
     const cursosIds = cursos.map(c => c._id);
     const cursoMap = Object.fromEntries(cursos.map(c => [c._id.toString(), c.nombre]));
 
-    // Filtro de fechas opcional
     let filtroFechas = {};
     if (mes && anio) {
       const inicioMes = new Date(anio, mes - 1, 1);
@@ -314,24 +336,24 @@ export const obtenerCalendarioDocente = async (req, res) => {
       filtroFechas = { $gte: inicioMes, $lte: finMes };
     }
 
-    // Tareas de todos los cursos
-    const tareas = await Tarea.find({
-      cursoId: { $in: cursosIds },
-      ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
-    })
-      .populate('moduloId', 'titulo')
-      .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega cursoId')
-      .sort({ fechaEntrega: 1 })
-      .lean();
+    const [tareas, eventos] = await Promise.all([
+      Tarea.find({
+        cursoId: { $in: cursosIds },
+        ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
+      })
+        .populate('moduloId', 'titulo')
+        .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega cursoId')
+        .sort({ fechaEntrega: 1 })
+        .lean(),
 
-    // Eventos de todos los cursos
-    const eventos = await Evento.find({
-      cursosIds: { $in: cursosIds },
-      ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
-    })
-      .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado cursosIds')
-      .sort({ fechaInicio: 1 })
-      .lean();
+      Evento.find({
+        cursosIds: { $in: cursosIds },
+        ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
+      })
+        .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado cursosIds')
+        .sort({ fechaInicio: 1 })
+        .lean()
+    ]);
 
     const tareasCalendario = tareas.map(tarea => ({
       id: tarea._id,
@@ -363,7 +385,6 @@ export const obtenerCalendarioDocente = async (req, res) => {
       ubicacion: evento.ubicacion,
       categoria: evento.categoria,
       estado: evento.estado,
-      // Un evento puede pertenecer a múltiples cursos — exponemos cuáles
       cursosIds: evento.cursosIds,
       cursosNombres: evento.cursosIds
         .map(id => cursoMap[id.toString()])
@@ -375,64 +396,74 @@ export const obtenerCalendarioDocente = async (req, res) => {
     const itemsCalendario = [...tareasCalendario, ...eventosCalendario]
       .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
+    const ahora = new Date();
+
     res.status(200).json({
       success: true,
-      docente: { id: docenteId },
+      usuario: { id: userId, rol },
       totalCursos: cursos.length,
-      cursos: cursos, // útil para que el frontend pueda filtrar por curso en cliente
+      cursos,
       items: itemsCalendario,
       itemsAgrupados: agruparPorFecha(itemsCalendario),
       estadisticas: {
         totalTareas: tareasCalendario.length,
         totalEventos: eventosCalendario.length,
         tareasVencidas: tareasCalendario.filter(t =>
-          t.estado === 'publicada' && new Date(t.fecha) < new Date()
+          t.estado === 'publicada' && new Date(t.fecha) < ahora
         ).length,
         eventosProximos: eventosCalendario.filter(e =>
-          e.estado === 'programado' && new Date(e.fechaInicio) > new Date()
+          e.estado === 'programado' && new Date(e.fechaInicio) > ahora
         ).length
       }
     });
 
   } catch (error) {
-    console.error('Error al obtener calendario del docente:', error);
+    console.error('Error al obtener calendario:', error);
     res.status(500).json({
-      error: 'Error al obtener el calendario del docente',
+      error: 'Error al obtener el calendario',
       details: error.message
     });
   }
 };
 
-// Próximos eventos del docente (todos sus cursos)
-export const obtenerProximosEventosDocente = async (req, res) => {
+// ─── Próximos eventos del usuario autenticado ────────────────────────────────
+
+export const obtenerProximosEventosUsuario = async (req, res) => {
   try {
-    const docenteId = req.user._id;
+    const { userId, rol, institucionId } = req.user;
     const { limite = 10 } = req.query;
 
-    const cursos = await Curso.find({ docenteId }).select('_id nombre').lean();
+    const cursos = await obtenerCursosDelUsuario(userId, rol, institucionId);
+
+    if (!cursos.length) {
+      return res.status(200).json({ success: true, proximosEventos: [] });
+    }
+
     const cursosIds = cursos.map(c => c._id);
     const cursoMap = Object.fromEntries(cursos.map(c => [c._id.toString(), c.nombre]));
-
     const ahora = new Date();
+    const limiteInt = parseInt(limite);
 
-    const tareas = await Tarea.find({
-      cursoId: { $in: cursosIds },
-      fechaEntrega: { $gte: ahora },
-      estado: 'publicada'
-    })
-      .populate('moduloId', 'titulo')
-      .sort({ fechaEntrega: 1 })
-      .limit(parseInt(limite))
-      .lean();
+    const [tareas, eventos] = await Promise.all([
+      Tarea.find({
+        cursoId: { $in: cursosIds },
+        fechaEntrega: { $gte: ahora },
+        estado: 'publicada'
+      })
+        .populate('moduloId', 'titulo')
+        .sort({ fechaEntrega: 1 })
+        .limit(limiteInt)
+        .lean(),
 
-    const eventos = await Evento.find({
-      cursosIds: { $in: cursosIds },
-      fechaInicio: { $gte: ahora },
-      estado: { $in: ['programado', 'en_curso'] }
-    })
-      .sort({ fechaInicio: 1 })
-      .limit(parseInt(limite))
-      .lean();
+      Evento.find({
+        cursosIds: { $in: cursosIds },
+        fechaInicio: { $gte: ahora },
+        estado: { $in: ['programado', 'en_curso'] }
+      })
+        .sort({ fechaInicio: 1 })
+        .limit(limiteInt)
+        .lean()
+    ]);
 
     const proximosEventos = [
       ...tareas.map(t => ({
@@ -455,14 +486,14 @@ export const obtenerProximosEventosDocente = async (req, res) => {
       }))
     ]
       .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-      .slice(0, parseInt(limite));
+      .slice(0, limiteInt);
 
     res.status(200).json({ success: true, proximosEventos });
 
   } catch (error) {
-    console.error('Error al obtener próximos eventos del docente:', error);
+    console.error('Error al obtener próximos eventos:', error);
     res.status(500).json({
-      error: 'Error al obtener próximos eventos del docente',
+      error: 'Error al obtener próximos eventos',
       details: error.message
     });
   }

@@ -48,7 +48,8 @@ export const createUserValidator = [
     .withMessage('El rol debe ser: padre, docente, administrador o superadmin'),
 
   body('telefono')
-    .optional()
+    .notEmpty()
+    .withMessage('El teléfono es requerido')
     .trim()
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),

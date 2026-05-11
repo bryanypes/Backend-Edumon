@@ -128,7 +128,25 @@ export const registrarObservers = () => {
     });
   });
 
+  // Observer: Buzón — notificar al superadmin por FCM y correo
+  eventBus.suscribir(EVENTOS.BUZON_MENSAJE_RECIBIDO, async ({ destinatario, mensaje }) => {
+    await notificador.notificar(destinatario._id, {
+      tipo: 'sistema',
+      mensaje: `Nuevo mensaje de ${mensaje.nombre} (${mensaje.telefono} | ${mensaje.correo}): "${mensaje.mensaje.substring(0, 100)}${mensaje.mensaje.length > 100 ? '...' : ''}"`,
+      prioridad: 'critica',
+      referenciaId: mensaje._id,
+      referenciaModelo: 'Buzon',
+      metadata: {
+        nombre: mensaje.nombre,
+        correo: mensaje.correo,
+        telefono: mensaje.telefono,
+        mensajeCompleto: mensaje.mensaje
+      }
+    });
+  });
+
   console.log('[Observer] Todos los observers registrados');
+
 };
 
 // Función auxiliar compartida

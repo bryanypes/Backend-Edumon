@@ -3,8 +3,8 @@ import {
   obtenerCalendarioCurso,
   obtenerEventosDia,
   obtenerProximosEventos,
-  obtenerCalendarioDocente,        // nuevo
-  obtenerProximosEventosDocente    // nuevo
+  obtenerCalendarioUsuario,        // nuevo
+  obtenerProximosEventosUsuario    // nuevo
 } from '../controllers/calendarioController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 
@@ -12,9 +12,9 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// ─── Rutas del docente (sin cursoId) ──────────────────
-router.get('/docente/todos', obtenerCalendarioDocente);
-router.get('/docente/proximos', obtenerProximosEventosDocente);
+// calendarioRoutes.js — reemplaza las rutas de docente
+router.get('/calendario', authMiddleware, obtenerCalendarioUsuario);
+router.get('/calendario/proximos', authMiddleware, obtenerProximosEventosUsuario);
 
 // ─── Rutas por curso (existentes) ────────────────────
 router.get('/:cursoId', obtenerCalendarioCurso);

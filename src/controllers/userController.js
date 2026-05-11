@@ -46,13 +46,11 @@ export const createUser = async (req, res) => {
     }
 
     // Verificar teléfono duplicado
-    if (telefono) {
-      const existingTelefono = await User.findOne({ telefono });
-      if (existingTelefono) {
-        return res.status(409).json({
-          message: "Ya existe un usuario con este teléfono"
-        });
-      }
+    const existingTelefono = await User.findOne({ telefono });
+    if (existingTelefono) {
+      return res.status(409).json({
+        message: "Ya existe un usuario con este teléfono"
+      });
     }
 
     // institucionId: solo aplica para docente y administrador
