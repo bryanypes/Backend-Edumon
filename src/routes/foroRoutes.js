@@ -6,7 +6,8 @@ import {
   obtenerForoPorId,
   actualizarForo,
   eliminarForo,
-  cambiarEstadoForo
+  cambiarEstadoForo,
+   getDashboardForo   
 } from '../controllers/foroController.js';
 import {
   crearForoValidator,
@@ -71,6 +72,14 @@ router.post(
   crearForoValidator,
   handleValidationErrors,
   crearForo
+);
+
+router.get(
+  '/:id/dashboard',
+  authMiddleware,
+  obtenerForoPorIdValidator,   // reutiliza el mismo validator de ID
+  handleValidationErrors,
+  getDashboardForo
 );
 
 // Obtener foros por curso
