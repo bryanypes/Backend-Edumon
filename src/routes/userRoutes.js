@@ -8,7 +8,8 @@ import {
   deleteUser,
   getFotosPredeterminadas,
   updateFotoPerfil,
-  updateFcmToken
+  updateFcmToken,
+    getUltimasSesiones          
 } from '../controllers/userController.js';
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { uploadImagenCloudinary } from '../middlewares/cloudinaryMiddleware.js';
@@ -32,6 +33,7 @@ router.put('/me/foto-perfil',
 );
 
 router.get('/fotos-predeterminadas', authMiddleware, getFotosPredeterminadas);
+router.get('/sesiones/ultimas', authMiddleware, getUltimasSesiones);
 
 router.get('/:id', authMiddleware, userIdValidator, getUserById);
 router.put('/:id', authMiddleware, updateUserValidator, updateUser);
