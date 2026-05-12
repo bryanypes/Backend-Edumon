@@ -8,10 +8,14 @@ import { enviarCorreoRecuperacion } from '../services/mailService.js';
 // URL del avatar predeterminado (avatar1)
 const AVATAR_PREDETERMINADO = 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp';
 
-// Generar JWT
-const generateToken = (userId) => {
+// Generar JWT — incluye rol y primerInicioSesion para que el frontend pueda redirigir sin fetch extra
+const generateToken = (user) => {
   return jwt.sign(
-    { userId },
+    {
+      userId: user._id,
+      rol: user.rol,
+      primerInicioSesion: user.primerInicioSesion ?? false,
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
   );
@@ -48,9 +52,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // institucionId: solo aplica para docente y administrador.
-    // El registro público actual permite padre, docente y administrador (ver authValidator).
-    // padre no requiere institución aunque la envíe — se ignora.
     let institucionFinal = null;
     if (rol === 'docente' || rol === 'administrador') {
       institucionFinal = institucionId || null;
@@ -66,11 +67,11 @@ export const register = async (req, res) => {
       telefono,
       institucionId: institucionFinal,
       fechaRegistro: new Date(),
-      fotoPerfilUrl: AVATAR_PREDETERMINADO   // siempre avatar1 al registrar
+      fotoPerfilUrl: AVATAR_PREDETERMINADO
     });
 
     const savedUser = await newUser.save();
-    const token = generateToken(savedUser._id);
+    const token = generateToken(savedUser);
 
     eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, savedUser);
 
@@ -87,7 +88,8 @@ export const register = async (req, res) => {
         telefono: savedUser.telefono,
         estado: savedUser.estado,
         institucionId: savedUser.institucionId,
-        fotoPerfilUrl: savedUser.fotoPerfilUrl
+        fotoPerfilUrl: savedUser.fotoPerfilUrl,
+        primerInicioSesion: savedUser.primerInicioSesion
       }
     });
 
@@ -131,20 +133,19 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
+    // Capturar ANTES de mutar — es lo que el frontend necesita para redirigir
     const esPrimerInicio = user.primerInicioSesion;
 
     user.ultimoAcceso = new Date();
-    if (user.primerInicioSesion) {
-      user.primerInicioSesion = false;
-    }
-
     await user.save();
 
-    const token = generateToken(user._id);
+    // JWT incluye primerInicioSesion para que el frontend no necesite un fetch extra
+    const token = generateToken(user);
 
     res.json({
       message: "Login exitoso",
       token,
+      primerInicioSesion: esPrimerInicio,   // ← explícito en respuesta también
       user: {
         id: user._id,
         nombre: user.nombre,
@@ -156,9 +157,9 @@ export const login = async (req, res) => {
         estado: user.estado,
         ultimoAcceso: user.ultimoAcceso,
         institucionId: user.institucionId,
-        fotoPerfilUrl: user.fotoPerfilUrl
-      },
-      primerInicioSesion: esPrimerInicio
+        fotoPerfilUrl: user.fotoPerfilUrl,
+        primerInicioSesion: esPrimerInicio, // ← también dentro de user para consistencia
+      }
     });
 
   } catch (error) {
@@ -190,7 +191,8 @@ export const getProfile = async (req, res) => {
         ultimoAcceso: user.ultimoAcceso,
         fotoPerfilUrl: user.fotoPerfilUrl,
         preferencias: user.preferencias,
-        institucionId: user.institucionId
+        institucionId: user.institucionId,
+        primerInicioSesion: user.primerInicioSesion
       }
     });
 
@@ -201,6 +203,7 @@ export const getProfile = async (req, res) => {
 };
 
 // Cambiar contraseña (usuario autenticado sobre su propia cuenta)
+// ← También marca primerInicioSesion: false — es el último paso del onboarding
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -225,6 +228,7 @@ export const changePassword = async (req, res) => {
     }
 
     user.contraseña = contraseñaNueva;
+    user.primerInicioSesion = false;  // ← marca onboarding completo
     await user.save();
 
     res.json({ message: "Contraseña cambiada exitosamente" });

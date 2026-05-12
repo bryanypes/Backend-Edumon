@@ -11,7 +11,6 @@ const userSchema = new mongoose.Schema(
       unique: true,
       validate: {
         validator: function (v) {
-          // Validación para cédula colombiana (solo números, entre 6-10 dígitos)
           return /^\d{6,10}$/.test(v);
         },
         message: "La cédula debe contener entre 6 y 10 dígitos numéricos",
@@ -19,11 +18,13 @@ const userSchema = new mongoose.Schema(
     },
     correo: {
       type: String,
-      required: true,
+      required: false,   // ← padre puede registrarse sin correo
+      sparse: true,      // ← permite múltiples null sin violar unique
       unique: true,
       lowercase: true,
       validate: {
         validator: function (v) {
+          if (!v) return true; // sin correo → válido
           return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(v);
         },
         message: "El correo electrónico no es válido",
@@ -47,7 +48,7 @@ const userSchema = new mongoose.Schema(
     ultimoAcceso: { type: Date },
     primerInicioSesion: {
       type: Boolean,
-      default: true,
+      default: true,  // true al crearse, false después de completar onboarding
     },
     estado: {
       type: String,
@@ -75,9 +76,8 @@ const userSchema = new mongoose.Schema(
     },
     esTitular: {
       type: Boolean,
-      default: true // todos los User son titulares por definición
+      default: true,
     },
-    // Agregar después de familiaId:
     institucionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Institucion",

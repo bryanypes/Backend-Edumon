@@ -37,12 +37,14 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Verificar correo duplicado
-    const existingUser = await User.findOne({ correo });
-    if (existingUser) {
-      return res.status(409).json({
-        message: "Ya existe un usuario con este correo electrónico"
-      });
+    // Verificar correo duplicado — solo si viene correo (padre puede no tenerlo)
+    if (correo) {
+      const existingUser = await User.findOne({ correo });
+      if (existingUser) {
+        return res.status(409).json({
+          message: "Ya existe un usuario con este correo electrónico"
+        });
+      }
     }
 
     // Verificar teléfono duplicado
@@ -68,7 +70,7 @@ export const createUser = async (req, res) => {
       rol,
       telefono,
       institucionId: institucionFinal,
-      fotoPerfilUrl: AVATAR_PREDETERMINADO   // siempre avatar1 al crear
+      fotoPerfilUrl: AVATAR_PREDETERMINADO
     });
 
     const savedUser = await newUser.save();
@@ -326,13 +328,9 @@ export const updateFotoPerfil = async (req, res) => {
 
     let nuevaFotoUrl = null;
 
-    // Caso 1: Usuario seleccionó una foto predeterminada
     if (fotoPredeterminadaUrl) {
       nuevaFotoUrl = fotoPredeterminadaUrl;
-    }
-    // Caso 2: Usuario subió una foto nueva
-    else if (req.file) {
-      // Eliminar foto anterior si no es predeterminada
+    } else if (req.file) {
       if (user.fotoPerfilUrl && !user.fotoPerfilUrl.includes('fotos-perfil-predeterminadas')) {
         const publicIdAnterior = user.fotoPerfilUrl.split('/').slice(-2).join('/').split('.')[0];
         await eliminarArchivoCloudinary(publicIdAnterior, 'image');
@@ -410,21 +408,17 @@ export const updateFcmToken = async (req, res) => {
 };
 
 // Obtener últimas sesiones
-// - Usuario normal/docente/padre/admin: solo la suya
-// - Superadmin: todos los usuarios paginados
 export const getUltimasSesiones = async (req, res) => {
   try {
     const { userId, rol } = req.user;
 
     if (rol !== 'superadmin') {
-      // Solo su propia sesión
       const user = await User.findById(userId).select('nombre apellido correo rol ultimoAcceso');
       if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
       return res.json({ ultimoAcceso: user.ultimoAcceso });
     }
 
-    // Superadmin: todos los usuarios paginados
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const skip = (page - 1) * limit;
