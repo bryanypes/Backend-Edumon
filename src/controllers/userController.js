@@ -408,3 +408,55 @@ export const updateFcmToken = async (req, res) => {
     });
   }
 };
+
+// Obtener últimas sesiones
+// - Usuario normal/docente/padre/admin: solo la suya
+// - Superadmin: todos los usuarios paginados
+export const getUltimasSesiones = async (req, res) => {
+  try {
+    const { userId, rol } = req.user;
+
+    if (rol !== 'superadmin') {
+      // Solo su propia sesión
+      const user = await User.findById(userId).select('nombre apellido correo rol ultimoAcceso');
+      if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+      return res.json({ ultimoAcceso: user.ultimoAcceso });
+    }
+
+    // Superadmin: todos los usuarios paginados
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const users = await User.find({})
+      .select('nombre apellido correo rol ultimoAcceso estado')
+      .sort({ ultimoAcceso: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments();
+
+    return res.json({
+      sesiones: users.map(u => ({
+        userId: u._id,
+        nombre: `${u.nombre} ${u.apellido}`,
+        correo: u.correo,
+        rol: u.rol,
+        estado: u.estado,
+        ultimoAcceso: u.ultimoAcceso ?? null
+      })),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalUsuarios: total,
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener últimas sesiones:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
