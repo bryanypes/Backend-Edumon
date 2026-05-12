@@ -388,3 +388,143 @@ export const cambiarEstadoForo = async (req, res) => {
     res.status(500).json({ message: 'Error al cambiar el estado', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
+
+// GET /foros/:id/dashboard
+// Devuelve foro + mensajes recientes + participantes activos + estadísticas + actividad
+// NO reemplaza las APIs separadas — solo optimiza UX con un solo fetch
+export const getDashboardForo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuarioId = req.user.userId;
+
+    // ── 1. Verificar que el foro existe y el usuario tiene acceso ──────────────
+    const foro = await Foro.findById(id)
+      .populate('docenteId', 'nombre apellido fotoPerfilUrl rol')
+      .populate('cursoId', 'nombre')
+      .populate('totalMensajes');
+
+    if (!foro) {
+      return res.status(404).json({ message: 'Foro no encontrado' });
+    }
+
+    const tieneAcceso = await foro.tieneAcceso(usuarioId);
+    const user = await User.findById(usuarioId);
+
+    if (!tieneAcceso && user.rol !== 'administrador') {
+      return res.status(403).json({ message: 'No tienes acceso a este foro' });
+    }
+
+    // ── 2. Lanzar todas las queries en paralelo ────────────────────────────────
+    const [mensajesRecientes, todosLosMensajes] = await Promise.all([
+      // Últimos 10 mensajes raíz (sin respuestas) con autor
+      MensajeForo.find({ foroId: id, respuestaA: null })
+        .sort({ fechaCreacion: -1 })
+        .limit(10)
+        .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
+        .lean(),
+
+      // Todos los mensajes para calcular estadísticas y actividad
+      MensajeForo.find({ foroId: id }).lean()
+    ]);
+
+    // ── 3. Participantes activos ───────────────────────────────────────────────
+    // Usuarios únicos que han publicado al menos un mensaje
+    const mapaParticipantes = new Map();
+
+    for (const msg of todosLosMensajes) {
+      const uid = msg.usuarioId.toString();
+      if (!mapaParticipantes.has(uid)) {
+        mapaParticipantes.set(uid, {
+          usuarioId: uid,
+          totalMensajes: 0,
+          ultimaActividad: msg.fechaCreacion
+        });
+      }
+      const p = mapaParticipantes.get(uid);
+      p.totalMensajes += 1;
+      if (msg.fechaCreacion > p.ultimaActividad) {
+        p.ultimaActividad = msg.fechaCreacion;
+      }
+    }
+
+    // Poblar datos de usuario para los participantes
+    const idsParticipantes = [...mapaParticipantes.keys()].map(
+      id => new mongoose.Types.ObjectId(id)
+    );
+
+    const usuariosParticipantes = await User.find(
+      { _id: { $in: idsParticipantes } },
+      'nombre apellido fotoPerfilUrl rol'
+    ).lean();
+
+    const participantesActivos = usuariosParticipantes
+      .map(u => ({
+        ...u,
+        totalMensajes: mapaParticipantes.get(u._id.toString()).totalMensajes,
+        ultimaActividad: mapaParticipantes.get(u._id.toString()).ultimaActividad
+      }))
+      .sort((a, b) => b.totalMensajes - a.totalMensajes)
+      .slice(0, 10); // Top 10
+
+    // ── 4. Estadísticas ───────────────────────────────────────────────────────
+    const totalMensajes = todosLosMensajes.length;
+    const totalRespuestas = todosLosMensajes.filter(m => m.respuestaA !== null).length;
+    const totalRaiz = totalMensajes - totalRespuestas;
+    const totalLikes = todosLosMensajes.reduce((sum, m) => sum + (m.likes || 0), 0);
+
+    const estadisticas = {
+      totalMensajes,
+      totalMensajesRaiz: totalRaiz,
+      totalRespuestas,
+      totalParticipantes: mapaParticipantes.size,
+      totalLikes,
+      promedioRespuestasPorMensaje: totalRaiz > 0
+        ? parseFloat((totalRespuestas / totalRaiz).toFixed(2))
+        : 0
+    };
+
+    // ── 5. Actividad por día (últimos 7 días) ─────────────────────────────────
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hace7Dias.getDate() - 6);
+    hace7Dias.setHours(0, 0, 0, 0);
+
+    const mapaActividad = {};
+    for (let i = 0; i < 7; i++) {
+      const fecha = new Date(hace7Dias);
+      fecha.setDate(hace7Dias.getDate() + i);
+      const key = fecha.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+      mapaActividad[key] = 0;
+    }
+
+    for (const msg of todosLosMensajes) {
+      const fechaMsg = new Date(msg.fechaCreacion);
+      if (fechaMsg >= hace7Dias) {
+        const key = fechaMsg.toISOString().split('T')[0];
+        if (mapaActividad[key] !== undefined) {
+          mapaActividad[key] += 1;
+        }
+      }
+    }
+
+    const actividad = Object.entries(mapaActividad).map(([fecha, mensajes]) => ({
+      fecha,
+      mensajes
+    }));
+
+    // ── 6. Respuesta ──────────────────────────────────────────────────────────
+    res.status(200).json({
+      foro,
+      mensajesRecientes,
+      participantesActivos,
+      estadisticas,
+      actividad
+    });
+
+  } catch (error) {
+    console.error('Error al obtener dashboard del foro:', error);
+    res.status(500).json({
+      message: 'Error al obtener el dashboard del foro',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
