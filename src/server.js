@@ -3,7 +3,6 @@ import http from 'http';
 import { Server } from 'socket.io';
 
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import timeout from 'connect-timeout';
@@ -14,7 +13,6 @@ import { setupSocketIO } from './socket/socketHandlers.js';
 import { iniciarSchedulerTareas } from './schedulers/tareaScheduler.js';
 import { registrarObservers } from './events/NotificacionObservers.js';
 
-// ─── Rutas ─────────────────────────────
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import cursoRoutes from './routes/cursoRoutes.js';
@@ -30,10 +28,6 @@ import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
 import buzonRoutes from './routes/buzonRoutes.js';
 
-
-// ─── Config inicial ─────────────────────
-dotenv.config();
-
 const app = express();
 const server = http.createServer(app);
 const isDev = process.env.NODE_ENV === 'development';
@@ -43,19 +37,17 @@ app.set('trust proxy', 1);
 app.use(timeout('30s'));
 app.use(compression());
 
-
 // ─── Orígenes permitidos ─────────────────
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'http://localhost:5174',  // ← agregar esto
+  'http://localhost:5174',
   'http://localhost:4000',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',  // ← y esto
+  'http://127.0.0.1:5174',
   process.env.FRONTEND_URL
 ].filter(Boolean);
-
 
 // ─── Seguridad ───────────────────────────
 app.use(
@@ -69,15 +61,11 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", "data:", "res.cloudinary.com"],
         connectSrc: [
           "'self'",
-          'http://localhost:3000',
-          'http://localhost:5173',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:5173',
-          process.env.FRONTEND_URL
-        ].filter(Boolean),
+          ...allowedOrigins
+        ],
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
         objectSrc: ["'none'"],
@@ -87,29 +75,20 @@ app.use(
   })
 );
 
-
-// Permissions policy
 app.use((req, res, next) => {
-  res.setHeader(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=()"
-  );
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   next();
 });
 
-
-// Cache control
 app.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
 });
 
-
-// Sanitización
+// ─── Sanitización ────────────────────────
 app.use((req, res, next) => {
   const sanitize = (obj) => {
     if (!obj || typeof obj !== 'object') return;
-
     Object.keys(obj).forEach(key => {
       if (key.startsWith('$') || key.includes('.')) {
         delete obj[key];
@@ -133,7 +112,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // ─── Rate limit ──────────────────────────
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -150,44 +128,38 @@ const limiterAuth = rateLimit({
 app.use('/api/auth/login', limiterAuth);
 app.use('/api/auth/register', limiterAuth);
 
-
 // ─── CORS ────────────────────────────────
 app.use(cors({
   origin: isDev ? '*' : allowedOrigins,
-  credentials: !isDev,  // credentials es incompatible con origin: '*'
+  credentials: !isDev,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-
 // ─── Body parsers ────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 
 // ─── Socket.IO ───────────────────────────
 const io = new Server(server, {
   cors: {
     origin: isDev ? '*' : allowedOrigins,
     methods: ['GET', 'POST'],
-    credentials: !isDev  // credentials es incompatible con origin: '*'
+    credentials: !isDev
   },
   pingTimeout: 60000,
   pingInterval: 25000
 });
 
 global.io = io;
-
 setupSocketIO(io);
 registrarObservers();
 
-
-// ─── Base de datos + scheduler ──────────
+// ─── Base de datos + scheduler ───────────
 connectDB();
 iniciarSchedulerTareas();
 
-
-// ─── Rutas ──────────────────────────────
+// ─── Rutas ───────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cursos', cursoRoutes);
@@ -203,8 +175,7 @@ app.use('/api/instituciones', institucionRoutes);
 app.use('/api/perfiles', perfilFamiliarRoutes);
 app.use('/api/buzon', buzonRoutes);
 
-
-// ─── Health check ───────────────────────
+// ─── Health check ────────────────────────
 app.get('/', (req, res) => {
   res.json({
     message: 'API funcionando correctamente',
@@ -213,27 +184,21 @@ app.get('/', (req, res) => {
   });
 });
 
-
-// ─── 404 handler ────────────────────────
+// ─── 404 ─────────────────────────────────
 app.use((req, res) => {
-  res.status(404).json({
-    message: 'Ruta no encontrada'
-  });
+  res.status(404).json({ message: 'Ruta no encontrada' });
 });
 
-
-// ─── Error handler ──────────────────────
+// ─── Error handler ───────────────────────
 app.use((err, req, res, next) => {
   console.error(err.stack);
-
   res.status(err.status || 500).json({
     message: err.message || 'Error interno del servidor',
     error: isDev ? err : {}
   });
 });
 
-
-// ─── Start ──────────────────────────────
+// ─── Start ───────────────────────────────
 const PORT = process.env.PORT || 4000;
 
 server.listen(PORT, () => {
