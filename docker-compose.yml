@@ -1,0 +1,9 @@
+services:
+  backend:
+    build: .
+    container_name: edumon-backend
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
