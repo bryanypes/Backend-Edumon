@@ -1,10 +1,10 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import timeout from 'connect-timeout';
 import compression from 'compression';
 
@@ -28,16 +28,17 @@ import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
 import buzonRoutes from './routes/buzonRoutes.js';
 
-const app = express();
+const app    = express();
 const server = http.createServer(app);
-const isDev = process.env.NODE_ENV === 'development';
+const isDev  = process.env.NODE_ENV === 'development';
+
 app.set('trust proxy', 1);
 
-// ─── Middlewares tempranos ──────────────
+// ─── Middlewares tempranos ────────────────────────────────────────────────────
 app.use(timeout('30s'));
 app.use(compression());
 
-// ─── Orígenes permitidos ─────────────────
+// ─── Orígenes permitidos ──────────────────────────────────────────────────────
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -46,50 +47,49 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-// ─── Seguridad ───────────────────────────
+// ─── Seguridad (Helmet) ───────────────────────────────────────────────────────
 app.use(
   helmet({
     hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true
+      maxAge:            31536000,
+      includeSubDomains: true,
     },
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "res.cloudinary.com"],
-        connectSrc: [
-          "'self'",
-          ...allowedOrigins
-        ],
+        defaultSrc:     ["'self'"],
+        scriptSrc:      ["'self'"],                          // eliminado unsafe-inline
+        styleSrc:       ["'self'", "'unsafe-inline'"],
+        imgSrc:         ["'self'", 'data:', 'res.cloudinary.com'],
+        connectSrc:     ["'self'", ...allowedOrigins],
         frameAncestors: ["'none'"],
-        formAction: ["'self'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"]
-      }
-    }
-  })
+        formAction:     ["'self'"],
+        objectSrc:      ["'none'"],
+        baseUri:        ["'self'"],
+        upgradeInsecureRequests: isDev ? null : [],
+      },
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  }),
 );
 
 app.use((req, res, next) => {
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
 
 app.use((req, res, next) => {
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
-// ─── Sanitización ────────────────────────
+// ─── Sanitización NoSQL ───────────────────────────────────────────────────────
 app.use((req, res, next) => {
   const sanitize = (obj) => {
     if (!obj || typeof obj !== 'object') return;
-    Object.keys(obj).forEach(key => {
+    Object.keys(obj).forEach((key) => {
       if (key.startsWith('$') || key.includes('.')) {
         delete obj[key];
       } else if (typeof obj[key] === 'object') {
@@ -102,7 +102,7 @@ app.use((req, res, next) => {
   sanitize(req.params);
 
   if (req.query) {
-    Object.keys(req.query).forEach(key => {
+    Object.keys(req.query).forEach((key) => {
       if (typeof req.query[key] === 'string') {
         req.query[key] = req.query[key].replace(/\$|\{|\}/g, '_');
       }
@@ -112,100 +112,132 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── Rate limit ──────────────────────────
-app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { message: 'Demasiadas solicitudes, intenta más tarde' }
-}));
+// ─── Rate limit global ────────────────────────────────────────────────────────
+// Respuesta estructurada + header Retry-After estándar
+const makeRateLimitHandler = (mensaje) =>
+  rateLimit({
+    windowMs:         15 * 60 * 1000,
+    max:              100,
+    standardHeaders:  true,   // emite RateLimit-* headers (RFC 6585)
+    legacyHeaders:    false,
+    skipFailedRequests: false,
+    handler: (req, res) => {
+      const retryAfter = Math.ceil(
+        (req.rateLimit.resetTime - Date.now()) / 1000,
+      );
+      res.set('Retry-After', retryAfter);
+      res.status(429).json({
+        message:    mensaje,
+        retryAfter, // segundos hasta poder reintentar
+      });
+    },
+  });
 
+app.use('/api/', makeRateLimitHandler('Demasiadas solicitudes, intenta más tarde'));
+
+// Rate limit estricto para endpoints de autenticación
 const limiterAuth = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { message: 'Demasiados intentos de autenticación' }
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  handler: (req, res) => {
+    const retryAfter = Math.ceil(
+      (req.rateLimit.resetTime - Date.now()) / 1000,
+    );
+    res.set('Retry-After', retryAfter);
+    res.status(429).json({
+      message:    'Demasiados intentos de autenticación',
+      retryAfter,
+    });
+  },
 });
 
-app.use('/api/auth/login', limiterAuth);
+app.use('/api/auth/login',    limiterAuth);
 app.use('/api/auth/register', limiterAuth);
 
-// ─── CORS ────────────────────────────────
-app.use(cors({
-  origin: isDev ? '*' : allowedOrigins,
-  credentials: !isDev,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+app.use(
+  cors({
+    origin:           isDev ? true : allowedOrigins,
+    credentials:      true,  // siempre true: necesario para que el browser envíe cookies
+    methods:          ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders:   ['Content-Type', 'Authorization'],
+  }),
+);
 
-// ─── Body parsers ────────────────────────
+// ─── Body parsers + Cookie parser ────────────────────────────────────────────
+// cookie-parser DEBE ir antes de las rutas para que req.cookies esté disponible
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ─── Socket.IO ───────────────────────────
+// ─── Socket.IO ────────────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin: isDev ? '*' : allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: !isDev
+    origin:      isDev ? true : allowedOrigins,
+    methods:     ['GET', 'POST'],
+    credentials: true,
   },
-  pingTimeout: 60000,
-  pingInterval: 25000
+  pingTimeout:  60000,
+  pingInterval: 25000,
 });
 
 global.io = io;
 setupSocketIO(io);
 registrarObservers();
 
-// ─── Base de datos + scheduler ───────────
+// ─── Base de datos + scheduler ────────────────────────────────────────────────
 connectDB();
 iniciarSchedulerTareas();
 
-// ─── Rutas ───────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/cursos', cursoRoutes);
-app.use('/api/modulos', moduloRoutes);
-app.use('/api/tareas', tareaRoutes);
-app.use('/api/entregas', entregaRoutes);
-app.use('/api/notificaciones', notificacionRoutes);
-app.use('/api/eventos', eventoRoutes);
-app.use('/api/calendario', calendarioRoutes);
-app.use('/api/foros', foroRoutes);
+// ─── Rutas ────────────────────────────────────────────────────────────────────
+app.use('/api/auth',          authRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/cursos',        cursoRoutes);
+app.use('/api/modulos',       moduloRoutes);
+app.use('/api/tareas',        tareaRoutes);
+app.use('/api/entregas',      entregaRoutes);
+app.use('/api/notificaciones',notificacionRoutes);
+app.use('/api/eventos',       eventoRoutes);
+app.use('/api/calendario',    calendarioRoutes);
+app.use('/api/foros',         foroRoutes);
 app.use('/api/mensajes-foro', mensajeForoRoutes);
 app.use('/api/instituciones', institucionRoutes);
-app.use('/api/perfiles', perfilFamiliarRoutes);
-app.use('/api/buzon', buzonRoutes);
+app.use('/api/perfiles',      perfilFamiliarRoutes);
+app.use('/api/buzon',         buzonRoutes);
 
-// ─── Health check ────────────────────────
+// ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
-    message: 'API funcionando correctamente',
+    message:   'API funcionando correctamente',
     websocket: 'Socket.IO habilitado',
-    entorno: process.env.NODE_ENV || 'development'
+    entorno:   process.env.NODE_ENV || 'development',
   });
 });
 
-// ─── 404 ─────────────────────────────────
+// ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: 'Ruta no encontrada' });
 });
 
-// ─── Error handler ───────────────────────
+// ─── Error handler global ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
     message: err.message || 'Error interno del servidor',
-    error: isDev ? err : {}
+    ...(isDev && { stack: err.stack }),
   });
 });
 
-// ─── Start ───────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
 
 server.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`WebSocket habilitado`);
-  if (isDev) console.log(`CORS: abierto para desarrollo (*)`);
+  console.log('WebSocket habilitado');
+  if (isDev) console.log('CORS: abierto para desarrollo');
 });
 
 export default app;
