@@ -4,27 +4,26 @@ export const createEntregaValidator = [
   body('tareaId')
     .notEmpty().withMessage('El ID de la tarea es obligatorio')
     .isMongoId().withMessage('El ID de la tarea no es válido'),
-  
+
   body('padreId')
     .notEmpty().withMessage('El ID del padre es obligatorio')
     .isMongoId().withMessage('El ID del padre no es válido')
     .custom((value, { req }) => {
-      // Validar que el padreId sea el mismo que el usuario autenticado
       if (req.user && value !== req.user.userId) {
         throw new Error('Solo puedes crear entregas para ti mismo');
       }
       return true;
     }),
-  
+
   body('archivos')
     .optional()
     .isArray().withMessage('Los archivos deben ser un array'),
-  
+
   body('textoRespuesta')
     .optional()
     .trim()
     .isLength({ max: 5000 }).withMessage('El texto de respuesta no puede exceder 5000 caracteres'),
-  
+
   body('estado')
     .optional()
     .isIn(["borrador", "enviada", "tarde"])
@@ -34,60 +33,55 @@ export const createEntregaValidator = [
 export const updateEntregaValidator = [
   param('id')
     .isMongoId().withMessage('El ID de la entrega no es válido'),
-  
+
   body('archivos')
     .optional()
     .isArray().withMessage('Los archivos deben ser un array'),
-  
+
   body('textoRespuesta')
     .optional()
     .trim()
     .isLength({ max: 5000 }).withMessage('El texto de respuesta no puede exceder 5000 caracteres'),
-  
+
   body('estado')
     .optional()
     .isIn(["borrador", "enviada", "tarde"])
     .withMessage('Estado no válido'),
-  
-  // No permitir cambiar padreId ni tareaId
+
   body('padreId')
     .custom((value) => {
-      if (value !== undefined) {
-        throw new Error('No puedes cambiar el padre de una entrega');
-      }
+      if (value !== undefined) throw new Error('No puedes cambiar el padre de una entrega');
       return true;
     }),
-  
+
   body('tareaId')
     .custom((value) => {
-      if (value !== undefined) {
-        throw new Error('No puedes cambiar la tarea de una entrega');
-      }
+      if (value !== undefined) throw new Error('No puedes cambiar la tarea de una entrega');
       return true;
     })
 ];
 
+// CORRECCIÓN CRÍTICA: docenteId ya NO viene del body.
+// Se extrae de req.user.userId en el controlador.
+// El body solo acepta valoracion (1-5) y comentario opcional.
 export const calificarEntregaValidator = [
   param('id')
     .isMongoId().withMessage('El ID de la entrega no es válido'),
-  
-  body('nota')
-    .notEmpty().withMessage('La nota es obligatoria')
-    .isNumeric().withMessage('La nota debe ser un número')
-    .isFloat({ min: 0, max: 100 }).withMessage('La nota debe estar entre 0 y 100'),
-  
+
+  body('valoracion')
+    .notEmpty().withMessage('La valoración es obligatoria')
+    .isInt({ min: 1, max: 5 }).withMessage('La valoración debe ser un entero entre 1 y 5'),
+
   body('comentario')
     .optional()
     .trim()
     .isLength({ max: 1000 }).withMessage('El comentario no puede exceder 1000 caracteres'),
-  
+
+  // Bloquear explícitamente docenteId en body — ya no se acepta
   body('docenteId')
-    .notEmpty().withMessage('El ID del docente es obligatorio')
-    .isMongoId().withMessage('El ID del docente no es válido')
-    .custom((value, { req }) => {
-      // Validar que el docenteId sea el mismo que el usuario autenticado
-      if (req.user && value !== req.user.userId) {
-        throw new Error('Solo puedes calificar con tu propio ID de docente');
+    .custom((value) => {
+      if (value !== undefined) {
+        throw new Error('docenteId no debe enviarse en el body. Se toma del token de sesión.');
       }
       return true;
     })

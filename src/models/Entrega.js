@@ -36,10 +36,15 @@ const entregaSchema = new mongoose.Schema({
     default: "borrador" 
   },
   calificacion: {
-    nota: { 
+    // valoracion: 1-5 estrellas — reemplaza "nota" (0-100)
+    valoracion: { 
       type: Number,
-      min: [0, 'La nota mínima es 0'],
-      max: [100, 'La nota máxima es 100']
+      min: [1, 'La valoración mínima es 1 estrella'],
+      max: [5, 'La valoración máxima es 5 estrellas'],
+      validate: {
+        validator: Number.isInteger,
+        message: 'La valoración debe ser un número entero'
+      }
     },
     comentario: { 
       type: String,
@@ -48,6 +53,14 @@ const entregaSchema = new mongoose.Schema({
     },
     fechaCalificacion: { 
       type: Date
+    },
+    fechaUltimaModificacion: {
+      type: Date
+    },
+    valoracionAnterior: {
+      type: Number,
+      min: 1,
+      max: 5
     },
     docenteId: { 
       type: mongoose.Schema.Types.ObjectId, 
@@ -60,13 +73,21 @@ const entregaSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índices para mejorar búsquedas
+// Índices
 entregaSchema.index({ tareaId: 1, padreId: 1 }, { unique: true });
 entregaSchema.index({ padreId: 1, estado: 1 });
+entregaSchema.index({ 'calificacion.valoracion': 1 });
 
-// Virtual para saber si está calificada
+// Virtual: ¿está valorada?
 entregaSchema.virtual('estaCalificada').get(function() {
-  return this.calificacion && this.calificacion.nota !== undefined;
+  return this.calificacion?.valoracion !== undefined && this.calificacion.valoracion !== null;
+});
+
+// Virtual: representación en estrellas
+entregaSchema.virtual('estrellas').get(function() {
+  if (!this.calificacion?.valoracion) return null;
+  const n = this.calificacion.valoracion;
+  return '⭐'.repeat(n) + '☆'.repeat(5 - n);
 });
 
 export default mongoose.model("Entrega", entregaSchema);

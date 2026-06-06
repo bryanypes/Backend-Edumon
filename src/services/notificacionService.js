@@ -11,14 +11,12 @@ dotenv.config({ path: './.env' });
 
 // ─────────────────────────────────────────────
 // INICIALIZACIÓN FIREBASE ADMIN
-// Solo inicializa una vez
 // ─────────────────────────────────────────────
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      // Las \n deben ser reales en la clave privada
       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
     })
   });
@@ -31,6 +29,21 @@ const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
+
+// ─────────────────────────────────────────────
+// POLÍTICA DE EMAIL POR ROL
+//
+// Docentes reciben email solo en eventos críticos para evitar saturación.
+// Tipos permitidos para docentes: 'entrega' (nueva entrega recibida), 'sistema'.
+// Padres/administradores reciben email en todos los tipos.
+// ─────────────────────────────────────────────
+const TIPOS_EMAIL_DOCENTE = new Set(['entrega', 'sistema']);
+
+function debeRecibirEmail(usuario, tipo) {
+  if (!usuario.correo) return false;
+  if (usuario.rol === 'docente') return TIPOS_EMAIL_DOCENTE.has(tipo);
+  return true; // padre, administrador, superadmin → todos los tipos
+}
 
 // ─────────────────────────────────────────────
 // CORE: Crear y enviar notificación a UN usuario
@@ -62,7 +75,7 @@ export const crearYEnviarNotificacion = async (datos) => {
     });
     await notificacion.save();
 
-    // WebSocket
+    // WebSocket — siempre
     try {
       await emitirNotificacion(notificacion);
       notificacion.canalEnviado.websocket = true;
@@ -70,7 +83,7 @@ export const crearYEnviarNotificacion = async (datos) => {
       console.error('[WS Error]', e.message);
     }
 
-    // FCM Push
+    // FCM Push — siempre si hay token
     if (usuario.fcmToken) {
       try {
         await enviarFCM(usuario.fcmToken, {
@@ -85,15 +98,14 @@ export const crearYEnviarNotificacion = async (datos) => {
         notificacion.canalEnviado.push = true;
       } catch (e) {
         console.error('[FCM Error]', e.message);
-        // Si el token expiró, limpiarlo
         if (e.code === 'messaging/registration-token-not-registered') {
           await User.findByIdAndUpdate(usuarioId, { fcmToken: null });
         }
       }
     }
 
-    // Email
-    if (usuario.correo) {
+    // Email — filtrado por rol y tipo
+    if (debeRecibirEmail(usuario, tipo)) {
       try {
         await enviarEmail(usuario, notificacion);
         notificacion.canalEnviado.email = true;
@@ -102,8 +114,8 @@ export const crearYEnviarNotificacion = async (datos) => {
       }
     }
 
-    // WhatsApp
-    if (usuario.telefono) {
+    // WhatsApp — solo padres (docentes no necesitan saturación por WhatsApp)
+    if (usuario.telefono && usuario.rol !== 'docente') {
       try {
         await enviarWhatsApp(usuario, notificacion);
         notificacion.canalEnviado.whatsapp = true;
@@ -123,28 +135,32 @@ export const crearYEnviarNotificacion = async (datos) => {
 
 // ─────────────────────────────────────────────
 // CORE: Notificar a TODA UNA FAMILIA
-// Este es el método central del bloque familiar
 // ─────────────────────────────────────────────
 export const notificarFamilia = async (usuarioId, datos) => {
   try {
-    // Buscar la familia del usuario
-    const familia = await FamiliaBloque.encontrarPorMiembro(usuarioId);
+    const PerfilFamiliar = (await import('../models/PerfilFamiliar.js')).default;
 
-    if (!familia) {
-      // Si no tiene familia, notificar solo al usuario
-      console.log(`[FAMILIA] Usuario ${usuarioId} sin bloque familiar, notificando solo a él`);
-      return await crearYEnviarNotificacion({ ...datos, usuarioId });
-    }
+    // Notificar al titular
+    await crearYEnviarNotificacion({ ...datos, usuarioId });
 
-    const miembros = familia.obtenerMiembrosActivos();
-    console.log(`[FAMILIA] Notificando a ${miembros.length} miembros del bloque "${familia.nombre}"`);
+    // Notificar push a perfiles adicionales activos
+    const perfiles = await PerfilFamiliar.find({
+      titularId: usuarioId,
+      activo: true,
+      fcmToken: { $ne: null }
+    });
 
-    const promesas = miembros.map(miembroId =>
-      crearYEnviarNotificacion({ ...datos, usuarioId: miembroId })
-        .catch(e => console.error(`[FAMILIA] Error notificando a ${miembroId}:`, e.message))
+    if (perfiles.length === 0) return;
+
+    await Promise.allSettled(
+      perfiles.map(perfil =>
+        enviarFCM(perfil.fcmToken, {
+          title: obtenerTitulo(datos.tipo),
+          body: datos.mensaje,
+          data: { tipo: datos.tipo }
+        }).catch(e => console.error(`[FAMILIA PERFIL] Error push perfil ${perfil._id}:`, e.message))
+      )
     );
-
-    await Promise.allSettled(promesas);
   } catch (error) {
     console.error('[notificarFamilia] ERROR:', error.message);
   }
@@ -170,10 +186,7 @@ export const enviarFCM = async (fcmToken, { title, body, data = {} }) => {
     },
     apns: {
       payload: {
-        aps: {
-          sound: 'default',
-          badge: 1
-        }
+        aps: { sound: 'default', badge: 1 }
       }
     },
     webpush: {
@@ -196,7 +209,6 @@ export const enviarFCM = async (fcmToken, { title, body, data = {} }) => {
 export const enviarFCMMultiple = async (fcmTokens, payload) => {
   if (!fcmTokens || fcmTokens.length === 0) return;
 
-  // FCM permite hasta 500 tokens por batch
   const chunks = [];
   for (let i = 0; i < fcmTokens.length; i += 500) {
     chunks.push(fcmTokens.slice(i, i + 500));
@@ -205,10 +217,7 @@ export const enviarFCMMultiple = async (fcmTokens, payload) => {
   for (const chunk of chunks) {
     const message = {
       tokens: chunk,
-      notification: {
-        title: payload.title,
-        body: payload.body
-      },
+      notification: { title: payload.title, body: payload.body },
       data: Object.fromEntries(
         Object.entries(payload.data || {}).map(([k, v]) => [k, String(v)])
       )
@@ -217,13 +226,9 @@ export const enviarFCMMultiple = async (fcmTokens, payload) => {
     const response = await admin.messaging().sendEachForMulticast(message);
     console.log(`[FCM Batch] Éxito: ${response.successCount}, Fallos: ${response.failureCount}`);
 
-    // Limpiar tokens inválidos
     response.responses.forEach(async (resp, idx) => {
       if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
-        await User.findOneAndUpdate(
-          { fcmToken: chunk[idx] },
-          { fcmToken: null }
-        );
+        await User.findOneAndUpdate({ fcmToken: chunk[idx] }, { fcmToken: null });
       }
     });
   }
@@ -271,14 +276,8 @@ export const enviarEmail = async (usuario, notificacion) => {
 
 // ─────────────────────────────────────────────
 // EVENTOS DE DOMINIO
-// Cada función determina a quién notificar y llama
-// crearYEnviarNotificacion o notificarFamilia
 // ─────────────────────────────────────────────
 
-/**
- * Nueva tarea — notifica a los padres destinatarios
- * y a TODOS los miembros de sus familias
- */
 export const notificarNuevaTarea = async (tarea) => {
   try {
     const Curso = (await import('../models/Curso.js')).default;
@@ -287,7 +286,7 @@ export const notificarNuevaTarea = async (tarea) => {
       ? tarea.cursoId
       : await Curso.findById(tarea.cursoId).populate({
           path: 'participantes.usuarioId',
-          select: 'nombre apellido correo telefono fcmToken familiaId'
+          select: 'nombre apellido correo telefono fcmToken'
         });
 
     if (!curso) { console.error('[notificarNuevaTarea] Curso no encontrado'); return; }
@@ -312,7 +311,6 @@ export const notificarNuevaTarea = async (tarea) => {
       }
     };
 
-    // notificarFamilia se encarga de expandir al bloque completo
     await Promise.allSettled(
       destinatarios.map(u => notificarFamilia(u._id, datos))
     );
@@ -323,9 +321,6 @@ export const notificarNuevaTarea = async (tarea) => {
   }
 };
 
-/**
- * Tarea cerrada
- */
 export const notificarTareaCerrada = async (tarea) => {
   try {
     const Curso = (await import('../models/Curso.js')).default;
@@ -333,7 +328,7 @@ export const notificarTareaCerrada = async (tarea) => {
       ? tarea.cursoId
       : await Curso.findById(tarea.cursoId).populate({
           path: 'participantes.usuarioId',
-          select: 'nombre apellido correo telefono fcmToken familiaId'
+          select: 'nombre apellido correo telefono fcmToken'
         });
 
     if (!curso) return;
@@ -357,7 +352,8 @@ export const notificarTareaCerrada = async (tarea) => {
 };
 
 /**
- * Nueva entrega — notifica al docente
+ * Nueva entrega — notifica al docente.
+ * El docente SÍ recibe email para este tipo ('entrega' está en TIPOS_EMAIL_DOCENTE).
  */
 export const notificarNuevaEntrega = async (entrega) => {
   try {
@@ -382,49 +378,49 @@ export const notificarNuevaEntrega = async (entrega) => {
 };
 
 /**
- * Calificación — notifica al padre y su bloque familiar
+ * Calificación — notifica al padre con término "Valoración"
  */
 export const notificarCalificacion = async (entrega) => {
   try {
-    const [Tarea, User] = await Promise.all([
+    const [Tarea, UserModel] = await Promise.all([
       import('../models/Tarea.js').then(m => m.default),
       import('../models/User.js').then(m => m.default)
     ]);
 
     const [tarea, padre, docente] = await Promise.all([
       Tarea.findById(entrega.tareaId),
-      User.findById(entrega.padreId),
-      User.findById(entrega.calificacion.docenteId)
+      UserModel.findById(entrega.padreId),
+      UserModel.findById(entrega.calificacion.docenteId)
     ]);
 
     if (!tarea || !padre || !docente) return;
 
+    // Convertir nota numérica a estrellas para el mensaje
+    const estrellas = convertirNotaAEstrellas(entrega.calificacion.nota);
+
     const datos = {
       tipo: 'calificacion',
-      mensaje: `"${tarea.titulo}" calificada por ${docente.nombre} ${docente.apellido}. Nota: ${entrega.calificacion.nota}/100`,
+      mensaje: `"${tarea.titulo}" valorada por ${docente.nombre} ${docente.apellido}. Valoración: ${estrellas} (${entrega.calificacion.nota}/5)`,
       prioridad: 'critica',
       referenciaId: entrega._id,
       referenciaModelo: 'Entrega',
       metadata: {
         tareaTitulo: tarea.titulo,
-        nota: entrega.calificacion.nota,
+        valoracion: entrega.calificacion.nota,
+        estrellas,
         comentario: entrega.calificacion.comentario
       }
     };
 
-    // Notificar al bloque familiar del padre
     await notificarFamilia(padre._id, datos);
   } catch (error) {
     console.error('[notificarCalificacion]', error);
   }
 };
 
-/**
- * Tarea próxima a vencer — solo a quienes no han entregado
- */
 export const notificarTareaProximaVencer = async (tarea) => {
   try {
-    const [Curso, Entrega, User] = await Promise.all([
+    const [Curso, Entrega, UserModel] = await Promise.all([
       import('../models/Curso.js').then(m => m.default),
       import('../models/Entrega.js').then(m => m.default),
       import('../models/User.js').then(m => m.default)
@@ -451,7 +447,7 @@ export const notificarTareaProximaVencer = async (tarea) => {
         .filter(p => p.usuarioId && p.etiqueta === 'padre' && !yaEntregaron.has(p.usuarioId._id.toString()))
         .map(p => p.usuarioId);
     } else {
-      destinatarios = await User.find({
+      destinatarios = await UserModel.find({
         _id: { $in: tarea.participantesSeleccionados.filter(id => !yaEntregaron.has(id.toString())) },
         rol: 'padre'
       });
@@ -476,9 +472,6 @@ export const notificarTareaProximaVencer = async (tarea) => {
   }
 };
 
-/**
- * Bienvenida
- */
 export const notificarBienvenida = async (usuarioOId) => {
   try {
     let usuario = typeof usuarioOId === 'string' || usuarioOId instanceof mongoose.Types.ObjectId
@@ -490,7 +483,7 @@ export const notificarBienvenida = async (usuarioOId) => {
     await crearYEnviarNotificacion({
       usuarioId: usuario._id,
       tipo: 'sistema',
-      mensaje: `¡Bienvenido ${usuario.nombre} ${usuario.apellido}! Tu cuenta fue creada exitosamente. Usa tu cédula como contraseña.`,
+      mensaje: `¡Bienvenido ${usuario.nombre} ${usuario.apellido}! Tu cuenta fue creada exitosamente.`,
       prioridad: 'critica',
       referenciaId: usuario._id,
       referenciaModelo: 'User',
@@ -502,9 +495,6 @@ export const notificarBienvenida = async (usuarioOId) => {
   }
 };
 
-/**
- * Agregado a curso — notifica al usuario y su familia
- */
 export const notificarAgregarCurso = async (usuarioId, curso) => {
   try {
     const datos = {
@@ -523,14 +513,12 @@ export const notificarAgregarCurso = async (usuarioId, curso) => {
   }
 };
 
-/**
- * Nuevo evento — notifica al docente creador y a los padres de los cursos
- */
 export const notificarNuevoEvento = async (evento) => {
   try {
     const Curso = (await import('../models/Curso.js')).default;
 
-    // Notificar al docente
+    // El docente NO recibe email de evento propio (tipo 'evento' no está en TIPOS_EMAIL_DOCENTE)
+    // Solo recibe WebSocket + FCM
     await crearYEnviarNotificacion({
       usuarioId: evento.docenteId._id,
       tipo: 'evento',
@@ -541,7 +529,6 @@ export const notificarNuevoEvento = async (evento) => {
       metadata: { eventoTitulo: evento.titulo, esCreador: true }
     });
 
-    // Obtener padres únicos de todos los cursos
     const cursos = await Curso.find({
       _id: { $in: evento.cursosIds.map(c => c._id) }
     }).populate({
@@ -560,8 +547,7 @@ export const notificarNuevoEvento = async (evento) => {
 
     const padres = Array.from(padresMap.values());
 
-    const fechaInicio = new Date(evento.fechaInicio);
-    const fechaFormateada = fechaInicio.toLocaleDateString('es-CO', {
+    const fechaFormateada = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
       day: '2-digit', month: 'long', year: 'numeric'
     });
 
@@ -592,9 +578,6 @@ export const notificarNuevoEvento = async (evento) => {
 // UTILIDADES INTERNAS
 // ─────────────────────────────────────────────
 
-/**
- * Resuelve destinatarios según asignacionTipo de la tarea
- */
 async function resolverDestinatarios(tarea, curso) {
   if (tarea.asignacionTipo === 'todos') {
     return curso.participantes
@@ -603,20 +586,28 @@ async function resolverDestinatarios(tarea, curso) {
   }
 
   if (tarea.asignacionTipo === 'seleccionados') {
-    const User = (await import('../models/User.js')).default;
+    const UserModel = (await import('../models/User.js')).default;
     const ids = tarea.participantesSeleccionados.map(p => p._id || p);
-    return User.find({ _id: { $in: ids }, rol: 'padre' })
+    return UserModel.find({ _id: { $in: ids }, rol: 'padre' })
       .select('nombre apellido correo telefono fcmToken');
   }
 
   return [];
 }
 
+/**
+ * Convierte nota numérica (1-5) a representación de estrellas
+ */
+function convertirNotaAEstrellas(nota) {
+  const n = Math.round(Math.min(5, Math.max(1, nota)));
+  return '⭐'.repeat(n) + '☆'.repeat(5 - n);
+}
+
 function obtenerTitulo(tipo) {
   const titulos = {
     tarea: '📝 Nueva Tarea',
     entrega: '📤 Nueva Entrega',
-    calificacion: '⭐ Calificación',
+    calificacion: '⭐ Valoración recibida',
     foro: '💬 Nuevo Mensaje en Foro',
     evento: '📅 Nuevo Evento',
     sistema: '🔔 Notificación'

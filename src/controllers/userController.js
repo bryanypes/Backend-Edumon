@@ -454,3 +454,55 @@ export const getUltimasSesiones = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+// Obtener info completa del padre/acudiente (para docentes y administradores)
+export const getPadreInfo = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
+      });
+    }
+
+    const { padreId } = req.params;
+
+    const padre = await User.findById(padreId).select(
+      'nombre apellido cedula correo telefono rol estado esTitular ' +
+      'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias'
+    );
+
+    if (!padre) {
+      return res.status(404).json({ message: "Padre/acudiente no encontrado" });
+    }
+
+    if (padre.rol !== 'padre') {
+      return res.status(400).json({ message: "El usuario no tiene rol de padre/acudiente" });
+    }
+
+    res.json({
+      message: "Información del padre obtenida exitosamente",
+      padre: {
+        id: padre._id,
+        nombre: padre.nombre,
+        apellido: padre.apellido,
+        nombreCompleto: `${padre.nombre} ${padre.apellido}`,
+        cedula: padre.cedula,
+        correo: padre.correo ?? null,
+        telefono: padre.telefono ?? null,
+        fotoPerfilUrl: padre.fotoPerfilUrl ?? null,
+        estado: padre.estado,
+        esTitular: padre.esTitular,
+        primerInicioSesion: padre.primerInicioSesion,
+        preferencias: padre.preferencias,
+        fechaRegistro: padre.fechaRegistro,
+        ultimoAcceso: padre.ultimoAcceso ?? null,
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener info del padre:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};

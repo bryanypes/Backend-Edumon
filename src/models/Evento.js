@@ -18,9 +18,7 @@ const eventoSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'La fecha de inicio es requerida'],
     validate: {
-      validator: function(v) {
-        return v >= new Date();
-      },
+      validator: function(v) { return v >= new Date(); },
       message: 'La fecha de inicio debe ser futura'
     }
   },
@@ -28,9 +26,7 @@ const eventoSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'La fecha de fin es requerida'],
     validate: {
-      validator: function(v) {
-        return v > this.fechaInicio;
-      },
+      validator: function(v) { return v > this.fechaInicio; },
       message: 'La fecha de fin debe ser posterior a la fecha de inicio'
     }
   },
@@ -38,9 +34,7 @@ const eventoSchema = new mongoose.Schema({
     type: String,
     required: [true, 'La hora es requerida'],
     validate: {
-      validator: function(v) {
-        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
-      },
+      validator: function(v) { return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v); },
       message: 'La hora debe estar en formato HH:MM (24 horas)'
     }
   },
@@ -54,9 +48,16 @@ const eventoSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'El docente es requerido']
   },
+  // Imagen de portada o logo representativo del evento
+  imagenPortada: {
+    url: { type: String, default: null },
+    publicId: { type: String, default: null }
+  },
+  // Adjunto adicional (PDF, documento, etc.)
   adjuntos: {
-    type: String, // URL de Cloudinary
-    default: null
+    url: { type: String, default: null },
+    publicId: { type: String, default: null },
+    nombre: { type: String, default: null }
   },
   cursosIds: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -80,44 +81,47 @@ const eventoSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
-// Índices para optimizar búsquedas
 eventoSchema.index({ docenteId: 1, fechaInicio: -1 });
 eventoSchema.index({ cursosIds: 1, estado: 1 });
 eventoSchema.index({ categoria: 1, fechaInicio: -1 });
 
-// Virtual para obtener participantes desde los cursos
 eventoSchema.virtual('participantes', {
   ref: 'Curso',
   localField: 'cursosIds',
   foreignField: '_id'
 });
 
-// Método para verificar si el evento ya comenzó
+// Virtual: etiqueta legible de la categoría
+eventoSchema.virtual('categoriaLabel').get(function() {
+  const labels = {
+    escuela_padres: 'Escuela de Padres',
+    tarea: 'Tarea',
+    institucional: 'Institucional'
+  };
+  return labels[this.categoria] || this.categoria;
+});
+
 eventoSchema.methods.haComenzado = function() {
   return new Date() >= this.fechaInicio;
 };
 
-// Método para verificar si el evento ya finalizó
 eventoSchema.methods.haFinalizado = function() {
   return new Date() >= this.fechaFin;
 };
 
-// Middleware para actualizar estado automáticamente
 eventoSchema.pre('save', function(next) {
   const ahora = new Date();
-  
   if (ahora >= this.fechaFin) {
     this.estado = 'finalizado';
   } else if (ahora >= this.fechaInicio && ahora < this.fechaFin) {
     this.estado = 'en_curso';
   }
-  
   next();
 });
 

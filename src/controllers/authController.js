@@ -4,11 +4,10 @@ import { validationResult } from 'express-validator';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import crypto from 'crypto';
 import { enviarCorreoRecuperacion } from '../services/mailService.js';
+import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 
-// URL del avatar predeterminado (avatar1)
 const AVATAR_PREDETERMINADO = 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp';
 
-// Generar JWT — incluye rol y primerInicioSesion para que el frontend pueda redirigir sin fetch extra
 const generateToken = (user) => {
   return jwt.sign(
     {
@@ -21,35 +20,36 @@ const generateToken = (user) => {
   );
 };
 
-// Registro de usuario (registro público — superadmin bloqueado por validator)
+// ─── Registro ────────────────────────────────
 export const register = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
-      });
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
     }
 
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
 
+    // Normalizar teléfono al registrar
+    const telefonoNormalizado = normalizarTelefono(telefono);
+    if (telefono && !telefonoNormalizado) {
+      return res.status(400).json({ message: "El número de teléfono no es válido" });
+    }
+
     const existingCedula = await User.findOne({ cedula });
     if (existingCedula) {
-      return res.status(409).json({
-        message: "Ya existe un usuario con esta cédula"
-      });
+      return res.status(409).json({ message: "Ya existe un usuario con esta cédula" });
     }
 
     const existingUser = await User.findOne({
-      $or: [{ correo }, { telefono }]
+      $or: [
+        ...(correo ? [{ correo }] : []),
+        ...(telefonoNormalizado ? [{ telefono: telefonoNormalizado }] : [])
+      ]
     });
-
     if (existingUser) {
       const field = existingUser.correo === correo ? 'correo' : 'teléfono';
-      return res.status(409).json({
-        message: `Ya existe un usuario con este ${field}`
-      });
+      return res.status(409).json({ message: `Ya existe un usuario con este ${field}` });
     }
 
     let institucionFinal = null;
@@ -58,13 +58,8 @@ export const register = async (req, res) => {
     }
 
     const newUser = new User({
-      nombre,
-      apellido,
-      cedula,
-      correo,
-      contraseña,
-      rol,
-      telefono,
+      nombre, apellido, cedula, correo, contraseña, rol,
+      telefono: telefonoNormalizado,
       institucionId: institucionFinal,
       fechaRegistro: new Date(),
       fotoPerfilUrl: AVATAR_PREDETERMINADO
@@ -92,60 +87,48 @@ export const register = async (req, res) => {
         primerInicioSesion: savedUser.primerInicioSesion
       }
     });
-
   } catch (error) {
     console.error('Error en registro:', error);
-    res.status(500).json({
-      message: "Error interno del servidor",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Login con teléfono y contraseña
+// ─── Login ────────────────────────────────────
 export const login = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
-      });
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
     }
 
     const { telefono, contraseña } = req.body;
 
-    const user = await User.findOne({ telefono });
-
-    if (!user) {
+    // CORRECCIÓN: normalizar antes de buscar en BD
+    const telefonoNormalizado = normalizarTelefono(telefono);
+    if (!telefonoNormalizado) {
       return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
+    const user = await User.findOne({ telefono: telefonoNormalizado });
+    if (!user) return res.status(401).json({ message: "Credenciales inválidas" });
+
     if (user.estado !== 'activo') {
-      return res.status(401).json({
-        message: "Usuario suspendido. Contacte al administrador."
-      });
+      return res.status(401).json({ message: "Usuario suspendido. Contacte al administrador." });
     }
 
     const isPasswordValid = await user.comparePassword(contraseña);
+    if (!isPasswordValid) return res.status(401).json({ message: "Credenciales inválidas" });
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: "Credenciales inválidas" });
-    }
-
-    // Capturar ANTES de mutar — es lo que el frontend necesita para redirigir
     const esPrimerInicio = user.primerInicioSesion;
-
     user.ultimoAcceso = new Date();
     await user.save();
 
-    // JWT incluye primerInicioSesion para que el frontend no necesite un fetch extra
     const token = generateToken(user);
 
     res.json({
       message: "Login exitoso",
       token,
-      primerInicioSesion: esPrimerInicio,   // ← explícito en respuesta también
+      primerInicioSesion: esPrimerInicio,
       user: {
         id: user._id,
         nombre: user.nombre,
@@ -158,24 +141,20 @@ export const login = async (req, res) => {
         ultimoAcceso: user.ultimoAcceso,
         institucionId: user.institucionId,
         fotoPerfilUrl: user.fotoPerfilUrl,
-        primerInicioSesion: esPrimerInicio, // ← también dentro de user para consistencia
+        primerInicioSesion: esPrimerInicio,
       }
     });
-
   } catch (error) {
     console.error('Error en login:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Obtener perfil del usuario autenticado
+// ─── Perfil ───────────────────────────────────
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
     res.json({
       user: {
@@ -195,75 +174,60 @@ export const getProfile = async (req, res) => {
         primerInicioSesion: user.primerInicioSesion
       }
     });
-
   } catch (error) {
     console.error('Error al obtener perfil:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Cambiar contraseña (usuario autenticado sobre su propia cuenta)
-// ← También marca primerInicioSesion: false — es el último paso del onboarding
+// ─── Cambiar contraseña ───────────────────────
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
-      });
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
     }
 
     const { contraseñaActual, contraseñaNueva } = req.body;
     const user = await User.findById(req.user.userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const isCurrentPasswordValid = await user.comparePassword(contraseñaActual);
-
     if (!isCurrentPasswordValid) {
       return res.status(400).json({ message: "La contraseña actual es incorrecta" });
     }
 
     user.contraseña = contraseñaNueva;
-    user.primerInicioSesion = false;  // ← marca onboarding completo
+    user.primerInicioSesion = false;
     await user.save();
 
     res.json({ message: "Contraseña cambiada exitosamente" });
-
   } catch (error) {
     console.error('Error al cambiar contraseña:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Logout
+// ─── Logout ───────────────────────────────────
 export const logout = async (req, res) => {
   try {
     res.json({ message: "Logout exitoso" });
   } catch (error) {
-    console.error('Error en logout:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Solicitar recuperación de contraseña
+// ─── Recuperación por CORREO ──────────────────
 export const forgotPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
-      });
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
     }
 
     const { correo } = req.body;
     const user = await User.findOne({ correo });
 
-    // Respuesta genérica siempre — no revelar si el correo existe
     if (!user) {
       return res.status(200).json({
         message: "Si el correo está registrado, recibirás un código de recuperación."
@@ -277,30 +241,67 @@ export const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
-    await enviarCorreoRecuperacion(
-      { correo: user.correo, nombre: user.nombre },
-      codigo
-    );
+    await enviarCorreoRecuperacion({ correo: user.correo, nombre: user.nombre }, codigo);
 
     res.status(200).json({
       message: "Si el correo está registrado, recibirás un código de recuperación."
     });
-
   } catch (error) {
     console.error('Error en forgotPassword:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Resetear contraseña con el código
+// ─── Recuperación por TELÉFONO ────────────────
+export const forgotPasswordPhone = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+    }
+
+    const { telefono } = req.body;
+
+    // CORRECCIÓN: normalizar antes de buscar — cubre todos los formatos del usuario
+    const telefonoNormalizado = normalizarTelefono(telefono);
+    if (!telefonoNormalizado) {
+      // Respuesta genérica — no revelar si el formato es inválido
+      return res.status(200).json({
+        message: "Si el número está registrado, recibirás un código de recuperación por WhatsApp."
+      });
+    }
+
+    const user = await User.findOne({ telefono: telefonoNormalizado });
+    if (!user) {
+      return res.status(200).json({
+        message: "Si el número está registrado, recibirás un código de recuperación por WhatsApp."
+      });
+    }
+
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
+
+    user.resetPasswordToken = codigoHash;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    await enviarSMSRecuperacion(telefonoNormalizado, user.nombre, codigo);
+
+    res.status(200).json({
+      message: "Si el número está registrado, recibirás un código de recuperación por WhatsApp."
+    });
+  } catch (error) {
+    console.error('Error en forgotPasswordPhone:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// ─── Reset por correo ─────────────────────────
 export const resetPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
-      });
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
     }
 
     const { correo, codigo, contraseñaNueva } = req.body;
@@ -322,9 +323,62 @@ export const resetPassword = async (req, res) => {
     await user.save();
 
     res.status(200).json({ message: "Contraseña actualizada exitosamente." });
-
   } catch (error) {
     console.error('Error en resetPassword:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
+
+// ─── Reset por teléfono ───────────────────────
+export const resetPasswordPhone = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+    }
+
+    const { telefono, codigo, contraseñaNueva } = req.body;
+
+    // CORRECCIÓN: normalizar antes de buscar
+    const telefonoNormalizado = normalizarTelefono(telefono);
+    if (!telefonoNormalizado) {
+      return res.status(400).json({ message: "Código inválido o expirado." });
+    }
+
+    const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
+
+    const user = await User.findOne({
+      telefono: telefonoNormalizado,
+      resetPasswordToken: codigoHash,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Código inválido o expirado." });
+    }
+
+    user.contraseña = contraseñaNueva;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.status(200).json({ message: "Contraseña actualizada exitosamente." });
+  } catch (error) {
+    console.error('Error en resetPasswordPhone:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// ─── Utilidad interna: WhatsApp SMS ──────────
+async function enviarSMSRecuperacion(telefonoNormalizado, nombre, codigo) {
+  const twilio = (await import('twilio')).default;
+  const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+  const mensaje = `🔐 Edumon\n\nHola ${nombre}, tu código de recuperación es:\n\n*${codigo}*\n\nExpira en 15 minutos. Si no lo solicitaste, ignora este mensaje.`;
+
+  await client.messages.create({
+    from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+    to: `whatsapp:${telefonoNormalizado}`,
+    body: mensaje
+  });
+}
