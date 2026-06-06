@@ -18,13 +18,13 @@ const userSchema = new mongoose.Schema(
     },
     correo: {
       type: String,
-      required: false,   // ← padre puede registrarse sin correo
-      sparse: true,      // ← permite múltiples null sin violar unique
+      required: false,
+      sparse: true,
       unique: true,
       lowercase: true,
       validate: {
         validator: function (v) {
-          if (!v) return true; // sin correo → válido
+          if (!v) return true;
           return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(v);
         },
         message: "El correo electrónico no es válido",
@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema(
     ultimoAcceso: { type: Date },
     primerInicioSesion: {
       type: Boolean,
-      default: true,  // true al crearse, false después de completar onboarding
+      default: true,
     },
     estado: {
       type: String,
@@ -83,14 +83,33 @@ const userSchema = new mongoose.Schema(
       ref: "Institucion",
       default: null,
     },
+
+    // ─── Refresh Tokens ───────────────────────────────────────────────────
+    // Se almacenan hasheados. Máximo 5 sesiones simultáneas.
+    refreshTokens: {
+      type: [
+        {
+          tokenHash: { type: String, required: true },
+          creadoEn:  { type: Date, default: Date.now },
+          expiraEn:  { type: Date, required: true },
+          // Fingerprint básico para detectar sesiones sospechosas
+          userAgent: { type: String, default: '' },
+          ip:        { type: String, default: '' },
+        }
+      ],
+      default: [],
+      select: false, // nunca se devuelve en queries normales
+    },
   },
   { timestamps: true },
 );
 
-// Hash de la contraseña antes de guardar
+// ─── Índice TTL: Mongo limpia automáticamente los refresh tokens expirados
+userSchema.index({ 'refreshTokens.expiraEn': 1 }, { expireAfterSeconds: 0 });
+
+// ─── Hash contraseña antes de guardar ─────────────────────────────────────
 userSchema.pre("save", async function (next) {
   if (!this.isModified("contraseña")) return next();
-
   try {
     const salt = await bcrypt.genSalt(10);
     this.contraseña = await bcrypt.hash(this.contraseña, salt);
@@ -100,16 +119,17 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Método para comparar contraseñas
+// ─── Comparar contraseña ──────────────────────────────────────────────────
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.contraseña);
 };
 
-// No devolver la contraseña en las consultas JSON
+// ─── No devolver contraseña en JSON ──────────────────────────────────────
 userSchema.methods.toJSON = function () {
-  const userObject = this.toObject();
-  delete userObject.contraseña;
-  return userObject;
+  const obj = this.toObject();
+  delete obj.contraseña;
+  delete obj.refreshTokens; // nunca exponer al cliente
+  return obj;
 };
 
 export default mongoose.model("User", userSchema);
