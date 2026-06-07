@@ -32,7 +32,7 @@ const moduloSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índice para mejorar búsquedas por curso
+// Índices para mejorar búsquedas
 moduloSchema.index({ cursoId: 1, fechaCreacion: -1 });
 moduloSchema.index({ estado: 1 });
 

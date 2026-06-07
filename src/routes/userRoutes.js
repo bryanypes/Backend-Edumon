@@ -9,6 +9,7 @@ import {
   getFotosPredeterminadas,
   updateFotoPerfil,
   updateFcmToken,
+  updateModoOscuro,
   getUltimasSesiones,
   getPadreInfo
 } from '../controllers/userController.js';
@@ -18,7 +19,8 @@ import {
   createUserValidator,
   updateUserValidator,
   userIdValidator,
-  updateFcmTokenValidator
+  updateFcmTokenValidator,
+  updateModoOscuroValidator
 } from '../middlewares/validators/userValidator.js';
 import { param } from 'express-validator';
 
@@ -39,15 +41,16 @@ router.put('/me/fcm-token',
   updateFcmToken
 );
 
+router.patch('/me/modo-oscuro',
+  authMiddleware,
+  updateModoOscuroValidator,
+  updateModoOscuro
+);
+
 // ─── Rutas especiales (también antes de /:id) ────────────────
 router.get('/fotos-predeterminadas', authMiddleware, getFotosPredeterminadas);
 router.get('/sesiones/ultimas', authMiddleware, getUltimasSesiones);
 
-/**
- * GET /users/padre/:padreId/info
- * Docente / administrador ve información básica del padre/acudiente.
- * Incluye nombre, contacto y cursos en común.
- */
 router.get(
   '/padre/:padreId/info',
   authMiddleware,
