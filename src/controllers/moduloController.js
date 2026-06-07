@@ -1,6 +1,21 @@
 import Modulo from '../models/Modulo.js';
+import Tarea from '../models/Tarea.js';
 import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
+
+// ─── Helper: adjunta tareas a un array de módulos ─────────────────────────
+const poblarTareas = async (modulos) => {
+  return Promise.all(
+    modulos.map(async (modulo) => {
+      const tareas = await Tarea.find({ moduloId: modulo._id })
+        .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos')
+        .sort({ fechaEntrega: 1 })
+        .lean();
+
+      return { ...modulo.toObject(), tareas };
+    })
+  );
+};
 
 // Crear módulo
 export const createModulo = async (req, res) => {
@@ -15,22 +30,13 @@ export const createModulo = async (req, res) => {
 
     const { cursoId, titulo, descripcion } = req.body;
 
-    // Validar que cursoId sea un ObjectId válido
     if (!mongoose.Types.ObjectId.isValid(cursoId)) {
-      return res.status(400).json({
-        message: "El ID del curso no es válido"
-      });
+      return res.status(400).json({ message: "El ID del curso no es válido" });
     }
 
-    const newModulo = new Modulo({
-      cursoId,
-      titulo,
-      descripcion
-    });
-
+    const newModulo = new Modulo({ cursoId, titulo, descripcion });
     const savedModulo = await newModulo.save();
 
-    // Poblar la información del curso
     await savedModulo.populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion');
 
     res.status(201).json({
@@ -46,27 +52,23 @@ export const createModulo = async (req, res) => {
   }
 };
 
-// Listar módulos con paginación y filtro por curso
+// Listar módulos con paginación, filtro por curso e incluye tareas
 export const getModulos = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
-    const skip = (page - 1) * limit;
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip  = (page - 1) * limit;
     const { cursoId, incluirInactivos } = req.query;
 
-    // Construir filtro
     const filter = {};
-    
-    // Solo excluir inactivos si no se solicita incluirlos
+
     if (incluirInactivos !== 'true') {
       filter.estado = { $ne: 'inactivo' };
     }
-    
+
     if (cursoId) {
       if (!mongoose.Types.ObjectId.isValid(cursoId)) {
-        return res.status(400).json({
-          message: "El ID del curso no es válido"
-        });
+        return res.status(400).json({ message: "El ID del curso no es válido" });
       }
       filter.cursoId = cursoId;
     }
@@ -92,8 +94,10 @@ const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
 
     const total = await Modulo.countDocuments(filter);
 
+    const modulosConTareas = await poblarTareas(modulos);
+
     res.json({
-      modulos,
+      modulos: modulosConTareas,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
@@ -104,9 +108,7 @@ const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
     });
   } catch (error) {
     console.error('Error al obtener módulos:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -121,32 +123,30 @@ export const getModuloById = async (req, res) => {
       });
     }
 
-    // Validar ObjectId
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        message: "El ID del módulo no es válido"
-      });
+      return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
     const modulo = await Modulo.findById(req.params.id)
       .populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion');
 
     if (!modulo) {
-      return res.status(404).json({
-        message: "Módulo no encontrado"
-      });
+      return res.status(404).json({ message: "Módulo no encontrado" });
     }
 
-    res.json(modulo);
+    const tareas = await Tarea.find({ moduloId: modulo._id })
+      .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos')
+      .sort({ fechaEntrega: 1 })
+      .lean();
+
+    res.json({ ...modulo.toObject(), tareas });
   } catch (error) {
     console.error('Error al obtener módulo:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
-// Obtener módulos por curso
+// Obtener módulos por curso (incluye tareas)
 export const getModulosByCurso = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -160,32 +160,27 @@ export const getModulosByCurso = async (req, res) => {
     const { cursoId } = req.params;
     const { incluirInactivos } = req.query;
 
-    // Validar ObjectId
     if (!mongoose.Types.ObjectId.isValid(cursoId)) {
-      return res.status(400).json({
-        message: "El ID del curso no es válido"
-      });
+      return res.status(400).json({ message: "El ID del curso no es válido" });
     }
 
     const filter = { cursoId };
-    
-    // Solo excluir inactivos si no se solicita incluirlos
+
     if (incluirInactivos !== 'true') {
       filter.estado = { $ne: 'inactivo' };
     }
 
-    const modulos = await Modulo.find(filter)
-      .sort({ fechaCreacion: -1 });
+    const modulos = await Modulo.find(filter).sort({ fechaCreacion: -1 });
+
+    const modulosConTareas = await poblarTareas(modulos);
 
     res.json({
-      modulos,
-      total: modulos.length
+      modulos: modulosConTareas,
+      total: modulosConTareas.length
     });
   } catch (error) {
     console.error('Error al obtener módulos por curso:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -202,14 +197,10 @@ export const updateModulo = async (req, res) => {
 
     const { id } = req.params;
 
-    // Validar ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        message: "El ID del módulo no es válido"
-      });
+      return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
-    // No permitir actualizar ciertos campos
     const { _id, fechaCreacion, ...updateData } = req.body;
 
     const updatedModulo = await Modulo.findByIdAndUpdate(
@@ -219,9 +210,7 @@ export const updateModulo = async (req, res) => {
     ).populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion');
 
     if (!updatedModulo) {
-      return res.status(404).json({
-        message: "Módulo no encontrado"
-      });
+      return res.status(404).json({ message: "Módulo no encontrado" });
     }
 
     res.json({
@@ -250,11 +239,8 @@ export const deleteModulo = async (req, res) => {
 
     const { id } = req.params;
 
-    // Validar ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        message: "El ID del módulo no es válido"
-      });
+      return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
     const updatedModulo = await Modulo.findByIdAndUpdate(
@@ -264,9 +250,7 @@ export const deleteModulo = async (req, res) => {
     );
 
     if (!updatedModulo) {
-      return res.status(404).json({
-        message: "Módulo no encontrado"
-      });
+      return res.status(404).json({ message: "Módulo no encontrado" });
     }
 
     res.json({
@@ -275,9 +259,7 @@ export const deleteModulo = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al desactivar módulo:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -294,39 +276,28 @@ export const restoreModulo = async (req, res) => {
 
     const { id } = req.params;
 
-    // Validar ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        message: "El ID del módulo no es válido"
-      });
+      return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
-    // Buscar el módulo
     const modulo = await Modulo.findById(id);
 
     if (!modulo) {
-      return res.status(404).json({
-        message: "Módulo no encontrado"
-      });
+      return res.status(404).json({ message: "Módulo no encontrado" });
     }
 
-    // Verificar si ya está activo
     if (modulo.estado === 'activo') {
-      return res.status(400).json({
-        message: "El módulo ya está activo"
-      });
+      return res.status(400).json({ message: "El módulo ya está activo" });
     }
 
-    // Reactivar el módulo
     modulo.estado = 'activo';
     await modulo.save();
 
-    // Poblar información del curso
     await modulo.populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion');
 
     res.json({
       message: "Módulo reactivado exitosamente",
-      modulo: modulo
+      modulo
     });
   } catch (error) {
     console.error('Error al reactivar módulo:', error);

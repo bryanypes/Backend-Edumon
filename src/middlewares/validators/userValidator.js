@@ -162,3 +162,11 @@ export const updateFcmTokenValidator = [
     .isLength({ min: 20 })
     .withMessage('El token FCM no parece válido'),
 ];
+
+export const updateModoOscuroValidator = [
+  body('modoOscuro')
+    .isBoolean()
+    .withMessage('modoOscuro debe ser true o false')
+    .notEmpty()
+    .withMessage('modoOscuro es obligatorio')
+];

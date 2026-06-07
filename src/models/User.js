@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema(
       type: [Boolean],
       default: [true, true],
     },
+    // ─── Preferencia de modo de pantalla ─────────────────────────────────
+    modoOscuro: {
+      type: Boolean,
+      default: false,
+    },
     fechaRegistro: {
       type: Date,
       default: Date.now,
@@ -92,13 +97,12 @@ const userSchema = new mongoose.Schema(
           tokenHash: { type: String, required: true },
           creadoEn:  { type: Date, default: Date.now },
           expiraEn:  { type: Date, required: true },
-          // Fingerprint básico para detectar sesiones sospechosas
           userAgent: { type: String, default: '' },
           ip:        { type: String, default: '' },
         }
       ],
       default: [],
-      select: false, // nunca se devuelve en queries normales
+      select: false,
     },
   },
   { timestamps: true },
@@ -128,7 +132,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.contraseña;
-  delete obj.refreshTokens; // nunca exponer al cliente
+  delete obj.refreshTokens;
   return obj;
 };
 
