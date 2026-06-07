@@ -19,7 +19,6 @@ export const createUser = async (req, res) => {
 
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
 
-    // Regla: solo puede existir un superadmin en el sistema
     if (rol === 'superadmin') {
       const superadminExistente = await User.findOne({ rol: 'superadmin' });
       if (superadminExistente) {
@@ -29,33 +28,23 @@ export const createUser = async (req, res) => {
       }
     }
 
-    // Verificar cédula duplicada
     const existingCedula = await User.findOne({ cedula });
     if (existingCedula) {
-      return res.status(409).json({
-        message: "Ya existe un usuario con esta cédula"
-      });
+      return res.status(409).json({ message: "Ya existe un usuario con esta cédula" });
     }
 
-    // Verificar correo duplicado — solo si viene correo (padre puede no tenerlo)
     if (correo) {
       const existingUser = await User.findOne({ correo });
       if (existingUser) {
-        return res.status(409).json({
-          message: "Ya existe un usuario con este correo electrónico"
-        });
+        return res.status(409).json({ message: "Ya existe un usuario con este correo electrónico" });
       }
     }
 
-    // Verificar teléfono duplicado
     const existingTelefono = await User.findOne({ telefono });
     if (existingTelefono) {
-      return res.status(409).json({
-        message: "Ya existe un usuario con este teléfono"
-      });
+      return res.status(409).json({ message: "Ya existe un usuario con este teléfono" });
     }
 
-    // institucionId: solo aplica para docente y administrador
     let institucionFinal = null;
     if (rol === 'docente' || rol === 'administrador') {
       institucionFinal = institucionId;
@@ -91,13 +80,13 @@ export const createUser = async (req, res) => {
 // Listar usuarios con paginación
 export const getUsers = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    const page  = parseInt(req.query.page)  || 1;
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
     const { rol, estado } = req.query;
 
     const filter = {};
-    if (rol) filter.rol = rol;
+    if (rol)    filter.rol    = rol;
     if (estado) filter.estado = estado;
 
     const users = await User.find(filter)
@@ -119,9 +108,7 @@ export const getUsers = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -139,17 +126,13 @@ export const getUserById = async (req, res) => {
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
-      });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     res.json(user);
   } catch (error) {
     console.error('Error al obtener usuario:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -159,17 +142,13 @@ export const getProfile = async (req, res) => {
     const user = await User.findById(req.user.userId);
 
     if (!user) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
-      });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     res.json(user);
   } catch (error) {
     console.error('Error al obtener perfil:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -191,6 +170,7 @@ export const updateUser = async (req, res) => {
     delete updateData.contraseña;
     delete updateData._id;
     delete updateData.fechaRegistro;
+    delete updateData.modoOscuro; // se maneja por su propia ruta
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
@@ -199,9 +179,7 @@ export const updateUser = async (req, res) => {
     );
 
     if (!updatedUser) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
-      });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     res.json({
@@ -217,7 +195,7 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// Cambiar contraseña (admin sobre cuenta ajena por ID)
+// Cambiar contraseña
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -271,9 +249,7 @@ export const deleteUser = async (req, res) => {
     );
 
     if (!updatedUser) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
-      });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     res.json({
@@ -282,9 +258,7 @@ export const deleteUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al suspender usuario:', error);
-    res.status(500).json({
-      message: "Error interno del servidor"
-    });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -309,9 +283,7 @@ export const getFotosPredeterminadas = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al obtener fotos predeterminadas:', error);
-    res.status(500).json({
-      message: "Error al obtener fotos predeterminadas"
-    });
+    res.status(500).json({ message: "Error al obtener fotos predeterminadas" });
   }
 };
 
@@ -381,27 +353,68 @@ export const updateFcmToken = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       {
-        fcmToken: fcmToken,
+        fcmToken,
         fcmTokenActualizadoEn: new Date()
       },
       { new: true }
     );
 
     if (!user) {
-      return res.status(404).json({
-        message: "Usuario no encontrado"
-      });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     res.json({
       message: "Token FCM actualizado exitosamente",
-      fcmToken: fcmToken,
+      fcmToken,
       actualizadoEn: user.fcmTokenActualizadoEn
     });
   } catch (error) {
     console.error('Error al actualizar FCM token:', error);
     res.status(500).json({
       message: "Error al actualizar el token FCM",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Actualizar preferencia de modo de pantalla (oscuro / claro)
+export const updateModoOscuro = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
+      });
+    }
+
+    const { userId } = req.user;
+    const { modoOscuro } = req.body;
+
+    if (typeof modoOscuro !== 'boolean') {
+      return res.status(400).json({
+        message: "El campo modoOscuro debe ser un booleano (true o false)"
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { modoOscuro },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    res.json({
+      message: `Modo ${modoOscuro ? 'oscuro' : 'claro'} activado exitosamente`,
+      modoOscuro: user.modoOscuro
+    });
+  } catch (error) {
+    console.error('Error al actualizar modo de pantalla:', error);
+    res.status(500).json({
+      message: "Error al actualizar el modo de pantalla",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -419,9 +432,9 @@ export const getUltimasSesiones = async (req, res) => {
       return res.json({ ultimoAcceso: user.ultimoAcceso });
     }
 
-    const page = parseInt(req.query.page) || 1;
+    const page  = parseInt(req.query.page)  || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
     const users = await User.find({})
       .select('nombre apellido correo rol ultimoAcceso estado')
@@ -448,14 +461,13 @@ export const getUltimasSesiones = async (req, res) => {
         hasPrevPage: page > 1
       }
     });
-
   } catch (error) {
     console.error('Error al obtener últimas sesiones:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
-// Obtener info completa del padre/acudiente (para docentes y administradores)
+// Obtener info completa del padre/acudiente
 export const getPadreInfo = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -470,7 +482,7 @@ export const getPadreInfo = async (req, res) => {
 
     const padre = await User.findById(padreId).select(
       'nombre apellido cedula correo telefono rol estado esTitular ' +
-      'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias'
+      'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias modoOscuro'
     );
 
     if (!padre) {
@@ -496,11 +508,11 @@ export const getPadreInfo = async (req, res) => {
         esTitular: padre.esTitular,
         primerInicioSesion: padre.primerInicioSesion,
         preferencias: padre.preferencias,
+        modoOscuro: padre.modoOscuro,
         fechaRegistro: padre.fechaRegistro,
         ultimoAcceso: padre.ultimoAcceso ?? null,
       }
     });
-
   } catch (error) {
     console.error('Error al obtener info del padre:', error);
     res.status(500).json({ message: "Error interno del servidor" });
