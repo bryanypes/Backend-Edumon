@@ -9,8 +9,6 @@ import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloud
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 
-// ─── HELPER DOCENTE ──────────────────────────────────────────────────────────
-
 function formatearDocente(docenteId) {
   if (!docenteId) return null;
   return {
@@ -22,8 +20,7 @@ function formatearDocente(docenteId) {
   };
 }
 
-// ─── FUNCIÓN AUXILIAR: Procesar CSV ─────────────────────────────────────────
-
+// Procesa un CSV de usuarios y los agrega al curso (usado en creación y en carga masiva)
 async function procesarUsuariosCSV(file, cursoId) {
   const resultados = {
     exitosos: [],
@@ -163,8 +160,7 @@ async function procesarUsuariosCSV(file, cursoId) {
   }
 }
 
-// ─── CREAR CURSO ─────────────────────────────────────────────────────────────
-
+// Crear curso
 export const createCurso = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -258,8 +254,7 @@ export const createCurso = async (req, res) => {
   }
 };
 
-// ─── LISTAR CURSOS ───────────────────────────────────────────────────────────
-
+// Listar cursos
 export const getCursos = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -272,14 +267,15 @@ export const getCursos = async (req, res) => {
     filtro.estado = estado || { $in: ['activo', 'archivado'] };
     if (docenteId) filtro.docenteId = docenteId;
 
-    const cursos = await Curso.find(filtro)
-      .populate('docenteId', 'nombre apellido correo telefono')
-      .populate('participantes.usuarioId', 'nombre apellido correo rol')
-      .skip(skip)
-      .limit(limit)
-      .sort({ fechaCreacion: -1 });
-
-    const total = await Curso.countDocuments(filtro);
+    const [cursos, total] = await Promise.all([
+      Curso.find(filtro)
+        .populate('docenteId', 'nombre apellido correo telefono')
+        .populate('participantes.usuarioId', 'nombre apellido correo rol')
+        .skip(skip)
+        .limit(limit)
+        .sort({ fechaCreacion: -1 }),
+      Curso.countDocuments(filtro)
+    ]);
 
     const cursosConDocente = cursos.map(c => ({
       ...c.toObject(),
@@ -303,8 +299,7 @@ export const getCursos = async (req, res) => {
   }
 };
 
-// ─── OBTENER CURSO POR ID ────────────────────────────────────────────────────
-
+// Obtener curso por ID
 export const getCursoById = async (req, res) => {
   try {
     const curso = await Curso.findById(req.params.id)
@@ -328,8 +323,7 @@ export const getCursoById = async (req, res) => {
   }
 };
 
-// ─── MIS CURSOS ──────────────────────────────────────────────────────────────
-
+// Obtener cursos donde el usuario logueado participa
 export const getMisCursos = async (req, res) => {
   try {
     const usuarioId = req.user.userId;
@@ -337,20 +331,20 @@ export const getMisCursos = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
     const skip = (page - 1) * limit;
 
-    const cursos = await Curso.find({
+    const filtro = {
       'participantes.usuarioId': usuarioId,
       estado: 'activo'
-    })
-      .populate('docenteId', 'nombre apellido correo')
-      .populate('participantes.usuarioId', 'nombre apellido correo rol')
-      .skip(skip)
-      .limit(limit)
-      .sort({ fechaCreacion: -1 });
+    };
 
-    const total = await Curso.countDocuments({
-      'participantes.usuarioId': usuarioId,
-      estado: 'activo'
-    });
+    const [cursos, total] = await Promise.all([
+      Curso.find(filtro)
+        .populate('docenteId', 'nombre apellido correo')
+        .populate('participantes.usuarioId', 'nombre apellido correo rol')
+        .skip(skip)
+        .limit(limit)
+        .sort({ fechaCreacion: -1 }),
+      Curso.countDocuments(filtro)
+    ]);
 
     const cursosConDocente = cursos.map(c => ({
       ...c.toObject(),
@@ -374,8 +368,7 @@ export const getMisCursos = async (req, res) => {
   }
 };
 
-// ─── ACTUALIZAR CURSO ────────────────────────────────────────────────────────
-
+// Actualizar curso
 export const updateCurso = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -387,16 +380,30 @@ export const updateCurso = async (req, res) => {
     }
 
     const { id } = req.params;
+    const usuarioLogueado = req.user;
+
+    const curso = await Curso.findById(id);
+    if (!curso) {
+      return res.status(404).json({ message: "Curso no encontrado" });
+    }
+
+    if (usuarioLogueado.rol === 'docente' &&
+      curso.docenteId.toString() !== usuarioLogueado.userId) {
+      return res.status(403).json({ message: "No tienes permisos para actualizar este curso" });
+    }
+
     const updateData = { ...req.body };
 
+    // No permitir reasignar dueño/institución del curso desde este endpoint
     delete updateData.participantes;
     delete updateData.fechaCreacion;
     delete updateData.fotoPortadaPublicId;
+    delete updateData.docenteId;
+    delete updateData.institucionId;
 
     if (req.file) {
-      const cursoAntiguo = await Curso.findById(id);
-      if (cursoAntiguo?.fotoPortadaPublicId) {
-        await eliminarArchivoCloudinary(cursoAntiguo.fotoPortadaPublicId, 'image');
+      if (curso.fotoPortadaPublicId) {
+        await eliminarArchivoCloudinary(curso.fotoPortadaPublicId, 'image');
       }
       const resultadoCloudinary = await subirImagenCloudinary(
         req.file.buffer,
@@ -436,8 +443,7 @@ export const updateCurso = async (req, res) => {
   }
 };
 
-// ─── ARCHIVAR CURSO ──────────────────────────────────────────────────────────
-
+// Archivar curso (soft delete)
 export const archivarCurso = async (req, res) => {
   try {
     const { id } = req.params;
@@ -481,15 +487,12 @@ export const archivarCurso = async (req, res) => {
   }
 };
 
-// ─── AGREGAR PARTICIPANTE ────────────────────────────────────────────────────
-
+// Agregar un único participante a un curso (crea el usuario si no existe)
 export const agregarParticipante = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, apellido, cedula, contraseña, telefono } = req.body;
     const usuarioLogueado = req.user;
-
-    console.log(`\nAgregando participante individual al curso ${id}`);
 
     if (!nombre || !apellido || !cedula) {
       return res.status(400).json({
@@ -594,16 +597,21 @@ export const agregarParticipante = async (req, res) => {
   }
 };
 
-// ─── REMOVER PARTICIPANTE ────────────────────────────────────────────────────
-
+// Remover participante de un curso
 export const removerParticipante = async (req, res) => {
   try {
     const { id, usuarioId } = req.params;
+    const usuarioLogueado = req.user;
 
     const curso = await Curso.findById(id)
       .populate('docenteId', 'nombre apellido correo');
 
     if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+
+    if (usuarioLogueado.rol === 'docente' &&
+      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+      return res.status(403).json({ message: "No tienes permisos para remover participantes de este curso" });
+    }
 
     if (curso.docenteId._id.toString() === usuarioId) {
       return res.status(400).json({ message: "No se puede remover al docente principal del curso" });
@@ -631,8 +639,7 @@ export const removerParticipante = async (req, res) => {
   }
 };
 
-// ─── CARGA MASIVA CSV ────────────────────────────────────────────────────────
-
+// Carga masiva de usuarios vía CSV
 export const registrarUsuariosMasivo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -669,12 +676,12 @@ export const registrarUsuariosMasivo = async (req, res) => {
   }
 };
 
-// ─── OBTENER PARTICIPANTES ───────────────────────────────────────────────────
-
+// Obtener participantes de un curso (con filtros y paginación)
 export const getParticipantesCurso = async (req, res) => {
   try {
     const { id } = req.params;
     const { etiqueta, search, page = 1, limit = 50 } = req.query;
+    const usuarioLogueado = req.user;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "ID de curso no válido" });
@@ -685,9 +692,15 @@ export const getParticipantesCurso = async (req, res) => {
       .populate({
         path: 'participantes.usuarioId',
         select: 'nombre apellido correo telefono rol estado fotoPerfilUrl'
-      });
+      })
+      .lean();
 
     if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+
+    if (usuarioLogueado.rol === 'docente' &&
+      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+      return res.status(403).json({ message: "No tienes permisos para ver los participantes de este curso" });
+    }
 
     let participantes = curso.participantes.filter(p => p.usuarioId !== null);
 

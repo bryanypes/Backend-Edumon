@@ -8,7 +8,6 @@ const notificacionSchema = new mongoose.Schema({
   },
   tipo: {
     type: String,
-    // DESPUÉS
     enum: {
       values: ["tarea", "entrega", "calificacion", "foro", "evento", "sistema"],
     },

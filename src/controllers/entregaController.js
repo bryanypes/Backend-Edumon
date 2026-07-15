@@ -14,12 +14,15 @@ export const createEntrega = async (req, res) => {
 
     const { tareaId, padreId } = req.body;
 
-    const existingEntrega = await Entrega.findOne({ tareaId, padreId });
+    const [existingEntrega, tarea] = await Promise.all([
+      Entrega.findOne({ tareaId, padreId }),
+      Tarea.findById(tareaId)
+    ]);
+
     if (existingEntrega) {
       return res.status(409).json({ message: "Ya existe una entrega para esta tarea" });
     }
 
-    const tarea = await Tarea.findById(tareaId);
     if (!tarea) {
       return res.status(404).json({ message: "Tarea no encontrada" });
     }
@@ -33,24 +36,27 @@ export const createEntrega = async (req, res) => {
       estado = 'tarde';
     }
 
+    // Si un archivo falla al subir, se omite y se registra el error, pero no se aborta la entrega completa
     let archivosAdjuntos = [];
     if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        try {
-          const archivoSubido = await subirArchivoCloudinary(
-            file.buffer, file.mimetype, 'archivos-entregas', file.originalname
-          );
-          archivosAdjuntos.push({
+      const resultados = await Promise.allSettled(req.files.map(file =>
+        subirArchivoCloudinary(file.buffer, file.mimetype, 'archivos-entregas', file.originalname)
+          .then(archivoSubido => ({
             url: archivoSubido.url,
             publicId: archivoSubido.publicId,
             nombreOriginal: file.originalname,
             tipoArchivo: file.mimetype,
             tamano: file.size
-          });
-        } catch (uploadError) {
-          console.error(`Error subiendo ${file.originalname}:`, uploadError);
+          }))
+      ));
+
+      resultados.forEach((resultado, i) => {
+        if (resultado.status === 'fulfilled') {
+          archivosAdjuntos.push(resultado.value);
+        } else {
+          console.error(`Error subiendo ${req.files[i].originalname}:`, resultado.reason);
         }
-      }
+      });
     }
 
     const newEntrega = new Entrega({
@@ -62,7 +68,19 @@ export const createEntrega = async (req, res) => {
       ...(estado === 'enviada' || estado === 'tarde' ? { fechaEntrega: new Date() } : {})
     });
 
-    const savedEntrega = await newEntrega.save();
+    let savedEntrega;
+    try {
+      savedEntrega = await newEntrega.save();
+    } catch (saveError) {
+      // La entrega no se creó: limpiar los archivos que ya se subieron a Cloudinary
+      await Promise.all(archivosAdjuntos.map(a => {
+        let resourceType = 'raw';
+        if (a.tipoArchivo.startsWith('image/')) resourceType = 'image';
+        else if (a.tipoArchivo.startsWith('video/')) resourceType = 'video';
+        return eliminarArchivoCloudinary(a.publicId, resourceType);
+      }));
+      throw saveError;
+    }
 
     if (estado === 'enviada' || estado === 'tarde') {
       const entregaCompleta = await Entrega.findById(savedEntrega._id)
@@ -98,6 +116,11 @@ export const createEntrega = async (req, res) => {
 
   } catch (error) {
     console.error('Error al crear entrega:', error);
+    // Índice único (tareaId, padreId): puede dispararse si dos solicitudes concurrentes
+    // pasaron la verificación de duplicado antes de que la primera terminara de guardar
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Ya existe una entrega para esta tarea" });
+    }
     res.status(500).json({
       message: "Error interno del servidor",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -144,30 +167,39 @@ export const updateEntrega = async (req, res) => {
       return res.status(404).json({ message: "Entrega no encontrada" });
     }
 
+    let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
-      let archivosAdjuntos = entrega.archivosAdjuntos || [];
-      for (const file of req.files) {
-        const archivoSubido = await subirArchivoCloudinary(
-          file.buffer, file.mimetype, 'archivos-entregas', file.originalname
-        );
-        archivosAdjuntos.push({
-          url: archivoSubido.url,
-          publicId: archivoSubido.publicId,
-          nombreOriginal: file.originalname,
-          tipoArchivo: file.mimetype,
-          tamano: file.size
-        });
-      }
-      updateData.archivosAdjuntos = archivosAdjuntos;
+      nuevosSubidos = await Promise.all(req.files.map(file =>
+        subirArchivoCloudinary(file.buffer, file.mimetype, 'archivos-entregas', file.originalname)
+          .then(archivoSubido => ({
+            url: archivoSubido.url,
+            publicId: archivoSubido.publicId,
+            nombreOriginal: file.originalname,
+            tipoArchivo: file.mimetype,
+            tamano: file.size
+          }))
+      ));
+      updateData.archivosAdjuntos = [...(entrega.archivosAdjuntos || []), ...nuevosSubidos];
     }
 
     if (updateData.estado === 'enviada' && new Date() > entrega.tareaId.fechaEntrega) {
       updateData.estado = 'tarde';
     }
 
-    const updatedEntrega = await Entrega.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
-      .populate('tareaId', 'titulo fechaEntrega')
-      .populate('padreId', 'nombre apellido correo');
+    let updatedEntrega;
+    try {
+      updatedEntrega = await Entrega.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
+        .populate('tareaId', 'titulo fechaEntrega')
+        .populate('padreId', 'nombre apellido correo');
+    } catch (updateError) {
+      await Promise.all(nuevosSubidos.map(a => {
+        let resourceType = 'raw';
+        if (a.tipoArchivo.startsWith('image/')) resourceType = 'image';
+        else if (a.tipoArchivo.startsWith('video/')) resourceType = 'video';
+        return eliminarArchivoCloudinary(a.publicId, resourceType);
+      }));
+      throw updateError;
+    }
 
     res.json({ message: "Entrega actualizada exitosamente", entrega: updatedEntrega });
   } catch (error) {
@@ -307,15 +339,19 @@ export const getAllEntregas = async (req, res) => {
 
     if (userRole === 'docente') {
       filter.tareaId = { $in: req.docenteTareaIds?.length ? req.docenteTareaIds : [] };
+    } else if (userRole === 'padre') {
+      // Un padre solo debe ver sus propias entregas, nunca las de otros padres
+      filter.padreId = req.user.userId;
     }
 
-    const entregas = await Entrega.find(filter)
-      .populate('tareaId', 'titulo descripcion fechaEntrega')
-      .populate('padreId', 'nombre apellido correo')
-      .populate('calificacion.docenteId', 'nombre apellido')
-      .skip(skip).limit(limit).sort({ fechaEntrega: -1 });
-
-    const total = await Entrega.countDocuments(filter);
+    const [entregas, total] = await Promise.all([
+      Entrega.find(filter)
+        .populate('tareaId', 'titulo descripcion fechaEntrega')
+        .populate('padreId', 'nombre apellido correo')
+        .populate('calificacion.docenteId', 'nombre apellido')
+        .skip(skip).limit(limit).sort({ fechaEntrega: -1 }),
+      Entrega.countDocuments(filter)
+    ]);
 
     res.json({
       entregas,
@@ -348,23 +384,22 @@ export const getEntregasByTarea = async (req, res) => {
     const filter = { tareaId, estado: { $in: ['enviada', 'tarde'] } };
     if (estado && (estado === 'enviada' || estado === 'tarde')) filter.estado = estado;
 
-    const entregas = await Entrega.find(filter)
-      .populate('padreId', 'nombre apellido correo telefono')
-      .populate('calificacion.docenteId', 'nombre apellido')
-      .skip(skip).limit(limit).sort({ fechaEntrega: -1 });
-
-    const total = await Entrega.countDocuments(filter);
-
-    const stats = {
-      total,
-      enviadas: await Entrega.countDocuments({ tareaId, estado: 'enviada' }),
-      tarde: await Entrega.countDocuments({ tareaId, estado: 'tarde' }),
-      valoradas: await Entrega.countDocuments({
+    const [entregas, total, enviadas, tarde, valoradas] = await Promise.all([
+      Entrega.find(filter)
+        .populate('padreId', 'nombre apellido correo telefono')
+        .populate('calificacion.docenteId', 'nombre apellido')
+        .skip(skip).limit(limit).sort({ fechaEntrega: -1 }),
+      Entrega.countDocuments(filter),
+      Entrega.countDocuments({ tareaId, estado: 'enviada' }),
+      Entrega.countDocuments({ tareaId, estado: 'tarde' }),
+      Entrega.countDocuments({
         tareaId,
         estado: { $in: ['enviada', 'tarde'] },
         'calificacion.valoracion': { $exists: true, $ne: null }
       })
-    };
+    ]);
+
+    const stats = { total, enviadas, tarde, valoradas };
 
     res.json({
       tarea: { id: tarea._id, titulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega },
@@ -396,12 +431,13 @@ export const getEntregasByPadre = async (req, res) => {
     const filter = { padreId, estado: { $in: ['enviada', 'tarde'] } };
     if (estado && (estado === 'enviada' || estado === 'tarde')) filter.estado = estado;
 
-    const entregas = await Entrega.find(filter)
-      .populate('tareaId', 'titulo descripcion fechaEntrega')
-      .populate('calificacion.docenteId', 'nombre apellido')
-      .skip(skip).limit(limit).sort({ fechaEntrega: -1 });
-
-    const total = await Entrega.countDocuments(filter);
+    const [entregas, total] = await Promise.all([
+      Entrega.find(filter)
+        .populate('tareaId', 'titulo descripcion fechaEntrega')
+        .populate('calificacion.docenteId', 'nombre apellido')
+        .skip(skip).limit(limit).sort({ fechaEntrega: -1 }),
+      Entrega.countDocuments(filter)
+    ]);
 
     res.json({
       entregas,

@@ -10,11 +10,12 @@ import Tarea from '../models/Tarea.js';
 export const canViewTarea = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId; // ID del usuario autenticado
+    const userId = req.user.userId;
 
     const tarea = await Tarea.findById(id)
       .populate('cursoId', 'participantes')
-      .populate('docenteId', '_id');
+      .populate('docenteId', '_id')
+      .lean();
 
     if (!tarea) {
       return res.status(404).json({
@@ -79,7 +80,7 @@ export const canModifyTarea = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const tarea = await Tarea.findById(id).select('docenteId');
+    const tarea = await Tarea.findById(id).select('docenteId').lean();
 
     if (!tarea) {
       return res.status(404).json({

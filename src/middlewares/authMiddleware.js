@@ -32,7 +32,11 @@ export const authMiddleware = async (req, res, next) => {
       // El cliente debe llamar a /api/auth/refresh automáticamente
       return res.status(401).json({ message: 'Token expirado', code: 'TOKEN_EXPIRED' });
     }
-    return res.status(403).json({ message: 'Token inválido' });
+    if (error.name === 'JsonWebTokenError' || error.name === 'NotBeforeError') {
+      return res.status(403).json({ message: 'Token inválido' });
+    }
+    console.error('Error inesperado en authMiddleware:', error);
+    return res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
