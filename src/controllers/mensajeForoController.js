@@ -73,8 +73,10 @@ export const crearMensaje = async (req, res) => {
 
     if (!foro.estaAbierto()) return res.status(403).json({ message: 'El foro está cerrado' });
 
-    const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const user = await User.findById(usuarioId);
+    const [tieneAcceso, user] = await Promise.all([
+      foro.tieneAcceso(usuarioId),
+      User.findById(usuarioId)
+    ]);
 
     if (!tieneAcceso && user.rol !== 'administrador') {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
@@ -131,8 +133,10 @@ export const obtenerMensajesPorForo = async (req, res) => {
     const foro = await Foro.findById(foroId);
     if (!foro) return res.status(404).json({ message: 'Foro no encontrado' });
 
-    const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const user = await User.findById(usuarioId);
+    const [tieneAcceso, user] = await Promise.all([
+      foro.tieneAcceso(usuarioId),
+      User.findById(usuarioId)
+    ]);
 
     if (!tieneAcceso && user.rol !== 'administrador') {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
@@ -140,16 +144,28 @@ export const obtenerMensajesPorForo = async (req, res) => {
 
     const mensajes = await MensajeForo.find({ foroId, respuestaA: null })
       .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
-      .sort({ fechaCreacion: 1 });
+      .sort({ fechaCreacion: 1 })
+      .lean();
 
-    const mensajesConRespuestas = await Promise.all(
-      mensajes.map(async (mensaje) => {
-        const respuestas = await MensajeForo.find({ foroId, respuestaA: mensaje._id })
+    // Traer todas las respuestas en una sola consulta en vez de una por mensaje raíz
+    const todasLasRespuestas = mensajes.length > 0
+      ? await MensajeForo.find({ foroId, respuestaA: { $in: mensajes.map(m => m._id) } })
           .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
-          .sort({ fechaCreacion: 1 });
-        return { ...mensaje.toObject(), respuestas };
-      })
-    );
+          .sort({ fechaCreacion: 1 })
+          .lean()
+      : [];
+
+    const respuestasPorMensaje = new Map();
+    for (const respuesta of todasLasRespuestas) {
+      const key = respuesta.respuestaA.toString();
+      if (!respuestasPorMensaje.has(key)) respuestasPorMensaje.set(key, []);
+      respuestasPorMensaje.get(key).push(respuesta);
+    }
+
+    const mensajesConRespuestas = mensajes.map(mensaje => ({
+      ...mensaje,
+      respuestas: respuestasPorMensaje.get(mensaje._id.toString()) || []
+    }));
 
     res.status(200).json({ mensajes: mensajesConRespuestas });
   } catch (error) {
@@ -168,8 +184,12 @@ export const toggleLikeMensaje = async (req, res) => {
     if (!mensaje) return res.status(404).json({ message: 'Mensaje no encontrado' });
 
     const foro = await Foro.findById(mensaje.foroId);
-    const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const user = await User.findById(usuarioId);
+    if (!foro) return res.status(404).json({ message: 'Foro no encontrado' });
+
+    const [tieneAcceso, user] = await Promise.all([
+      foro.tieneAcceso(usuarioId),
+      User.findById(usuarioId)
+    ]);
 
     if (!tieneAcceso && user.rol !== 'administrador') {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
@@ -220,8 +240,8 @@ export const eliminarMensaje = async (req, res) => {
       // Solo puede eliminar mensajes de padres (no de otros docentes)
       if (autorMensaje?.rol === 'padre') {
         const foro = await Foro.findById(mensaje.foroId);
-        // Verificar que el foro pertenece a un curso del docente
-        const cursoDelDocente = await Curso.findOne({
+        // El foro debe pertenecer a un curso del propio docente para poder moderar
+        const cursoDelDocente = foro && await Curso.findOne({
           _id: foro.cursoId,
           docenteId: usuarioId
         });
@@ -238,28 +258,19 @@ export const eliminarMensaje = async (req, res) => {
       });
     }
 
-    // Eliminar archivos del mensaje principal de Cloudinary
-    if (mensaje.archivos?.length > 0) {
-      for (const archivo of mensaje.archivos) {
-        const resourceType = archivo.tipo === 'video' ? 'video' : archivo.tipo === 'pdf' ? 'raw' : 'image';
-        await eliminarArchivoCloudinary(archivo.publicId, resourceType).catch(e =>
-          console.error(`Error eliminando archivo ${archivo.publicId}:`, e.message)
-        );
-      }
-    }
-
-    // Eliminar archivos de respuestas y luego las respuestas
     const respuestas = await MensajeForo.find({ respuestaA: id });
-    for (const respuesta of respuestas) {
-      if (respuesta.archivos?.length > 0) {
-        for (const archivo of respuesta.archivos) {
-          const resourceType = archivo.tipo === 'video' ? 'video' : archivo.tipo === 'pdf' ? 'raw' : 'image';
-          await eliminarArchivoCloudinary(archivo.publicId, resourceType).catch(e =>
-            console.error(`Error eliminando archivo respuesta ${archivo.publicId}:`, e.message)
-          );
-        }
-      }
-    }
+
+    const archivosAEliminar = [
+      ...(mensaje.archivos || []),
+      ...respuestas.flatMap(r => r.archivos || [])
+    ];
+
+    await Promise.all(archivosAEliminar.map(archivo => {
+      const resourceType = archivo.tipo === 'video' ? 'video' : archivo.tipo === 'pdf' ? 'raw' : 'image';
+      return eliminarArchivoCloudinary(archivo.publicId, resourceType).catch(e =>
+        console.error(`Error eliminando archivo ${archivo.publicId}:`, e.message)
+      );
+    }));
 
     await MensajeForo.deleteMany({ respuestaA: id });
     await MensajeForo.findByIdAndDelete(id);
@@ -290,6 +301,7 @@ export const actualizarMensaje = async (req, res) => {
     }
 
     const foro = await Foro.findById(mensaje.foroId);
+    if (!foro) return res.status(404).json({ message: 'Foro no encontrado' });
     if (!foro.estaAbierto()) {
       return res.status(403).json({ message: 'No se puede editar en un foro cerrado' });
     }

@@ -18,7 +18,7 @@ export const setupSocketIO = (io) => {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded.id;
+      socket.userId = decoded.userId;
       socket.userRole = decoded.rol;
       
       next();

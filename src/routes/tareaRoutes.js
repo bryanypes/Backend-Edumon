@@ -8,7 +8,7 @@ import {
   closeTarea,
   deleteTarea 
 } from '../controllers/tareaController.js';
-import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import { 
   createTareaValidator, 
   updateTareaValidator,
@@ -59,12 +59,15 @@ const upload = multer({
 
 // Rutas
 
-// Crear tarea - Solo docentes pueden crear
+// Crear tarea - Solo docentes/administradores pueden crear.
+// createTarea no validaba el rol (a diferencia de cursoRoutes/foroRoutes), así que
+// cualquier usuario autenticado, incluido un padre, podía crear tareas.
 router.post(
-  '/', 
-  authMiddleware, 
+  '/',
+  authMiddleware,
+  requireRole(['administrador', 'docente']),
   upload.array('archivos', 10),
-  createTareaValidator, 
+  createTareaValidator,
   createTarea
 );
 

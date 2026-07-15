@@ -73,7 +73,6 @@ export const registrarObservers = () => {
 
   // Observer: Evento creado → notificar a padres de los cursos
   eventBus.suscribir(EVENTOS.EVENTO_CREADO, async (evento) => {
-    const Curso = (await import('../models/Curso.js')).default;
     const cursos = await Curso.find({
       _id: { $in: evento.cursosIds.map(c => c._id || c) }
     }).populate('participantes.usuarioId', '_id');
@@ -151,9 +150,6 @@ export const registrarObservers = () => {
 
 // Función auxiliar compartida
 async function resolverDestinatariosTarea(tarea) {
-  const Curso = (await import('../models/Curso.js')).default;
-  const User = (await import('../models/User.js')).default;
-
   const curso = await Curso.findById(tarea.cursoId).populate({
     path: 'participantes.usuarioId',
     select: '_id nombre apellido'

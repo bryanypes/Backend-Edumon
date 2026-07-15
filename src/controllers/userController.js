@@ -19,29 +19,31 @@ export const createUser = async (req, res) => {
 
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
 
-    if (rol === 'superadmin') {
-      const superadminExistente = await User.findOne({ rol: 'superadmin' });
-      if (superadminExistente) {
-        return res.status(409).json({
-          message: "Ya existe un superadmin en el sistema. Solo puede haber uno."
-        });
-      }
+    // findOne con un valor undefined (p.ej. correo/telefono ausentes) devuelve
+    // el primer documento que encuentre en la colección, así que cada búsqueda
+    // solo se dispara si el campo realmente viene en el body
+    const [superadminExistente, existingCedula, existingCorreo, existingTelefono] = await Promise.all([
+      rol === 'superadmin' ? User.findOne({ rol: 'superadmin' }) : null,
+      User.findOne({ cedula }),
+      correo   ? User.findOne({ correo })   : null,
+      telefono ? User.findOne({ telefono }) : null,
+    ]);
+
+    if (rol === 'superadmin' && superadminExistente) {
+      return res.status(409).json({
+        message: "Ya existe un superadmin en el sistema. Solo puede haber uno."
+      });
     }
 
-    const existingCedula = await User.findOne({ cedula });
     if (existingCedula) {
       return res.status(409).json({ message: "Ya existe un usuario con esta cédula" });
     }
 
-    if (correo) {
-      const existingUser = await User.findOne({ correo });
-      if (existingUser) {
-        return res.status(409).json({ message: "Ya existe un usuario con este correo electrónico" });
-      }
+    if (correo && existingCorreo) {
+      return res.status(409).json({ message: "Ya existe un usuario con este correo electrónico" });
     }
 
-    const existingTelefono = await User.findOne({ telefono });
-    if (existingTelefono) {
+    if (telefono && existingTelefono) {
       return res.status(409).json({ message: "Ya existe un usuario con este teléfono" });
     }
 
@@ -426,7 +428,7 @@ export const getUltimasSesiones = async (req, res) => {
     const { userId, rol } = req.user;
 
     if (rol !== 'superadmin') {
-      const user = await User.findById(userId).select('nombre apellido correo rol ultimoAcceso');
+      const user = await User.findById(userId).select('nombre apellido correo rol ultimoAcceso').lean();
       if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
       return res.json({ ultimoAcceso: user.ultimoAcceso });
@@ -440,7 +442,8 @@ export const getUltimasSesiones = async (req, res) => {
       .select('nombre apellido correo rol ultimoAcceso estado')
       .sort({ ultimoAcceso: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await User.countDocuments();
 
@@ -483,7 +486,7 @@ export const getPadreInfo = async (req, res) => {
     const padre = await User.findById(padreId).select(
       'nombre apellido cedula correo telefono rol estado esTitular ' +
       'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias modoOscuro'
-    );
+    ).lean();
 
     if (!padre) {
       return res.status(404).json({ message: "Padre/acudiente no encontrado" });

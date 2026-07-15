@@ -3,7 +3,7 @@ import Tarea from '../models/Tarea.js';
 import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 
-// ─── Helper: adjunta tareas a un array de módulos ─────────────────────────
+// Adjunta las tareas correspondientes a cada módulo de un array
 const poblarTareas = async (modulos) => {
   return Promise.all(
     modulos.map(async (modulo) => {
@@ -73,26 +73,27 @@ export const getModulos = async (req, res) => {
       filter.cursoId = cursoId;
     }
 
-    const modulos = await Modulo.find(filter)
-      .populate({
-        path: 'cursoId',
-        select: 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion',
-        populate: [
-          {
-            path: 'docenteId',
-            select: 'nombre apellido correo fotoPerfilUrl'
-          },
-          {
-            path: 'participantes.usuarioId',
-            select: 'nombre apellido correo rol fotoPerfilUrl'
-          }
-        ]
-      })
-      .skip(skip)
-      .limit(limit)
-      .sort({ fechaCreacion: -1 });
-
-    const total = await Modulo.countDocuments(filter);
+    const [modulos, total] = await Promise.all([
+      Modulo.find(filter)
+        .populate({
+          path: 'cursoId',
+          select: 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion',
+          populate: [
+            {
+              path: 'docenteId',
+              select: 'nombre apellido correo fotoPerfilUrl'
+            },
+            {
+              path: 'participantes.usuarioId',
+              select: 'nombre apellido correo rol fotoPerfilUrl'
+            }
+          ]
+        })
+        .skip(skip)
+        .limit(limit)
+        .sort({ fechaCreacion: -1 }),
+      Modulo.countDocuments(filter)
+    ]);
 
     const modulosConTareas = await poblarTareas(modulos);
 
@@ -127,17 +128,18 @@ export const getModuloById = async (req, res) => {
       return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
-    const modulo = await Modulo.findById(req.params.id)
-      .populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion');
+    const [modulo, tareas] = await Promise.all([
+      Modulo.findById(req.params.id)
+        .populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion'),
+      Tarea.find({ moduloId: req.params.id })
+        .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos')
+        .sort({ fechaEntrega: 1 })
+        .lean()
+    ]);
 
     if (!modulo) {
       return res.status(404).json({ message: "Módulo no encontrado" });
     }
-
-    const tareas = await Tarea.find({ moduloId: modulo._id })
-      .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos')
-      .sort({ fechaEntrega: 1 })
-      .lean();
 
     res.json({ ...modulo.toObject(), tareas });
   } catch (error) {

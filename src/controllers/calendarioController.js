@@ -9,10 +9,10 @@ export const obtenerCalendarioCurso = async (req, res) => {
     const { mes, anio } = req.query; // Opcional: filtrar por mes/año
 
     // Verificar que el curso existe
-    const curso = await Curso.findById(cursoId);
+    const curso = await Curso.findById(cursoId).lean();
     if (!curso) {
-      return res.status(404).json({ 
-        error: 'Curso no encontrado' 
+      return res.status(404).json({
+        error: 'Curso no encontrado'
       });
     }
 
@@ -27,24 +27,24 @@ export const obtenerCalendarioCurso = async (req, res) => {
       };
     }
 
-    // Obtener tareas del curso
-    const tareas = await Tarea.find({
-      cursoId,
-      ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
-    })
-      .populate('moduloId', 'titulo')
-      .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega')
-      .sort({ fechaEntrega: 1 })
-      .lean();
+    const [tareas, eventos] = await Promise.all([
+      Tarea.find({
+        cursoId,
+        ...(Object.keys(filtroFechas).length > 0 && { fechaEntrega: filtroFechas })
+      })
+        .populate('moduloId', 'titulo')
+        .select('titulo descripcion fechaEntrega estado moduloId tipoEntrega')
+        .sort({ fechaEntrega: 1 })
+        .lean(),
 
-    // Obtener eventos del curso
-    const eventos = await Evento.find({
-      cursosIds: cursoId,
-      ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
-    })
-      .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado')
-      .sort({ fechaInicio: 1 })
-      .lean();
+      Evento.find({
+        cursosIds: cursoId,
+        ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
+      })
+        .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado')
+        .sort({ fechaInicio: 1 })
+        .lean()
+    ]);
 
     // Formatear tareas para el calendario
     const tareasCalendario = tareas.map(tarea => ({
@@ -134,23 +134,23 @@ export const obtenerEventosDia = async (req, res) => {
     const finDia = new Date(fecha);
     finDia.setHours(23, 59, 59, 999);
 
-    // Tareas del día
-    const tareas = await Tarea.find({
-      cursoId,
-      fechaEntrega: { $gte: inicioDia, $lte: finDia }
-    })
-      .populate('moduloId', 'titulo')
-      .populate('docenteId', 'nombre apellido')
-      .lean();
+    const [tareas, eventos] = await Promise.all([
+      Tarea.find({
+        cursoId,
+        fechaEntrega: { $gte: inicioDia, $lte: finDia }
+      })
+        .populate('moduloId', 'titulo')
+        .populate('docenteId', 'nombre apellido')
+        .lean(),
 
-    // Eventos del día
-    const eventos = await Evento.find({
-      cursosIds: cursoId,
-      fechaInicio: { $lte: finDia },
-      fechaFin: { $gte: inicioDia }
-    })
-      .populate('docenteId', 'nombre apellido')
-      .lean();
+      Evento.find({
+        cursosIds: cursoId,
+        fechaInicio: { $lte: finDia },
+        fechaFin: { $gte: inicioDia }
+      })
+        .populate('docenteId', 'nombre apellido')
+        .lean()
+    ]);
 
     res.status(200).json({
       success: true,
@@ -185,26 +185,28 @@ export const obtenerProximosEventos = async (req, res) => {
 
     const ahora = new Date();
 
-    // Próximas tareas
-    const tareas = await Tarea.find({
-      cursoId,
-      fechaEntrega: { $gte: ahora },
-      estado: 'publicada'
-    })
-      .populate('moduloId', 'titulo')
-      .sort({ fechaEntrega: 1 })
-      .limit(parseInt(limite))
-      .lean();
+    const limiteInt = parseInt(limite);
 
-    // Próximos eventos
-    const eventos = await Evento.find({
-      cursosIds: cursoId,
-      fechaInicio: { $gte: ahora },
-      estado: { $in: ['programado', 'en_curso'] }
-    })
-      .sort({ fechaInicio: 1 })
-      .limit(parseInt(limite))
-      .lean();
+    const [tareas, eventos] = await Promise.all([
+      Tarea.find({
+        cursoId,
+        fechaEntrega: { $gte: ahora },
+        estado: 'publicada'
+      })
+        .populate('moduloId', 'titulo')
+        .sort({ fechaEntrega: 1 })
+        .limit(limiteInt)
+        .lean(),
+
+      Evento.find({
+        cursosIds: cursoId,
+        fechaInicio: { $gte: ahora },
+        estado: { $in: ['programado', 'en_curso'] }
+      })
+        .sort({ fechaInicio: 1 })
+        .limit(limiteInt)
+        .lean()
+    ]);
 
     // Combinar y ordenar
     const proximosEventos = [
@@ -225,7 +227,7 @@ export const obtenerProximosEventos = async (req, res) => {
       }))
     ]
       .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-      .slice(0, parseInt(limite));
+      .slice(0, limiteInt);
 
     res.status(200).json({
       success: true,
@@ -234,9 +236,9 @@ export const obtenerProximosEventos = async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener próximos eventos:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al obtener próximos eventos',
-      details: error.message 
+      details: error.message
     });
   }
 };

@@ -43,21 +43,26 @@ export const createEvento = async (req, res) => {
       }
     }
 
-    // Imagen de portada (campo 'imagenPortada' del form)
+    // Imagen de portada y adjunto son subidas independientes: se suben en paralelo
     let imagenPortada = { url: null, publicId: null };
+    let adjuntos = { url: null, publicId: null, nombre: null };
+
+    const subidas = [];
     if (req.files?.imagenPortada?.[0]) {
       const file = req.files.imagenPortada[0];
-      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-portadas');
-      imagenPortada = { url: resultado.url, publicId: resultado.publicId };
+      subidas.push(
+        subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-portadas')
+          .then(resultado => { imagenPortada = { url: resultado.url, publicId: resultado.publicId }; })
+      );
     }
-
-    // Adjunto adicional (campo 'adjunto' del form)
-    let adjuntos = { url: null, publicId: null, nombre: null };
     if (req.files?.adjunto?.[0]) {
       const file = req.files.adjunto[0];
-      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-adjuntos', file.originalname);
-      adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
+      subidas.push(
+        subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-adjuntos', file.originalname)
+          .then(resultado => { adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname }; })
+      );
     }
+    if (subidas.length > 0) await Promise.all(subidas);
 
     const nuevoEvento = new Evento({
       titulo, descripcion, fechaInicio, fechaFin, hora, ubicacion,
@@ -107,12 +112,13 @@ export const getEventos = async (req, res) => {
       filter.cursosIds = { $in: cursosDelPadre };
     }
 
-    const eventos = await Evento.find(filter)
-      .populate('docenteId', 'nombre apellido correo')
-      .populate('cursosIds', 'nombre codigoCurso')
-      .skip(skip).limit(limit).sort({ fechaInicio: -1 });
-
-    const total = await Evento.countDocuments(filter);
+    const [eventos, total] = await Promise.all([
+      Evento.find(filter)
+        .populate('docenteId', 'nombre apellido correo')
+        .populate('cursosIds', 'nombre codigoCurso')
+        .skip(skip).limit(limit).sort({ fechaInicio: -1 }),
+      Evento.countDocuments(filter)
+    ]);
 
     res.json({
       eventos,
@@ -187,6 +193,10 @@ export const updateEvento = async (req, res) => {
     const { userId, rol } = req.user;
     const updateData = { ...req.body };
 
+    if (!['administrador', 'docente'].includes(rol)) {
+      return res.status(403).json({ message: "No tienes permisos para actualizar eventos" });
+    }
+
     const evento = await Evento.findById(id);
     if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
 
@@ -198,26 +208,32 @@ export const updateEvento = async (req, res) => {
     delete updateData.docenteId;
     delete updateData.fechaCreacion;
 
-    // Actualizar imagen de portada
+    // Actualizar imagen de portada / adjunto: operaciones independientes en paralelo
+    const actualizaciones = [];
+
     if (req.files?.imagenPortada?.[0]) {
-      // Eliminar imagen anterior si existe
-      if (evento.imagenPortada?.publicId) {
-        await eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {});
-      }
-      const file = req.files.imagenPortada[0];
-      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-portadas');
-      updateData.imagenPortada = { url: resultado.url, publicId: resultado.publicId };
+      actualizaciones.push((async () => {
+        if (evento.imagenPortada?.publicId) {
+          await eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {});
+        }
+        const file = req.files.imagenPortada[0];
+        const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-portadas');
+        updateData.imagenPortada = { url: resultado.url, publicId: resultado.publicId };
+      })());
     }
 
-    // Actualizar adjunto
     if (req.files?.adjunto?.[0]) {
-      if (evento.adjuntos?.publicId) {
-        await eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {});
-      }
-      const file = req.files.adjunto[0];
-      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-adjuntos', file.originalname);
-      updateData.adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
+      actualizaciones.push((async () => {
+        if (evento.adjuntos?.publicId) {
+          await eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {});
+        }
+        const file = req.files.adjunto[0];
+        const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-adjuntos', file.originalname);
+        updateData.adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
+      })());
     }
+
+    if (actualizaciones.length > 0) await Promise.all(actualizaciones);
 
     const eventoActualizado = await Evento.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
       .populate('docenteId', 'nombre apellido correo')
@@ -241,6 +257,10 @@ export const deleteEvento = async (req, res) => {
     const { id } = req.params;
     const { userId, rol } = req.user;
 
+    if (!['administrador', 'docente'].includes(rol)) {
+      return res.status(403).json({ message: "No tienes permisos para eliminar eventos" });
+    }
+
     const evento = await Evento.findById(id);
     if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
 
@@ -248,15 +268,14 @@ export const deleteEvento = async (req, res) => {
       return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
     }
 
-    // Eliminar imagen de portada
+    const limpiezas = [];
     if (evento.imagenPortada?.publicId) {
-      await eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {});
+      limpiezas.push(eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {}));
     }
-
-    // Eliminar adjunto
     if (evento.adjuntos?.publicId) {
-      await eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {});
+      limpiezas.push(eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {}));
     }
+    if (limpiezas.length > 0) await Promise.all(limpiezas);
 
     await Evento.findByIdAndDelete(id);
     res.json({ message: "Evento eliminado exitosamente" });

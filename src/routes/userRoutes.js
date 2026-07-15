@@ -13,7 +13,7 @@ import {
   getUltimasSesiones,
   getPadreInfo
 } from '../controllers/userController.js';
-import { authMiddleware } from "../middlewares/authMiddleware.js";
+import { authMiddleware, requireRole } from "../middlewares/authMiddleware.js";
 import { uploadImagenCloudinary } from '../middlewares/cloudinaryMiddleware.js';
 import { 
   createUserValidator,
@@ -58,12 +58,14 @@ router.get(
   getPadreInfo
 );
 
-// ─── CRUD general ────────────────────────────────────────────
-router.post('/', authMiddleware, createUserValidator, createUser);
-router.get('/', authMiddleware, getUsers);
+// ─── CRUD general (panel de administración — nunca abierto a padres/docentes) ─
+// updateUserValidator permite cambiar "rol"; sin este requireRole cualquier
+// usuario autenticado podía autoelevarse a administrador vía PUT /:id.
+router.post('/', authMiddleware, requireRole(['administrador', 'superadmin']), createUserValidator, createUser);
+router.get('/', authMiddleware, requireRole(['administrador', 'superadmin']), getUsers);
 
-router.get('/:id', authMiddleware, userIdValidator, getUserById);
-router.put('/:id', authMiddleware, updateUserValidator, updateUser);
-router.delete('/:id', authMiddleware, userIdValidator, deleteUser);
+router.get('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, getUserById);
+router.put('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), updateUserValidator, updateUser);
+router.delete('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, deleteUser);
 
 export default router;

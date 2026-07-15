@@ -36,7 +36,8 @@ const userSchema = new mongoose.Schema(
       enum: ["padre", "docente", "administrador", "superadmin"],
       required: true,
     },
-    telefono: { type: String },
+    // Usado como credencial de login (User.findOne({ telefono })) — indexado por eso
+    telefono: { type: String, index: true },
     preferencias: {
       type: [Boolean],
       default: [true, true],

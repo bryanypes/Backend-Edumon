@@ -226,11 +226,17 @@ export const enviarFCMMultiple = async (fcmTokens, payload) => {
     const response = await admin.messaging().sendEachForMulticast(message);
     console.log(`[FCM Batch] Éxito: ${response.successCount}, Fallos: ${response.failureCount}`);
 
-    response.responses.forEach(async (resp, idx) => {
+    // forEach no espera callbacks async ni atrapa sus rechazos — se usa Promise.all
+    // para que la limpieza de tokens termine antes de seguir y no deje unhandled rejections
+    await Promise.all(response.responses.map(async (resp, idx) => {
       if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
-        await User.findOneAndUpdate({ fcmToken: chunk[idx] }, { fcmToken: null });
+        try {
+          await User.findOneAndUpdate({ fcmToken: chunk[idx] }, { fcmToken: null });
+        } catch (e) {
+          console.error('[FCM Batch] Error limpiando token:', e.message);
+        }
       }
-    });
+    }));
   }
 };
 

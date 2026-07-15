@@ -3,20 +3,14 @@ import Entrega from '../models/Entrega.js';
 
 export const canCreateEntrega = async (req, res, next) => {
   try {
-   
-
     const { tareaId, padreId } = req.body;
-
-
     const userId = req.user?.userId;
- 
 
     if (!userId) {
       return res.status(401).json({ message: "Usuario no autenticado correctamente" });
     }
 
     if (padreId !== userId) {
-     
       return res.status(403).json({ message: "Solo puedes crear entregas para ti mismo" });
     }
 
@@ -27,19 +21,16 @@ export const canCreateEntrega = async (req, res, next) => {
           path: 'participantes.usuarioId',
           select: '_id nombre apellido correo'
         }
-      });
+      })
+      .lean();
 
     if (!tarea) {
       return res.status(404).json({ message: "Tarea no encontrada" });
     }
 
-
-    // --- Validar asignación tipo "seleccionados" ---
     if (tarea.asignacionTipo === "seleccionados") {
       const seleccionados = tarea.participantesSeleccionados || [];
-
       const permitido = seleccionados.some(p => p.toString() === userId);
-
 
       if (!permitido) {
         return res.status(403).json({
@@ -48,14 +39,11 @@ export const canCreateEntrega = async (req, res, next) => {
       }
     }
 
-    // --- Validar si el usuario pertenece al curso ---
     const participantes = tarea.cursoId?.participantes || [];
-
     const participanteValido = participantes.some(p =>
       p.usuarioId?._id?.toString() === userId ||
       p.usuarioId?.toString() === userId
     );
-
 
     if (!participanteValido) {
       return res.status(403).json({ message: "No estás autorizado para enviar esta entrega" });
@@ -79,7 +67,7 @@ export const canModifyEntrega = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const entrega = await Entrega.findById(id);
+    const entrega = await Entrega.findById(id).lean();
 
     if (!entrega) {
       return res.status(404).json({
@@ -87,7 +75,6 @@ export const canModifyEntrega = async (req, res, next) => {
       });
     }
 
-    // Verificar que el usuario sea el dueño de la entrega
     if (entrega.padreId.toString() !== userId) {
       return res.status(403).json({
         message: "Solo puedes modificar tus propias entregas"
@@ -129,7 +116,8 @@ export const canViewEntrega = async (req, res, next) => {
       .populate({
         path: 'tareaId',
         select: 'docenteId'
-      });
+      })
+      .lean();
 
     if (!entrega) {
       return res.status(404).json({
@@ -137,17 +125,14 @@ export const canViewEntrega = async (req, res, next) => {
       });
     }
 
-    // Si es el padre que creó la entrega
     if (entrega.padreId.toString() === userId) {
       return next();
     }
 
-    // Si es el docente de la tarea
     if (entrega.tareaId.docenteId.toString() === userId) {
       return next();
     }
 
-    // Si es admin, también puede ver
     if (userRole === 'admin') {
       return next();
     }
@@ -167,26 +152,21 @@ export const canViewEntrega = async (req, res, next) => {
 
 /**
  * Middleware para verificar si un usuario puede calificar una entrega
- * Solo el docente asignado a la tarea puede calificar
+ * Solo el docente asignado a la tarea puede calificar.
+ * docenteId se toma de req.user.userId (token), no del body: el body lo bloquea
+ * calificarEntregaValidator, así que no se valida aquí para no duplicar esa regla.
  */
 export const canCalificarEntrega = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { docenteId } = req.body;
-
-    // Validar que el docenteId del body coincida con el usuario autenticado
-    if (docenteId !== userId) {
-      return res.status(403).json({
-        message: "Solo puedes calificar con tu propio ID de docente"
-      });
-    }
 
     const entrega = await Entrega.findById(id)
       .populate({
         path: 'tareaId',
         select: 'docenteId estado'
-      });
+      })
+      .lean();
 
     if (!entrega) {
       return res.status(404).json({
@@ -228,7 +208,7 @@ export const filterEntregasForUser = async (req, res, next) => {
     // Si es docente, solo ve entregas de sus tareas
     if (userRole === 'docente') {
       // Obtener IDs de tareas del docente
-      const tareas = await Tarea.find({ docenteId: userId }).select('_id');
+      const tareas = await Tarea.find({ docenteId: userId }).select('_id').lean();
       const tareaIds = tareas.map(t => t._id);
       
       // Agregar filtro al query

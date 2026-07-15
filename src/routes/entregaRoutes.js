@@ -18,7 +18,7 @@ import {
   getEntregaById
 } from '../controllers/entregaController.js';
 
-import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import { 
   createEntregaValidator, 
   updateEntregaValidator,
@@ -33,55 +33,42 @@ import {
   filterEntregasForUser
 } from '../middlewares/entregaAuthMiddleware.js';
 
-// IMPORTAR EL MIDDLEWARE DE MULTER PARA ARCHIVOS
 import { uploadArchivoCloudinary } from '../middlewares/cloudinaryMiddleware.js';
 
 const router = express.Router();
 
 // Rutas para docentes
 
-/**
- * GET /entregas
- * Listar todas las entregas (con filtros)
- * Query params: ?page=1&limit=10&estado=enviada
- */
 router.get(
-  '/', 
+  '/',
   authMiddleware,
   filterEntregasForUser,
   getAllEntregas
 );
 
-/**
- * GET /entregas/tarea/:tareaId
- * Listar todas las entregas de una tarea específica
- * Query params: ?page=1&limit=20&estado=enviada
- */
+// Solo docente/administrador: a diferencia de /mis-entregas/:tareaId (que se filtra por
+// req.user.userId), este endpoint no tenía ninguna verificación de propiedad, por lo que
+// cualquier padre autenticado podía leer las entregas y calificaciones de cualquier tarea
+// con solo conocer/adivinar el tareaId.
 router.get(
   '/tarea/:tareaId',
   authMiddleware,
+  requireRole(['docente', 'administrador']),
   getEntregasByTarea
 );
 
-/**
- * GET /entregas/padre/:padreId
- * Listar todas las entregas de un padre específico
- * Query params: ?page=1&limit=10&estado=enviada
- */
+// Solo docente/administrador: sin este rol, cualquier padre autenticado podía pasar el
+// padreId de otra familia y ver sus entregas/calificaciones.
 router.get(
   '/padre/:padreId',
   authMiddleware,
+  requireRole(['docente', 'administrador']),
   getEntregasByPadre
 );
 
-/**
- * PATCH /entregas/:id/calificar
- * Calificar una entrega
- * Body: { nota, comentario, docenteId }
- */
 router.patch(
-  '/:id/calificar', 
-  authMiddleware, 
+  '/:id/calificar',
+  authMiddleware,
   calificarEntregaValidator,
   canCalificarEntrega,
   calificarEntrega
@@ -89,50 +76,31 @@ router.patch(
 
 // Rutas para padres
 
-/**
- * POST /entregas
- * Crear una nueva entrega
- * Body: { tareaId, padreId, archivos?, textoRespuesta?, estado? }
- * 
- * 
- */
 router.post(
-  '/', 
+  '/',
   authMiddleware,
-  uploadArchivoCloudinary.array('archivos', 5), // ← ESTO VA PRIMERO
+  uploadArchivoCloudinary.array('archivos', 5), // multer antes de los validators de body
   createEntregaValidator,
   canCreateEntrega,
   createEntrega
 );
 
-/**
- * GET /entregas/mis-entregas/:tareaId
- * Listar entregas del padre autenticado para una tarea específica
- */
 router.get(
   '/mis-entregas/:tareaId',
   authMiddleware,
   getEntregasByPadreAndTarea
 );
 
-/**
- * PUT /entregas/:id
- * Actualizar una entrega (solo en borrador)
- * Body: { archivos?, textoRespuesta?, estado? }
- */
+// Solo en borrador
 router.put(
-  '/:id', 
+  '/:id',
   authMiddleware,
-  uploadArchivoCloudinary.array('archivos', 5), // ← Y AQUÍ TAMBIÉN
+  uploadArchivoCloudinary.array('archivos', 5),
   updateEntregaValidator,
   canModifyEntrega,
   updateEntrega
 );
 
-/**
- * PATCH /entregas/:id/enviar
- * Enviar una entrega (cambiar de borrador a enviada/tarde)
- */
 router.patch(
   '/:id/enviar',
   authMiddleware,
@@ -140,22 +108,15 @@ router.patch(
   enviarEntrega
 );
 
-/**
- * DELETE /entregas/:id
- * Eliminar una entrega (solo en borrador)
- */
+// Solo en borrador
 router.delete(
-  '/:id', 
-  authMiddleware, 
+  '/:id',
+  authMiddleware,
   entregaIdValidator,
   canModifyEntrega,
   deleteEntrega
 );
 
-/**
- * DELETE /entregas/:id/archivos/:archivoId
- * Eliminar un archivo específico de una entrega
- */
 router.delete(
   '/:id/archivos/:archivoId',
   authMiddleware,
@@ -163,16 +124,10 @@ router.delete(
   eliminarArchivoEntrega
 );
 
-// Rutas compartidas
-
-/**
- * GET /entregas/:id
- * Ver detalles de una entrega específica
- * Accesible por: padre dueño, docente de la tarea, admin
- */
+// Rutas compartidas — accesible por padre dueño, docente de la tarea o admin
 router.get(
-  '/:id', 
-  authMiddleware, 
+  '/:id',
+  authMiddleware,
   entregaIdValidator,
   canViewEntrega,
   getEntregaById

@@ -19,7 +19,16 @@ class EventBus extends EventEmitter {
    * @param {Function} handler 
    */
   suscribir(evento, handler) {
-    this.on(evento, handler);
+    // EventEmitter no espera ni atrapa las promesas devueltas por los listeners:
+    // si un handler async rechaza sin try/catch propio, queda como unhandled
+    // rejection y puede tumbar el proceso. Se envuelve para loguear y no romper.
+    this.on(evento, async (...args) => {
+      try {
+        await handler(...args);
+      } catch (error) {
+        console.error(`[Observer] Error en handler de "${evento}":`, error);
+      }
+    });
     console.log(`[Observer] Suscrito a evento: "${evento}"`);
   }
 

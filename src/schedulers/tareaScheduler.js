@@ -12,23 +12,24 @@ export const iniciarSchedulerTareas = () => {
       console.log(' Verificando tareas próximas a vencer...');
 
       const ahora = new Date();
+      // Ventana de 1 hora (coincide con la frecuencia del cron) en vez de "próximas 24h":
+      // con una ventana de 24h cada tarea caería en el rango de las 24 ejecuciones horarias
+      // siguientes y se reenviaría el recordatorio cada hora hasta el vencimiento.
+      const en23Horas = new Date(ahora.getTime() + 23 * 60 * 60 * 1000);
       const en24Horas = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
 
-      // Buscar tareas que vencen en 24 horas
       const tareas = await Tarea.find({
         estado: 'publicada',
         fechaEntrega: {
-          $gte: ahora,
+          $gte: en23Horas,
           $lte: en24Horas
         }
-      });
+      }).lean();
 
       console.log(` ${tareas.length} tareas próximas a vencer encontradas`);
 
-      // Enviar notificaciones
-      for (const tarea of tareas) {
-        await notificarTareaProximaVencer(tarea);
-      }
+      // notificarTareaProximaVencer ya atrapa sus propios errores internamente
+      await Promise.all(tareas.map(tarea => notificarTareaProximaVencer(tarea)));
 
       console.log(' Notificaciones de recordatorio enviadas');
     } catch (error) {

@@ -25,7 +25,6 @@ const COOKIE_BASE = {
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────
 
-/** Genera el JWT de acceso (corto plazo) */
 const generarAccessToken = (user) =>
   jwt.sign(
     {
@@ -37,14 +36,13 @@ const generarAccessToken = (user) =>
     { expiresIn: ACCESS_TOKEN_TTL },
   );
 
-/** Genera un refresh token opaco, lo hashea y devuelve ambos */
+// Genera un refresh token opaco; se guarda solo el hash en BD
 const generarRefreshToken = () => {
   const raw  = crypto.randomBytes(64).toString('hex');
   const hash = crypto.createHash('sha256').update(raw).digest('hex');
   return { raw, hash };
 };
 
-/** Escribe las dos cookies de sesión */
 const setSessionCookies = (res, accessToken, refreshToken) => {
   // Access token: expira cuando cierra el browser o en 15 min
   res.cookie('access_token', accessToken, {
@@ -60,7 +58,6 @@ const setSessionCookies = (res, accessToken, refreshToken) => {
   });
 };
 
-/** Borra ambas cookies */
 const clearSessionCookies = (res) => {
   res.clearCookie('access_token',  { ...COOKIE_BASE });
   res.clearCookie('refresh_token', { ...COOKIE_BASE, path: '/api/auth/refresh' });
@@ -132,19 +129,19 @@ export const register = async (req, res) => {
     const savedUser = await newUser.save();
 
     // Emitir sesión completa igual que en login
-    const accessToken            = generarAccessToken(savedUser);
-    const { raw, hash }          = generarRefreshToken();
-    const expiraEn               = new Date(Date.now() + REFRESH_TOKEN_TTL);
+    const accessToken    = generarAccessToken(savedUser);
+    const { raw, hash }  = generarRefreshToken();
+    const expiraEn       = new Date(Date.now() + REFRESH_TOKEN_TTL);
 
-    // Recargar con refreshTokens seleccionable
-    const userConTokens = await User.findById(savedUser._id).select('+refreshTokens');
-    userConTokens.refreshTokens.push({
+    // refreshTokens tiene select:false en el schema, pero savedUser es el mismo
+    // documento recién creado en memoria, así que ya lo trae sin necesidad de recargarlo
+    savedUser.refreshTokens.push({
       tokenHash: hash,
       expiraEn,
       userAgent: req.headers['user-agent'] || '',
       ip:        req.ip || '',
     });
-    await userConTokens.save();
+    await savedUser.save();
 
     setSessionCookies(res, accessToken, raw);
     eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, savedUser);
