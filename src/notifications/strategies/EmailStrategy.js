@@ -6,7 +6,6 @@ export class EmailStrategy extends NotificacionStrategy {
   nombre() { return 'email'; }
 
   async enviar(usuario, notificacion) {
-    console.log("KEY:", process.env.RESEND_API_KEY);
     if (!usuario.correo) return false;
     if (!process.env.RESEND_API_KEY) return false;
 

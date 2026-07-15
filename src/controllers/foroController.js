@@ -5,7 +5,6 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import MensajeForo from '../models/MensajeForo.js'; 
 import mongoose from 'mongoose';  
 
-// VALIDACIÓN DE ARCHIVOS
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
   'image/jpg': 'imagen',
@@ -24,7 +23,6 @@ const TAMANO_MAX_ARCHIVO = {
   pdf: 10 * 1024 * 1024       // 10 MB
 };
 
-// Función auxiliar para validar y procesar archivos
 const procesarArchivosAdjuntos = async (files) => {
   const archivos = [];
   const errores = [];
@@ -33,43 +31,27 @@ const procesarArchivosAdjuntos = async (files) => {
     return { archivos, errores };
   }
 
-  console.log(`📎 Procesando ${files.length} archivos adjuntos`);
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    
+  for (const file of files) {
     try {
-      // Validar tipo de archivo
       const tipo = TIPOS_ARCHIVO_PERMITIDOS[file.mimetype];
       if (!tipo) {
         errores.push({
           archivo: file.originalname,
           error: `Tipo de archivo no permitido: ${file.mimetype}`
         });
-        console.warn(` Archivo rechazado: ${file.originalname} (${file.mimetype})`);
         continue;
       }
 
-      // Validar tamaño
       const tamanoMax = TAMANO_MAX_ARCHIVO[tipo];
       if (file.size > tamanoMax) {
         errores.push({
           archivo: file.originalname,
           error: `Archivo demasiado grande. Máximo: ${tamanoMax / (1024 * 1024)} MB`
         });
-        console.warn(` Archivo muy grande: ${file.originalname} (${file.size} bytes)`);
         continue;
       }
 
-      console.log(` Validación OK: ${file.originalname} (${tipo})`);
-
-      // Subir a Cloudinary
-      const resultado = await subirArchivoCloudinary(
-        file.buffer,
-        file.mimetype,
-        'foros', // Carpeta en Cloudinary
-        file.originalname
-      );
+      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'foros', file.originalname);
 
       archivos.push({
         url: resultado.url,
@@ -79,10 +61,8 @@ const procesarArchivosAdjuntos = async (files) => {
         tamano: file.size
       });
 
-      console.log(` Archivo subido: ${file.originalname}`);
-
     } catch (error) {
-      console.error(` Error procesando ${file.originalname}:`, error);
+      console.error(`Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
         error: process.env.NODE_ENV === 'development' ? error.message : undefined || 'Error al subir el archivo'
@@ -106,24 +86,23 @@ export const crearForo = async (req, res) => {
       });
     }
 
-    // Verificar que el curso existe
-    const curso = await Curso.findById(cursoId);
+    const [curso, user] = await Promise.all([
+      Curso.findById(cursoId),
+      User.findById(docenteId)
+    ]);
+
     if (!curso) {
       return res.status(404).json({ message: 'Curso no encontrado' });
     }
 
-    // Verificar que el usuario es docente del curso o administrador
-    const user = await User.findById(docenteId);
     if (user.rol !== 'administrador' && curso.docenteId.toString() !== docenteId) {
       return res.status(403).json({ 
         message: 'No tienes permisos para crear foros en este curso' 
       });
     }
 
-    // PROCESAR ARCHIVOS ADJUNTOS CON VALIDACIÓN MEJORADA
     const { archivos, errores } = await procesarArchivosAdjuntos(req.files);
 
-    // Crear el foro
     const nuevoForo = new Foro({
       titulo,
       descripcion,
@@ -135,15 +114,11 @@ export const crearForo = async (req, res) => {
 
     await nuevoForo.save();
 
-    // Poblar información del docente y curso
     await nuevoForo.populate([
       { path: 'docenteId', select: 'nombre apellido fotoPerfilUrl rol' },
       { path: 'cursoId', select: 'nombre' }
     ]);
 
-    console.log(` Foro creado: ${nuevoForo._id}`);
-
-    // Respuesta con información de archivos procesados
     const respuesta = {
       message: 'Foro creado exitosamente',
       foro: nuevoForo
@@ -184,14 +159,15 @@ export const obtenerForosPorCurso = async (req, res) => {
     const { cursoId } = req.params;
     const usuarioId = req.user.userId;
 
-    // Verificar que el curso existe
-    const curso = await Curso.findById(cursoId);
+    const [curso, user] = await Promise.all([
+      Curso.findById(cursoId),
+      User.findById(usuarioId)
+    ]);
+
     if (!curso) {
       return res.status(404).json({ message: 'Curso no encontrado' });
     }
 
-    // Verificar que el usuario tiene acceso al curso
-    const user = await User.findById(usuarioId);
     const esDocenteDelCurso = curso.docenteId.toString() === usuarioId;
     const esParticipante = curso.esParticipante(usuarioId);
     const esAdministrador = user.rol === 'administrador';
@@ -229,10 +205,11 @@ export const obtenerForoPorId = async (req, res) => {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    // Verificar acceso
-    const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const user = await User.findById(usuarioId);
-    
+    const [tieneAcceso, user] = await Promise.all([
+      foro.tieneAcceso(usuarioId),
+      User.findById(usuarioId)
+    ]);
+
     if (!tieneAcceso && user.rol !== 'administrador') {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
@@ -309,34 +286,21 @@ export const eliminarForo = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permisos para eliminar este foro' });
     }
 
-    //  Eliminar archivos de Cloudinary del foro
-    if (foro.archivos && foro.archivos.length > 0) {
-      console.log(` Eliminando ${foro.archivos.length} archivos del foro`);
-      for (const archivo of foro.archivos) {
-        const resourceType = archivo.tipo === 'video' ? 'video' : 
-                           archivo.tipo === 'pdf' ? 'raw' : 'image';
-        await eliminarArchivoCloudinary(archivo.publicId, resourceType);
-      }
-    }
-
-    //  Obtener y eliminar archivos de todos los mensajes asociados
     const mensajes = await mongoose.model('MensajeForo').find({ foroId: id });
-    for (const mensaje of mensajes) {
-      if (mensaje.archivos && mensaje.archivos.length > 0) {
-        for (const archivo of mensaje.archivos) {
-          const resourceType = archivo.tipo === 'video' ? 'video' : 
-                             archivo.tipo === 'pdf' ? 'raw' : 'image';
-          await eliminarArchivoCloudinary(archivo.publicId, resourceType);
-        }
-      }
-    }
 
-    // Eliminar mensajes asociados
+    const archivosAEliminar = [
+      ...(foro.archivos || []),
+      ...mensajes.flatMap(m => m.archivos || [])
+    ];
+
+    await Promise.all(archivosAEliminar.map(archivo => {
+      const resourceType = archivo.tipo === 'video' ? 'video' :
+                         archivo.tipo === 'pdf' ? 'raw' : 'image';
+      return eliminarArchivoCloudinary(archivo.publicId, resourceType);
+    }));
+
     await mongoose.model('MensajeForo').deleteMany({ foroId: id });
-
     await Foro.findByIdAndDelete(id);
-
-    console.log(` Foro eliminado: ${id}`);
 
     res.status(200).json({ message: 'Foro eliminado exitosamente' });
 
@@ -376,8 +340,6 @@ export const cambiarEstadoForo = async (req, res) => {
     foro.estado = estado;
     await foro.save();
 
-    console.log(` Foro ${estado}: ${foro._id}`);
-
     res.status(200).json({
       message: `Foro ${estado === 'cerrado' ? 'cerrado' : 'abierto'} exitosamente`,
       foro
@@ -407,8 +369,10 @@ export const getDashboardForo = async (req, res) => {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const user = await User.findById(usuarioId);
+    const [tieneAcceso, user] = await Promise.all([
+      foro.tieneAcceso(usuarioId),
+      User.findById(usuarioId)
+    ]);
 
     if (!tieneAcceso && user.rol !== 'administrador') {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });

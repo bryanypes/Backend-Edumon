@@ -43,11 +43,17 @@ class NotificadorFacade {
       });
       await notificacion.save();
 
-      // Ejecutar cada estrategia y registrar resultado
-      for (const estrategia of this.estrategias) {
-        const enviado = await estrategia.enviar(usuario, notificacion);
-        notificacion.canalEnviado[estrategia.nombre()] = enviado;
-      }
+      // Ejecutar todas las estrategias en paralelo (cada una atrapa sus propios errores
+      // y devuelve false, así que no hace falta esperarlas una por una)
+      const resultados = await Promise.all(
+        this.estrategias.map(async (estrategia) => ({
+          canal: estrategia.nombre(),
+          enviado: await estrategia.enviar(usuario, notificacion)
+        }))
+      );
+      resultados.forEach(({ canal, enviado }) => {
+        notificacion.canalEnviado[canal] = enviado;
+      });
 
       await notificacion.save();
       return notificacion;

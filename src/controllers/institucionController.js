@@ -1,4 +1,3 @@
-// src/controllers/institucionController.js
 import Institucion from '../models/Institucion.js';
 import User from '../models/User.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
@@ -56,29 +55,25 @@ export const preregistrarDocentesCSV = async (req, res) => {
     const correoFinal = `${cedula}@temp.com`;
     const telefonoNormalizado = normalizarTelefono(telefono) || telefono;
 
-    // Buscar si ya existe
     const existe = await User.findOne({
       $or: [{ cedula }, { correo: correoFinal }]
     });
 
     if (existe) {
-      // Ya existe en el sistema
       if (existe.institucionId?.toString() === institucionId.toString()) {
-        // Ya pertenece a ESTA institución
         resultados.duplicados.push({
           nombre: `${existe.nombre} ${existe.apellido}`,
           cedula,
           motivo: 'Ya está registrado en esta institución'
         });
       } else if (existe.institucionId) {
-        // Pertenece a OTRA institución
         resultados.errores.push({
           nombre: `${existe.nombre} ${existe.apellido}`,
           cedula,
           motivo: 'Ya pertenece a otra institución'
         });
       } else {
-        // Existe pero sin institución — asignar
+        // Existe pero sin institución — la asignamos en vez de crear un duplicado
         existe.institucionId = institucionId;
         if (telefonoNormalizado) existe.telefono = telefonoNormalizado;
         await existe.save();
@@ -92,7 +87,6 @@ export const preregistrarDocentesCSV = async (req, res) => {
       continue;
     }
 
-    // No existe — crear
     const docente = new User({
       nombre,
       apellido,
@@ -155,10 +149,13 @@ export const crearInstitucion = async (req, res) => {
       adminNombre, adminApellido, adminCedula, adminCorreo, adminTelefono
     } = req.body;
 
-    // Verificar que el NIT no exista
-    const existe = await Institucion.findOne({ nit });
-    if (existe) {
-      return res.status(400).json({ message: 'Ya existe una institución con ese NIT' });
+    // Verificar que el NIT no exista (findOne({ nit: undefined }) matchearía
+    // cualquier institución, así que solo se consulta si viene informado)
+    if (nit) {
+      const existe = await Institucion.findOne({ nit });
+      if (existe) {
+        return res.status(400).json({ message: 'Ya existe una institución con ese NIT' });
+      }
     }
 
     // Crear institución primero (sin adminId)
@@ -210,7 +207,8 @@ export const getInstituciones = async (req, res) => {
   try {
     const instituciones = await Institucion.find({ activo: true })
       .populate('adminId', 'nombre apellido correo')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ instituciones });
   } catch (error) {
@@ -221,13 +219,14 @@ export const getInstituciones = async (req, res) => {
 // Obtener mi institución (admin del colegio)
 export const getMiInstitucion = async (req, res) => {
   try {
-    const usuario = await User.findById(req.user.userId);
+    const usuario = await User.findById(req.user.userId).select('institucionId').lean();
     if (!usuario.institucionId) {
       return res.status(404).json({ message: 'No tienes institución asignada' });
     }
 
     const institucion = await Institucion.findById(usuario.institucionId)
-      .populate('adminId', 'nombre apellido correo');
+      .populate('adminId', 'nombre apellido correo')
+      .lean();
 
     res.json({ institucion });
   } catch (error) {
@@ -291,7 +290,7 @@ export const updateInstitucion = async (req, res) => {
       id,
       { nombre, direccion, telefono, correo },
       { new: true, runValidators: true }
-    ).populate('adminId', 'nombre apellido correo');
+    ).populate('adminId', 'nombre apellido correo').lean();
 
     if (!institucion) {
       return res.status(404).json({ message: 'Institución no encontrada' });

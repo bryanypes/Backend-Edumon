@@ -26,7 +26,16 @@ const eventoSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'La fecha de fin es requerida'],
     validate: {
-      validator: function(v) { return v > this.fechaInicio; },
+      validator: function(v) {
+        // En updates (findByIdAndUpdate), `this` es la query y no el documento,
+        // así que fechaInicio solo se puede leer si también viene en el update.
+        // Sin este fallback, cualquier update que toque fechaFin sin fechaInicio
+        // fallaba siempre (this.fechaInicio quedaba undefined).
+        const update = typeof this.getUpdate === 'function' ? this.getUpdate() : null;
+        const fechaInicio = this.fechaInicio ?? update?.fechaInicio ?? update?.$set?.fechaInicio;
+        if (!fechaInicio) return true;
+        return v > fechaInicio;
+      },
       message: 'La fecha de fin debe ser posterior a la fecha de inicio'
     }
   },

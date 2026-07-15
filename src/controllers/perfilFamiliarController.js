@@ -2,10 +2,6 @@ import PerfilFamiliar from '../models/PerfilFamiliar.js';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 
-/**
- * Crear perfil familiar
- * Solo el titular puede crear perfiles bajo su cuenta
- */
 export const crearPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;
@@ -41,23 +37,21 @@ export const crearPerfil = async (req, res) => {
     });
   } catch (error) {
     console.error('[crearPerfil]', error);
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
-/**
- * Obtener perfiles del titular autenticado
- */
 export const getMisPerfiles = async (req, res) => {
   try {
     const titularId = req.user.userId;
     const titular = await User.findById(titularId)
-      .select('nombre avatarUrl fotoPerfilUrl fcmToken');
+      .select('nombre avatarUrl fotoPerfilUrl fcmToken')
+      .lean();
 
     const perfiles = await PerfilFamiliar.find({
       titularId,
       activo: true
-    }).sort({ createdAt: 1 });
+    }).sort({ createdAt: 1 }).lean();
 
     res.json({
       // El titular aparece primero como perfil principal
@@ -70,14 +64,12 @@ export const getMisPerfiles = async (req, res) => {
       perfiles
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
-/**
- * Seleccionar perfil — genera un JWT con perfilId incluido
- * El frontend llama esto cuando el usuario elige un perfil en la pantalla de selección
- */
+// Genera un JWT con perfilId incluido; el frontend lo llama al elegir un perfil
+// en la pantalla de selección
 export const seleccionarPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;
@@ -96,7 +88,8 @@ export const seleccionarPerfil = async (req, res) => {
       );
 
       const titular = await User.findById(titularId)
-        .select('nombre apellido fotoPerfilUrl rol');
+        .select('nombre apellido fotoPerfilUrl rol')
+        .lean();
 
       return res.json({
         message: 'Perfil titular seleccionado',
@@ -110,12 +103,11 @@ export const seleccionarPerfil = async (req, res) => {
       });
     }
 
-    // Verificar que el perfil pertenece al titular
     const perfil = await PerfilFamiliar.findOne({
       _id: perfilId,
       titularId,
       activo: true
-    });
+    }).lean();
 
     if (!perfil) {
       return res.status(404).json({
@@ -123,7 +115,6 @@ export const seleccionarPerfil = async (req, res) => {
       });
     }
 
-    // Generar token con perfilId incluido
     const token = jwt.sign(
       {
         userId: titularId,   // sigue siendo el titular (para permisos y datos)
@@ -146,13 +137,10 @@ export const seleccionarPerfil = async (req, res) => {
     });
   } catch (error) {
     console.error('[seleccionarPerfil]', error);
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
-/**
- * Actualizar perfil (nombre o avatar)
- */
 export const actualizarPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;
@@ -163,7 +151,7 @@ export const actualizarPerfil = async (req, res) => {
       { _id: id, titularId, activo: true },
       { nombre, avatarUrl },
       { new: true, runValidators: true }
-    );
+    ).lean();
 
     if (!perfil) {
       return res.status(404).json({ message: 'Perfil no encontrado' });
@@ -171,13 +159,11 @@ export const actualizarPerfil = async (req, res) => {
 
     res.json({ message: 'Perfil actualizado', perfil });
   } catch (error) {
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
-/**
- * Eliminar perfil (soft delete)
- */
+// Soft delete: marca activo=false en vez de borrar el documento
 export const eliminarPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;
@@ -187,7 +173,7 @@ export const eliminarPerfil = async (req, res) => {
       { _id: id, titularId, activo: true },
       { activo: false },
       { new: true }
-    );
+    ).lean();
 
     if (!perfil) {
       return res.status(404).json({ message: 'Perfil no encontrado' });
@@ -195,14 +181,11 @@ export const eliminarPerfil = async (req, res) => {
 
     res.json({ message: 'Perfil eliminado' });
   } catch (error) {
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
-/**
- * Guardar FCM token de un perfil específico
- * El frontend llama esto cuando un perfil está activo en un dispositivo
- */
+// El frontend llama esto cuando un perfil está activo en un dispositivo
 export const guardarFCMTokenPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;
@@ -221,12 +204,11 @@ export const guardarFCMTokenPerfil = async (req, res) => {
       return res.json({ message: 'FCM token del titular guardado' });
     }
 
-    // Si es un perfil adicional
     const perfil = await PerfilFamiliar.findOneAndUpdate(
       { _id: perfilId, titularId, activo: true },
       { fcmToken, fcmTokenActualizadoEn: new Date() },
       { new: true }
-    );
+    ).lean();
 
     if (!perfil) {
       return res.status(404).json({ message: 'Perfil no encontrado' });
@@ -234,6 +216,6 @@ export const guardarFCMTokenPerfil = async (req, res) => {
 
     res.json({ message: `FCM token del perfil "${perfil.nombre}" guardado` });
   } catch (error) {
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
