@@ -1,5 +1,6 @@
 import Modulo from '../models/Modulo.js';
 import Tarea from '../models/Tarea.js';
+import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 
@@ -17,6 +18,34 @@ const poblarTareas = async (modulos) => {
   );
 };
 
+// Verifica que el usuario pertenezca al curso (mismo criterio usado en cursoController/calendarioController)
+function usuarioPerteneceACurso(curso, user) {
+  switch (user.rol) {
+    case 'superadmin':
+      return true;
+    case 'administrador':
+      return curso.institucionId?.toString() === user.institucionId;
+    case 'docente':
+      return curso.docenteId?.toString() === user.userId;
+    case 'padre':
+      return (curso.participantes || []).some(p => p.usuarioId.toString() === user.userId);
+    default:
+      return false;
+  }
+}
+
+// Verifica que el usuario (docente/administrador) tenga permiso para crear/editar/borrar
+// módulos del curso dado. Antes createModulo/updateModulo/deleteModulo/restoreModulo no
+// verificaban esto en absoluto: cualquier docente podía tocar módulos de cursos ajenos.
+async function verificarPermisoModulo(cursoId, user) {
+  const curso = await Curso.findById(cursoId).select('docenteId institucionId');
+  if (!curso) return { ok: false, status: 404, message: 'Curso no encontrado' };
+  if (!usuarioPerteneceACurso(curso, user)) {
+    return { ok: false, status: 403, message: 'No tienes permisos sobre este curso' };
+  }
+  return { ok: true, curso };
+}
+
 // Crear módulo
 export const createModulo = async (req, res) => {
   try {
@@ -32,6 +61,11 @@ export const createModulo = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(cursoId)) {
       return res.status(400).json({ message: "El ID del curso no es válido" });
+    }
+
+    const permiso = await verificarPermisoModulo(cursoId, req.user);
+    if (!permiso.ok) {
+      return res.status(permiso.status).json({ message: permiso.message });
     }
 
     const newModulo = new Modulo({ cursoId, titulo, descripcion });
@@ -70,7 +104,21 @@ export const getModulos = async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(cursoId)) {
         return res.status(400).json({ message: "El ID del curso no es válido" });
       }
+      const curso = await Curso.findById(cursoId).select('docenteId institucionId participantes');
+      if (!curso || !usuarioPerteneceACurso(curso, req.user)) {
+        return res.status(403).json({ message: "No tienes acceso a los módulos de este curso" });
+      }
       filter.cursoId = cursoId;
+    } else if (req.user.rol !== 'superadmin') {
+      // Sin cursoId explícito: antes devolvía módulos de TODOS los cursos de TODAS
+      // las instituciones. Se restringe a los cursos a los que el usuario tiene acceso.
+      const cursosPermitidos = req.user.rol === 'administrador'
+        ? await Curso.find({ institucionId: req.user.institucionId }).select('_id').lean()
+        : req.user.rol === 'docente'
+          ? await Curso.find({ docenteId: req.user.userId }).select('_id').lean()
+          : await Curso.find({ 'participantes.usuarioId': req.user.userId }).select('_id').lean();
+
+      filter.cursoId = { $in: cursosPermitidos.map(c => c._id) };
     }
 
     const [modulos, total] = await Promise.all([
@@ -130,7 +178,7 @@ export const getModuloById = async (req, res) => {
 
     const [modulo, tareas] = await Promise.all([
       Modulo.findById(req.params.id)
-        .populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion'),
+        .populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion institucionId'),
       Tarea.find({ moduloId: req.params.id })
         .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos')
         .sort({ fechaEntrega: 1 })
@@ -139,6 +187,10 @@ export const getModuloById = async (req, res) => {
 
     if (!modulo) {
       return res.status(404).json({ message: "Módulo no encontrado" });
+    }
+
+    if (!usuarioPerteneceACurso(modulo.cursoId, req.user)) {
+      return res.status(403).json({ message: "No tienes acceso a este módulo" });
     }
 
     res.json({ ...modulo.toObject(), tareas });
@@ -164,6 +216,14 @@ export const getModulosByCurso = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(cursoId)) {
       return res.status(400).json({ message: "El ID del curso no es válido" });
+    }
+
+    const curso = await Curso.findById(cursoId).select('docenteId institucionId participantes');
+    if (!curso) {
+      return res.status(404).json({ message: "Curso no encontrado" });
+    }
+    if (!usuarioPerteneceACurso(curso, req.user)) {
+      return res.status(403).json({ message: "No tienes acceso a los módulos de este curso" });
     }
 
     const filter = { cursoId };
@@ -203,17 +263,24 @@ export const updateModulo = async (req, res) => {
       return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
-    const { _id, fechaCreacion, ...updateData } = req.body;
+    const modulo = await Modulo.findById(id).select('cursoId');
+    if (!modulo) {
+      return res.status(404).json({ message: "Módulo no encontrado" });
+    }
+
+    const permiso = await verificarPermisoModulo(modulo.cursoId, req.user);
+    if (!permiso.ok) {
+      return res.status(permiso.status).json({ message: permiso.message });
+    }
+
+    // No permitir reasignar el módulo a otro curso desde este endpoint
+    const { _id, fechaCreacion, cursoId, ...updateData } = req.body;
 
     const updatedModulo = await Modulo.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).populate('cursoId', 'nombre descripcion fotoPortadaUrl docenteId participantes estado fechaCreacion');
-
-    if (!updatedModulo) {
-      return res.status(404).json({ message: "Módulo no encontrado" });
-    }
 
     res.json({
       message: "Módulo actualizado exitosamente",
@@ -245,15 +312,21 @@ export const deleteModulo = async (req, res) => {
       return res.status(400).json({ message: "El ID del módulo no es válido" });
     }
 
+    const modulo = await Modulo.findById(id).select('cursoId');
+    if (!modulo) {
+      return res.status(404).json({ message: "Módulo no encontrado" });
+    }
+
+    const permiso = await verificarPermisoModulo(modulo.cursoId, req.user);
+    if (!permiso.ok) {
+      return res.status(permiso.status).json({ message: permiso.message });
+    }
+
     const updatedModulo = await Modulo.findByIdAndUpdate(
       id,
       { estado: 'inactivo' },
       { new: true }
     );
-
-    if (!updatedModulo) {
-      return res.status(404).json({ message: "Módulo no encontrado" });
-    }
 
     res.json({
       message: "Módulo desactivado exitosamente",
@@ -286,6 +359,11 @@ export const restoreModulo = async (req, res) => {
 
     if (!modulo) {
       return res.status(404).json({ message: "Módulo no encontrado" });
+    }
+
+    const permiso = await verificarPermisoModulo(modulo.cursoId, req.user);
+    if (!permiso.ok) {
+      return res.status(permiso.status).json({ message: permiso.message });
     }
 
     if (modulo.estado === 'activo') {
