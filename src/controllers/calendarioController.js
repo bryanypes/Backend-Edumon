@@ -7,6 +7,7 @@ export const obtenerCalendarioCurso = async (req, res) => {
   try {
     const { cursoId } = req.params;
     const { mes, anio } = req.query; // Opcional: filtrar por mes/año
+    const { userId, rol, institucionId } = req.user;
 
     // Verificar que el curso existe
     const curso = await Curso.findById(cursoId).lean();
@@ -14,6 +15,10 @@ export const obtenerCalendarioCurso = async (req, res) => {
       return res.status(404).json({
         error: 'Curso no encontrado'
       });
+    }
+
+    if (!usuarioPerteneceACurso(curso, userId, rol, institucionId)) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
     }
 
     // Construir filtro de fechas si se proporciona mes/año
@@ -121,11 +126,20 @@ export const obtenerEventosDia = async (req, res) => {
   try {
     const { cursoId } = req.params;
     const { fecha } = req.query; // formato: YYYY-MM-DD
+    const { userId, rol, institucionId } = req.user;
 
     if (!fecha) {
-      return res.status(400).json({ 
-        error: 'La fecha es requerida' 
+      return res.status(400).json({
+        error: 'La fecha es requerida'
       });
+    }
+
+    const curso = await Curso.findById(cursoId).select('docenteId institucionId participantes').lean();
+    if (!curso) {
+      return res.status(404).json({ error: 'Curso no encontrado' });
+    }
+    if (!usuarioPerteneceACurso(curso, userId, rol, institucionId)) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
     }
 
     const inicioDia = new Date(fecha);
@@ -182,6 +196,15 @@ export const obtenerProximosEventos = async (req, res) => {
   try {
     const { cursoId } = req.params;
     const { limite = 10 } = req.query;
+    const { userId, rol, institucionId } = req.user;
+
+    const curso = await Curso.findById(cursoId).select('docenteId institucionId participantes').lean();
+    if (!curso) {
+      return res.status(404).json({ error: 'Curso no encontrado' });
+    }
+    if (!usuarioPerteneceACurso(curso, userId, rol, institucionId)) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
 
     const ahora = new Date();
 
@@ -288,6 +311,23 @@ function agruparPorFecha(items) {
 }
 
 // ─── Helpers de rol ──────────────────────────────────────────────────────────
+
+// Mismo criterio de acceso que obtenerCursosDelUsuario, pero para un curso puntual
+// (rutas /:cursoId/*, que antes no verificaban pertenencia en absoluto).
+function usuarioPerteneceACurso(curso, userId, rol, institucionId) {
+  switch (rol) {
+    case 'superadmin':
+      return true;
+    case 'administrador':
+      return curso.institucionId?.toString() === institucionId;
+    case 'docente':
+      return curso.docenteId?.toString() === userId;
+    case 'padre':
+      return (curso.participantes || []).some(p => p.usuarioId.toString() === userId);
+    default:
+      return false;
+  }
+}
 
 async function obtenerCursosDelUsuario(userId, rol, institucionId) {
   switch (rol) {

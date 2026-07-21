@@ -52,6 +52,18 @@ const cursoSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  color: {
+    type: String,
+    default: null,
+    trim: true,
+    validate: {
+      validator: function (v) {
+        if (!v) return true;
+        return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v);
+      },
+      message: 'El color debe ser un código hexadecimal válido (ej. #3B82F6)'
+    }
+  },
   docenteId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

@@ -29,7 +29,7 @@ export const createCursoValidator = [
       if (req.files?.fotoPortada?.[0] || req.file?.fieldname === 'fotoPortada') {
         return true;
       }
-      
+
       // Si NO hay archivo pero SÍ hay valor, validar que sea URL válida
       if (value && value !== '') {
         const urlRegex = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i;
@@ -37,9 +37,15 @@ export const createCursoValidator = [
           throw new Error('La URL de la foto debe ser válida y terminar en jpg, jpeg, png, gif o webp');
         }
       }
-      
+
       return true;
-    })
+    }),
+
+  body('color')
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .matches(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/)
+    .withMessage('El color debe ser un código hexadecimal válido (ej. #3B82F6)')
 ];
 
 export const updateCursoValidator = [
@@ -66,7 +72,7 @@ export const updateCursoValidator = [
       if (req.file?.fieldname === 'fotoPortada') {
         return true;
       }
-      
+
       // Si NO hay archivo pero SÍ hay valor, validar que sea URL válida
       if (value && value !== '') {
         const urlRegex = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i;
@@ -74,9 +80,15 @@ export const updateCursoValidator = [
           throw new Error('La URL de la foto debe ser válida y terminar en jpg, jpeg, png, gif o webp');
         }
       }
-      
+
       return true;
-    })
+    }),
+
+  body('color')
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .matches(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/)
+    .withMessage('El color debe ser un código hexadecimal válido (ej. #3B82F6)')
 ];
 
 export const participanteValidator = [

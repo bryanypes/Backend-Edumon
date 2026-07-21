@@ -73,12 +73,15 @@ export const crearMensaje = async (req, res) => {
 
     if (!foro.estaAbierto()) return res.status(403).json({ message: 'El foro está cerrado' });
 
-    const [tieneAcceso, user] = await Promise.all([
-      foro.tieneAcceso(usuarioId),
-      User.findById(usuarioId)
-    ]);
+    // "administrador" antes tenía bypass total sin importar la institución del curso
+    const tieneAcceso = await foro.tieneAcceso(usuarioId);
+    let esAdministradorDeLaInstitucion = false;
+    if (!tieneAcceso && req.user.rol === 'administrador') {
+      const cursoDelForo = await Curso.findById(foro.cursoId).select('institucionId');
+      esAdministradorDeLaInstitucion = cursoDelForo?.institucionId?.toString() === req.user.institucionId;
+    }
 
-    if (!tieneAcceso && user.rol !== 'administrador') {
+    if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 
@@ -90,7 +93,7 @@ export const crearMensaje = async (req, res) => {
         return res.status(400).json({ message: 'Solo puedes responder directamente al foro' });
       }
 
-      if (user.rol === 'padre') {
+      if (req.user.rol === 'padre') {
         const usuarioOriginal = await User.findById(mensajeOriginal.usuarioId);
         if (!['docente', 'administrador'].includes(usuarioOriginal.rol)) {
           return res.status(403).json({ message: 'Los padres solo pueden responder a mensajes de docentes' });
@@ -133,12 +136,14 @@ export const obtenerMensajesPorForo = async (req, res) => {
     const foro = await Foro.findById(foroId);
     if (!foro) return res.status(404).json({ message: 'Foro no encontrado' });
 
-    const [tieneAcceso, user] = await Promise.all([
-      foro.tieneAcceso(usuarioId),
-      User.findById(usuarioId)
-    ]);
+    const tieneAcceso = await foro.tieneAcceso(usuarioId);
+    let esAdministradorDeLaInstitucion = false;
+    if (!tieneAcceso && req.user.rol === 'administrador') {
+      const cursoDelForo = await Curso.findById(foro.cursoId).select('institucionId');
+      esAdministradorDeLaInstitucion = cursoDelForo?.institucionId?.toString() === req.user.institucionId;
+    }
 
-    if (!tieneAcceso && user.rol !== 'administrador') {
+    if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 
@@ -186,12 +191,14 @@ export const toggleLikeMensaje = async (req, res) => {
     const foro = await Foro.findById(mensaje.foroId);
     if (!foro) return res.status(404).json({ message: 'Foro no encontrado' });
 
-    const [tieneAcceso, user] = await Promise.all([
-      foro.tieneAcceso(usuarioId),
-      User.findById(usuarioId)
-    ]);
+    const tieneAcceso = await foro.tieneAcceso(usuarioId);
+    let esAdministradorDeLaInstitucion = false;
+    if (!tieneAcceso && req.user.rol === 'administrador') {
+      const cursoDelForo = await Curso.findById(foro.cursoId).select('institucionId');
+      esAdministradorDeLaInstitucion = cursoDelForo?.institucionId?.toString() === req.user.institucionId;
+    }
 
-    if (!tieneAcceso && user.rol !== 'administrador') {
+    if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 
@@ -227,14 +234,21 @@ export const eliminarMensaje = async (req, res) => {
     const mensaje = await MensajeForo.findById(id);
     if (!mensaje) return res.status(404).json({ message: 'Mensaje no encontrado' });
 
-    const user = await User.findById(usuarioId);
     const esAutor = mensaje.usuarioId.toString() === usuarioId;
-    const esAdministrador = user.rol === 'administrador';
 
-    let puedeEliminar = esAutor || esAdministrador;
+    let puedeEliminar = esAutor;
+
+    // Administrador: solo puede moderar mensajes de foros de su propia institución
+    if (!puedeEliminar && req.user.rol === 'administrador') {
+      const foroDelMensaje = await Foro.findById(mensaje.foroId);
+      const cursoDelForo = foroDelMensaje && await Curso.findById(foroDelMensaje.cursoId).select('institucionId');
+      if (cursoDelForo?.institucionId?.toString() === req.user.institucionId) {
+        puedeEliminar = true;
+      }
+    }
 
     // Docente: puede moderar mensajes de padres en sus foros
-    if (!puedeEliminar && user.rol === 'docente') {
+    if (!puedeEliminar && req.user.rol === 'docente') {
       const autorMensaje = await User.findById(mensaje.usuarioId).select('rol');
 
       // Solo puede eliminar mensajes de padres (no de otros docentes)
