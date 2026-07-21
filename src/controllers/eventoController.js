@@ -5,6 +5,15 @@ import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 
+// docente y padre ya se acotan a sus propios cursos/eventos en este archivo; a
+// administrador nunca se le restringía a su propia institución, por lo que podía
+// ver/editar/borrar eventos de CUALQUIER institución de la plataforma.
+async function eventoPerteneceAInstitucion(cursosIds, institucionId) {
+  if (!cursosIds || cursosIds.length === 0) return false;
+  const count = await Curso.countDocuments({ _id: { $in: cursosIds }, institucionId });
+  return count === cursosIds.length;
+}
+
 // ─── Crear evento ─────────────────────────────
 export const createEvento = async (req, res) => {
   try {
@@ -13,7 +22,7 @@ export const createEvento = async (req, res) => {
       return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
     }
 
-    const { userId, rol } = req.user;
+    const { userId, rol, institucionId } = req.user;
 
     if (!['administrador', 'docente'].includes(rol)) {
       return res.status(403).json({ message: "No tienes permisos para crear eventos" });
@@ -40,6 +49,13 @@ export const createEvento = async (req, res) => {
       const cursosDelDocente = cursosExisten.filter(c => c.docenteId.toString() === userId);
       if (cursosDelDocente.length !== cursosIds.length) {
         return res.status(403).json({ message: "Solo puedes crear eventos para tus propios cursos" });
+      }
+    }
+
+    if (rol === 'administrador') {
+      const cursosDeLaInstitucion = cursosExisten.filter(c => c.institucionId.toString() === institucionId);
+      if (cursosDeLaInstitucion.length !== cursosIds.length) {
+        return res.status(403).json({ message: "Solo puedes crear eventos para cursos de tu institución" });
       }
     }
 
@@ -91,7 +107,7 @@ export const createEvento = async (req, res) => {
 // ─── Listar eventos ───────────────────────────
 export const getEventos = async (req, res) => {
   try {
-    const { userId, rol } = req.user;
+    const { userId, rol, institucionId } = req.user;
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
     const skip = (page - 1) * limit;
@@ -110,6 +126,12 @@ export const getEventos = async (req, res) => {
         'participantes.etiqueta': 'padre'
       }).distinct('_id');
       filter.cursosIds = { $in: cursosDelPadre };
+    }
+
+    if (rol === 'administrador') {
+      // Sin este filtro, un administrador veía eventos de TODAS las instituciones.
+      const cursosDeLaInstitucion = await Curso.find({ institucionId }).distinct('_id');
+      filter.cursosIds = { $in: cursosDeLaInstitucion };
     }
 
     const [eventos, total] = await Promise.all([
@@ -145,13 +167,13 @@ export const getEventoById = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { userId, rol } = req.user;
+    const { userId, rol, institucionId } = req.user;
 
     const evento = await Evento.findById(id)
       .populate('docenteId', 'nombre apellido correo')
       .populate({
         path: 'cursosIds',
-        select: 'nombre codigoCurso participantes',
+        select: 'nombre codigoCurso participantes institucionId',
         populate: { path: 'participantes.usuarioId', select: 'nombre apellido correo rol' }
       });
 
@@ -174,6 +196,11 @@ export const getEventoById = async (req, res) => {
       if (!tieneAcceso) return res.status(403).json({ message: "No tienes permiso para ver este evento" });
     }
 
+    if (rol === 'administrador') {
+      const esDeMiInstitucion = evento.cursosIds.every(curso => curso.institucionId?.toString() === institucionId);
+      if (!esDeMiInstitucion) return res.status(403).json({ message: "No tienes permiso para ver este evento" });
+    }
+
     res.json(evento);
   } catch (error) {
     console.error('Error al obtener evento:', error);
@@ -190,7 +217,7 @@ export const updateEvento = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { userId, rol } = req.user;
+    const { userId, rol, institucionId } = req.user;
     const updateData = { ...req.body };
 
     if (!['administrador', 'docente'].includes(rol)) {
@@ -201,6 +228,10 @@ export const updateEvento = async (req, res) => {
     if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
 
     if (rol === 'docente' && evento.docenteId.toString() !== userId) {
+      return res.status(403).json({ message: "No tienes permiso para actualizar este evento" });
+    }
+
+    if (rol === 'administrador' && !(await eventoPerteneceAInstitucion(evento.cursosIds, institucionId))) {
       return res.status(403).json({ message: "No tienes permiso para actualizar este evento" });
     }
 
@@ -255,7 +286,7 @@ export const deleteEvento = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { userId, rol } = req.user;
+    const { userId, rol, institucionId } = req.user;
 
     if (!['administrador', 'docente'].includes(rol)) {
       return res.status(403).json({ message: "No tienes permisos para eliminar eventos" });
@@ -265,6 +296,10 @@ export const deleteEvento = async (req, res) => {
     if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
 
     if (rol === 'docente' && evento.docenteId.toString() !== userId) {
+      return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
+    }
+
+    if (rol === 'administrador' && !(await eventoPerteneceAInstitucion(evento.cursosIds, institucionId))) {
       return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
     }
 
@@ -288,7 +323,7 @@ export const deleteEvento = async (req, res) => {
 // ─── Eventos del día ──────────────────────────
 export const getEventosHoy = async (req, res) => {
   try {
-    const { userId, rol } = req.user;
+    const { userId, rol, institucionId } = req.user;
 
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -304,6 +339,9 @@ export const getEventosHoy = async (req, res) => {
         'participantes.etiqueta': 'padre'
       }).distinct('_id');
       filter.cursosIds = { $in: cursosDelPadre };
+    } else if (rol === 'administrador') {
+      const cursosDeLaInstitucion = await Curso.find({ institucionId }).distinct('_id');
+      filter.cursosIds = { $in: cursosDeLaInstitucion };
     }
 
     const eventos = await Evento.find(filter)

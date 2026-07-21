@@ -3,8 +3,8 @@ import { validationResult } from 'express-validator';
 import cloudinary from '../config/cloudinary.js';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 
-// URL del avatar predeterminado (avatar1)
-const AVATAR_PREDETERMINADO = 'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp';
+// URL del avatar predeterminado (Avatar1)
+const AVATAR_PREDETERMINADO = 'https://res.cloudinary.com/djvilfslm/image/upload/v1784650360/fotos-perfil-predeterminadas/Avatar1.webp';
 
 // Crear usuario (desde panel de administración)
 export const createUser = async (req, res) => {

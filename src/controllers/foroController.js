@@ -86,18 +86,22 @@ export const crearForo = async (req, res) => {
       });
     }
 
-    const [curso, user] = await Promise.all([
-      Curso.findById(cursoId),
-      User.findById(docenteId)
-    ]);
+    const curso = await Curso.findById(cursoId);
 
     if (!curso) {
       return res.status(404).json({ message: 'Curso no encontrado' });
     }
 
-    if (user.rol !== 'administrador' && curso.docenteId.toString() !== docenteId) {
-      return res.status(403).json({ 
-        message: 'No tienes permisos para crear foros en este curso' 
+    // "administrador" antes tenía bypass total (sin importar la institución del curso);
+    // ahora solo puede crear foros en cursos de su propia institución.
+    if (req.user.rol === 'docente' && curso.docenteId.toString() !== docenteId) {
+      return res.status(403).json({
+        message: 'No tienes permisos para crear foros en este curso'
+      });
+    }
+    if (req.user.rol === 'administrador' && curso.institucionId.toString() !== req.user.institucionId) {
+      return res.status(403).json({
+        message: 'No tienes permisos para crear foros en este curso'
       });
     }
 
@@ -159,10 +163,7 @@ export const obtenerForosPorCurso = async (req, res) => {
     const { cursoId } = req.params;
     const usuarioId = req.user.userId;
 
-    const [curso, user] = await Promise.all([
-      Curso.findById(cursoId),
-      User.findById(usuarioId)
-    ]);
+    const curso = await Curso.findById(cursoId);
 
     if (!curso) {
       return res.status(404).json({ message: 'Curso no encontrado' });
@@ -170,9 +171,10 @@ export const obtenerForosPorCurso = async (req, res) => {
 
     const esDocenteDelCurso = curso.docenteId.toString() === usuarioId;
     const esParticipante = curso.esParticipante(usuarioId);
-    const esAdministrador = user.rol === 'administrador';
+    const esAdministradorDeLaInstitucion = req.user.rol === 'administrador' &&
+      curso.institucionId.toString() === req.user.institucionId;
 
-    if (!esDocenteDelCurso && !esParticipante && !esAdministrador) {
+    if (!esDocenteDelCurso && !esParticipante && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este curso' });
     }
 
@@ -198,19 +200,18 @@ export const obtenerForoPorId = async (req, res) => {
 
     const foro = await Foro.findById(id)
       .populate('docenteId', 'nombre apellido fotoPerfilUrl rol')
-      .populate('cursoId', 'nombre')
+      .populate('cursoId', 'nombre institucionId')
       .populate('totalMensajes');
 
     if (!foro) {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    const [tieneAcceso, user] = await Promise.all([
-      foro.tieneAcceso(usuarioId),
-      User.findById(usuarioId)
-    ]);
+    const tieneAcceso = await foro.tieneAcceso(usuarioId);
+    const esAdministradorDeLaInstitucion = req.user.rol === 'administrador' &&
+      foro.cursoId.institucionId?.toString() === req.user.institucionId;
 
-    if (!tieneAcceso && user.rol !== 'administrador') {
+    if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 
@@ -235,11 +236,11 @@ export const actualizarForo = async (req, res) => {
     }
 
     // Verificar permisos
-    const user = await User.findById(usuarioId);
     const esCreador = foro.docenteId.toString() === usuarioId;
-    const esAdministrador = user.rol === 'administrador';
+    const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
+      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
 
-    if (!esCreador && !esAdministrador) {
+    if (!esCreador && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes permisos para actualizar este foro' });
     }
 
@@ -278,11 +279,11 @@ export const eliminarForo = async (req, res) => {
     }
 
     // Verificar permisos
-    const user = await User.findById(usuarioId);
     const esCreador = foro.docenteId.toString() === usuarioId;
-    const esAdministrador = user.rol === 'administrador';
+    const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
+      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
 
-    if (!esCreador && !esAdministrador) {
+    if (!esCreador && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes permisos para eliminar este foro' });
     }
 
@@ -329,11 +330,11 @@ export const cambiarEstadoForo = async (req, res) => {
     }
 
     // Verificar permisos
-    const user = await User.findById(usuarioId);
     const esCreador = foro.docenteId.toString() === usuarioId;
-    const esAdministrador = user.rol === 'administrador';
+    const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
+      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
 
-    if (!esCreador && !esAdministrador) {
+    if (!esCreador && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes permisos para cambiar el estado' });
     }
 
@@ -362,19 +363,18 @@ export const getDashboardForo = async (req, res) => {
     // ── 1. Verificar que el foro existe y el usuario tiene acceso ──────────────
     const foro = await Foro.findById(id)
       .populate('docenteId', 'nombre apellido fotoPerfilUrl rol')
-      .populate('cursoId', 'nombre')
+      .populate('cursoId', 'nombre institucionId')
       .populate('totalMensajes');
 
     if (!foro) {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    const [tieneAcceso, user] = await Promise.all([
-      foro.tieneAcceso(usuarioId),
-      User.findById(usuarioId)
-    ]);
+    const tieneAcceso = await foro.tieneAcceso(usuarioId);
+    const esAdministradorDeLaInstitucion = req.user.rol === 'administrador' &&
+      foro.cursoId.institucionId?.toString() === req.user.institucionId;
 
-    if (!tieneAcceso && user.rol !== 'administrador') {
+    if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 

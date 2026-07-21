@@ -10,7 +10,7 @@ import {
   eliminarLeidasAntiguas,
   getConteoNoLeidas
 } from '../controllers/notificacionController.js';
-import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import { 
   createNotificacionValidator,
   updateNotificacionValidator,
@@ -46,10 +46,13 @@ router.get(
   getNotificacionById
 );
 
-// Crear notificación (normalmente para uso interno/admin)
+// Crear notificación (uso interno/admin). El body permite fijar cualquier
+// usuarioId destino; sin este requireRole, cualquier usuario autenticado podía
+// crear notificaciones "del sistema" dirigidas a cualquier otro usuario.
 router.post(
   '/',
   authMiddleware,
+  requireRole(['administrador', 'superadmin']),
   createNotificacionValidator,
   createNotificacion
 );

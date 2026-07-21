@@ -171,7 +171,7 @@ export const createCurso = async (req, res) => {
       });
     }
 
-    const { nombre, descripcion, docenteId, fotoPortadaUrl } = req.body;
+    const { nombre, descripcion, docenteId, fotoPortadaUrl, color } = req.body;
 
     const docente = await User.findById(docenteId);
     if (!docente || docente.rol !== 'docente') {
@@ -213,6 +213,7 @@ export const createCurso = async (req, res) => {
       descripcion,
       fotoPortadaUrl: urlFoto,
       fotoPortadaPublicId: publicIdFoto,
+      color: color || null,
       docenteId,
       institucionId,
       participantes: [{ usuarioId: docenteId, etiqueta: 'docente' }]
@@ -263,7 +264,11 @@ export const getCursos = async (req, res) => {
 
     const { estado, docenteId } = req.query;
 
-    const filtro = {};
+    // Aislamiento por institución: sin este filtro, cualquier admin/docente/padre
+    // autenticado (el rol lo permite la ruta) podía listar los cursos de TODAS
+    // las instituciones de la plataforma, incluyendo datos de contacto de
+    // docentes y participantes de colegios ajenos.
+    const filtro = { institucionId: req.user.institucionId };
     filtro.estado = estado || { $in: ['activo', 'archivado'] };
     if (docenteId) filtro.docenteId = docenteId;
 
