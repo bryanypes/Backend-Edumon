@@ -119,6 +119,36 @@ export const updateUserValidator = [
     .withMessage('ID de institución inválido'),
 ];
 
+export const updateOwnProfileValidator = [
+  body('nombre')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('El nombre debe tener entre 2 y 50 caracteres')
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .withMessage('El nombre solo puede contener letras y espacios'),
+
+  body('apellido')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('El apellido debe tener entre 2 y 50 caracteres')
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .withMessage('El apellido solo puede contener letras y espacios'),
+
+  body('correo')
+    .optional()
+    .isEmail()
+    .withMessage('El correo electrónico no es válido')
+    .normalizeEmail(),
+
+  body('telefono')
+    .optional()
+    .trim()
+    .matches(/^\+57\d{10}$/)
+    .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
+];
+
 export const userIdValidator = [
   param('id')
     .isMongoId()
