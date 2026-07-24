@@ -64,9 +64,10 @@ async function seed() {
       await user.save();
       console.log(`✅ Creado: ${data.rol}`);
       console.log(`   Nombre  → ${data.nombre} ${data.apellido}`);
-      console.log(`   Correo  → ${data.correo}`);
-      console.log(`   Cédula  → ${data.cedula}`);
-      console.log(`   Clave   → ${data.contraseña}\n`);
+      console.log(`   Correo   → ${data.correo}`);
+      console.log(`   Teléfono → ${data.telefono}`);
+      console.log(`   Cédula   → ${data.cedula}`);
+      console.log(`   Clave    → ${data.contraseña}\n`);
     }
 
     // ── 3. Vincular admin a la institución ──────────────────────────

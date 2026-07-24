@@ -197,6 +197,62 @@ export const updateUser = async (req, res) => {
   }
 };
 
+// Actualizar el propio perfil (nombre/apellido/correo/telefono) —
+// nunca rol/estado/institucionId, esos quedan reservados a administradores
+export const updateOwnProfile = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
+      });
+    }
+
+    const { userId } = req.user; // nunca desde req.params — así nadie edita a otro
+    const { nombre, apellido, correo, telefono } = req.body; // whitelist explícita
+
+    const [existingCorreo, existingTelefono] = await Promise.all([
+      correo   ? User.findOne({ correo, _id: { $ne: userId } })   : null,
+      telefono ? User.findOne({ telefono, _id: { $ne: userId } }) : null,
+    ]);
+
+    if (correo && existingCorreo) {
+      return res.status(409).json({ message: "Ya existe un usuario con este correo electrónico" });
+    }
+    if (telefono && existingTelefono) {
+      return res.status(409).json({ message: "Ya existe un usuario con este teléfono" });
+    }
+
+    const updateData = {};
+    if (nombre   !== undefined) updateData.nombre   = nombre;
+    if (apellido !== undefined) updateData.apellido = apellido;
+    if (correo   !== undefined) updateData.correo   = correo;
+    if (telefono !== undefined) updateData.telefono = telefono;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    res.json({
+      message: "Perfil actualizado exitosamente",
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Error al actualizar el propio perfil:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Cambiar contraseña
 export const changePassword = async (req, res) => {
   try {
