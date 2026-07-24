@@ -4,7 +4,8 @@ import {
   getUsers, 
   getUserById,
   getProfile,
-  updateUser, 
+  updateOwnProfile,
+  updateUser,
   deleteUser,
   getFotosPredeterminadas,
   updateFotoPerfil,
@@ -18,6 +19,7 @@ import { uploadImagenCloudinary } from '../middlewares/cloudinaryMiddleware.js';
 import { 
   createUserValidator,
   updateUserValidator,
+  updateOwnProfileValidator,
   userIdValidator,
   updateFcmTokenValidator,
   updateModoOscuroValidator
@@ -28,6 +30,12 @@ const router = express.Router();
 
 // ─── Rutas /me (deben ir ANTES de /:id para no colisionar) ───
 router.get('/me/profile', authMiddleware, getProfile);
+
+router.put('/me/profile',
+  authMiddleware,
+  updateOwnProfileValidator,
+  updateOwnProfile
+);
 
 router.put('/me/foto-perfil',
   authMiddleware,
