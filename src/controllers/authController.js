@@ -18,8 +18,12 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 // ─── Cookie base compartida ───────────────────────────────────────────────────
 const COOKIE_BASE = {
   httpOnly: true,
-  secure:   IS_PROD,           // solo HTTPS en producción
-  sameSite: IS_PROD ? 'strict' : 'lax',
+  secure:   IS_PROD,           // solo HTTPS en producción — SameSite=None exige Secure
+  // 'none' en prod: el frontend (web/Flutter web) vive en un origen distinto al backend
+  // (ej. Render), así que la cookie es cross-site. 'strict'/'lax' hacen que el navegador
+  // NUNCA la reenvíe en ese caso — el login "funciona" pero toda petición protegida
+  // siguiente llega sin cookie y cae en 401.
+  sameSite: IS_PROD ? 'none' : 'lax',
   path:     '/',
 };
 
