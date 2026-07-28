@@ -39,6 +39,13 @@ app.use(timeout('30s'));
 app.use(compression());
 
 // ─── Orígenes permitidos ──────────────────────────────────────────────────────
+// FRONTEND_URL admite varios orígenes separados por coma (ej. web React + Flutter web),
+// ya que cada uno vive en un dominio distinto al backend y todos necesitan credentials: true.
+const frontendUrls = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -47,7 +54,7 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
-  process.env.FRONTEND_URL,
+  ...frontendUrls,
 ].filter(Boolean);
 
 // ─── Seguridad (Helmet) ───────────────────────────────────────────────────────
@@ -157,9 +164,20 @@ app.use('/api/auth/login',    limiterAuth);
 app.use('/api/auth/register', limiterAuth);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+// Mientras no haya ningún frontend desplegado (FRONTEND_URL vacío), se refleja
+// cualquier origen, igual que en desarrollo. Apenas se configure FRONTEND_URL con
+// el/los dominio(s) reales, CORS se restringe automáticamente a esa lista.
+const corsAbiertoTemporalmente = !isDev && frontendUrls.length === 0;
+if (corsAbiertoTemporalmente) {
+  console.warn(
+    'CORS abierto a cualquier origen: FRONTEND_URL no está configurado. ' +
+    'Esto es temporal mientras no haya frontend desplegado — configúralo en cuanto lo despliegues.',
+  );
+}
+
 app.use(
   cors({
-    origin:           isDev ? true : allowedOrigins,
+    origin:           isDev || corsAbiertoTemporalmente ? true : allowedOrigins,
     credentials:      true,  // siempre true: necesario para que el browser envíe cookies
     methods:          ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders:   ['Content-Type', 'Authorization'],

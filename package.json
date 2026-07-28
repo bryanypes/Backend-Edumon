@@ -3,14 +3,26 @@
   "version": "1.0.0",
   "main": "src/index.js",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "seed": "node src/scripts/seedAdmins.js",
+    "reset-db": "node reset.js"
   },
-  "keywords": [],
-  "author": "Bray",
-  "license": "MIT",
-  "description": "Backend para proyecto Edumon hecho en Node.js",
+  "keywords": [
+    "edumon",
+    "educacion",
+    "colegio",
+    "api-rest",
+    "express",
+    "mongodb"
+  ],
+  "author": "Bryan David Yepes",
+  "license": "SEE LICENSE IN README.md",
+  "description": "Backend (API REST) de Edumon, plataforma de gestion escolar para instituciones, docentes y padres/acudientes.",
   "dependencies": {
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
