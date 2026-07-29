@@ -29,12 +29,16 @@ const COOKIE_BASE = {
 
 // ─── Helpers de token ─────────────────────────────────────────────────────────
 
-const generarAccessToken = (user) =>
+// `perfilId`/`esTitular` identifican qué perfil familiar está activo (ver
+// seleccionarPerfil en perfilFamiliarController.js); por defecto es el titular.
+export const generarAccessToken = (user, { perfilId = null, esTitular = true } = {}) =>
   jwt.sign(
     {
       userId:            user._id,
       rol:               user.rol,
       primerInicioSesion: user.primerInicioSesion ?? false,
+      perfilId,
+      esTitular,
     },
     process.env.JWT_SECRET,
     { expiresIn: ACCESS_TOKEN_TTL },
@@ -47,12 +51,18 @@ const generarRefreshToken = () => {
   return { raw, hash };
 };
 
-const setSessionCookies = (res, accessToken, refreshToken) => {
+// Exportado para que otros controladores (ej. seleccionarPerfil) puedan renovar
+// solo el access token sin tocar el refresh token / la sesión de login.
+export const setAccessTokenCookie = (res, accessToken) => {
   // Access token: expira cuando cierra el browser o en 15 min
   res.cookie('access_token', accessToken, {
     ...COOKIE_BASE,
     maxAge: 15 * 60 * 1000,
   });
+};
+
+const setSessionCookies = (res, accessToken, refreshToken) => {
+  setAccessTokenCookie(res, accessToken);
 
   // Refresh token: persiste 7 días
   res.cookie('refresh_token', refreshToken, {
