@@ -7,7 +7,7 @@ export class EmailStrategy extends NotificacionStrategy {
 
   async enviar(usuario, notificacion) {
     if (!usuario.correo) return false;
-    if (!process.env.RESEND_API_KEY) return false;
+    if (!process.env.BREVO_API_KEY) return false;
 
     const titulos = {
       tarea: '📝 Nueva Tarea',
@@ -20,23 +20,27 @@ export class EmailStrategy extends NotificacionStrategy {
 
     try {
       await axios.post(
-        'https://api.resend.com/emails',
+        'https://api.brevo.com/v3/smtp/email',
         {
-          from: 'onboarding@resend.dev',
-          to: [usuario.correo], 
+          sender: {
+            name:  process.env.BREVO_SENDER_NAME || 'Edumon',
+            email: process.env.BREVO_SENDER_EMAIL,
+          },
+          to: [{ email: usuario.correo, name: usuario.nombre }],
           subject: titulos[notificacion.tipo] || 'Notificación Edumon',
-          html: this._generarHTML(usuario, notificacion)
+          htmlContent: this._generarHTML(usuario, notificacion)
         },
         {
           headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
+            'api-key':      process.env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            Accept:         'application/json'
           }
         }
       );
       return true;
     } catch (error) {
-      console.error('[EmailStrategy] Error:', error.message);
+      console.error('[EmailStrategy] Error:', error.response?.data || error.message);
       return false;
     }
   }

@@ -10,13 +10,13 @@ Para el detalle completo (modelos de datos, endpoints, flujos, seguridad, etc.) 
 - MongoDB + Mongoose
 - Autenticación con JWT (cookies httpOnly, access + refresh token con rotación)
 - Socket.IO (tiempo real)
-- Cloudinary (archivos/imágenes), Firebase Admin (push), Twilio (WhatsApp), Resend (correo)
+- Cloudinary (archivos/imágenes), Firebase Admin (push), Twilio (WhatsApp), Brevo (correo)
 
 ## Requisitos previos
 
 - Node.js `>= 20`
 - Una instancia de MongoDB (local o Atlas)
-- Cuentas/credenciales de: Cloudinary, Firebase (proyecto con Cloud Messaging), Twilio (con WhatsApp habilitado), Resend
+- Cuentas/credenciales de: Cloudinary, Firebase (proyecto con Cloud Messaging), Twilio (con WhatsApp habilitado), Brevo
 - (Opcional) Docker y Docker Compose
 
 ## Instalación
@@ -40,7 +40,7 @@ El servidor arranca por defecto en `http://localhost:4000` (configurable con `PO
 
 ## Variables de entorno
 
-Ver [.env.example](.env.example) para la lista completa con explicación de cada una (base de datos, JWT, Cloudinary, Firebase, VAPID/Web Push, Twilio, Resend). Ninguna tiene valores por defecto sensibles cargados en el repo; `.env` está en `.gitignore` y nunca debe subirse.
+Ver [.env.example](.env.example) para la lista completa con explicación de cada una (base de datos, JWT, Cloudinary, Firebase, VAPID/Web Push, Twilio, Brevo). Ninguna tiene valores por defecto sensibles cargados en el repo; `.env` está en `.gitignore` y nunca debe subirse.
 
 ## Docker
 
