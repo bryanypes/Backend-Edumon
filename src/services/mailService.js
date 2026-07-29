@@ -27,17 +27,21 @@ function generarHTMLRecuperacion(usuario, codigo) {
 export async function enviarCorreoRecuperacion(usuario, codigo) {
   try {
     await axios.post(
-      'https://api.resend.com/emails',
+      'https://api.brevo.com/v3/smtp/email',
       {
-        from: 'onboarding@resend.dev',
-        to: [usuario.correo],
+        sender: {
+          name:  process.env.BREVO_SENDER_NAME || 'Edumon',
+          email: process.env.BREVO_SENDER_EMAIL,
+        },
+        to: [{ email: usuario.correo, name: usuario.nombre }],
         subject: '🔐 Código de recuperación de contraseña',
-        html: generarHTMLRecuperacion(usuario, codigo)
+        htmlContent: generarHTMLRecuperacion(usuario, codigo)
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
+          'api-key':      process.env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          Accept:         'application/json'
         }
       }
     );
