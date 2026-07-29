@@ -11,7 +11,8 @@
     "start": "node src/index.js",
     "seed": "node src/scripts/seedAdmins.js",
     "test:email": "node src/scripts/testBrevoEmail.js",
-    "reset-db": "node reset.js"
+    "reset-db": "node reset.js",
+    "reset-db:confirm": "node reset.js --confirm"
   },
   "keywords": [
     "edumon",
