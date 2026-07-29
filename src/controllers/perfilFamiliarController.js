@@ -1,6 +1,6 @@
 import PerfilFamiliar from '../models/PerfilFamiliar.js';
 import User from '../models/User.js';
-import jwt from 'jsonwebtoken';
+import { generarAccessToken, setAccessTokenCookie } from './authController.js';
 
 export const crearPerfil = async (req, res) => {
   try {
@@ -68,32 +68,27 @@ export const getMisPerfiles = async (req, res) => {
   }
 };
 
-// Genera un JWT con perfilId incluido; el frontend lo llama al elegir un perfil
-// en la pantalla de selección
+// Reemplaza la cookie access_token por una que incluye perfilId/esTitular —
+// igual patrón de sesión que login/register/refresh (httpOnly, sin exponer el
+// JWT al JS del frontend). No toca el refresh token: la sesión del titular
+// sigue siendo la misma, solo cambia qué perfil está activo dentro de ella.
 export const seleccionarPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;
     const { perfilId } = req.body;
 
+    const titular = await User.findById(titularId)
+      .select('nombre apellido fotoPerfilUrl rol primerInicioSesion')
+      .lean();
+    if (!titular) return res.status(404).json({ message: 'Usuario no encontrado' });
+
     // Si selecciona "titular" (perfilId = null o 'titular')
     if (!perfilId || perfilId === 'titular') {
-      const token = jwt.sign(
-        {
-          userId: titularId,
-          perfilId: null,
-          esTitular: true
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-
-      const titular = await User.findById(titularId)
-        .select('nombre apellido fotoPerfilUrl rol')
-        .lean();
+      const accessToken = generarAccessToken(titular, { perfilId: null, esTitular: true });
+      setAccessTokenCookie(res, accessToken);
 
       return res.json({
         message: 'Perfil titular seleccionado',
-        token,
         perfil: {
           _id: titularId,
           nombre: titular.nombre,
@@ -115,19 +110,11 @@ export const seleccionarPerfil = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      {
-        userId: titularId,   // sigue siendo el titular (para permisos y datos)
-        perfilId: perfil._id, // identifica qué perfil está activo
-        esTitular: false
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
+    const accessToken = generarAccessToken(titular, { perfilId: perfil._id, esTitular: false });
+    setAccessTokenCookie(res, accessToken);
 
     res.json({
       message: `Perfil "${perfil.nombre}" seleccionado`,
-      token,
       perfil: {
         _id: perfil._id,
         nombre: perfil.nombre,
