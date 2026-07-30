@@ -52,7 +52,11 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
+    // 10MB: límite real del plan de Cloudinary actual para imágenes y archivos
+    // "raw" (PDF/Word/Excel/etc). Un límite más alto aquí deja pasar archivos
+    // que luego Cloudinary rechaza, y como createTarea/updateTarea suben todos
+    // los archivos con Promise.all, un solo archivo grande tumbaba la tarea entera.
+    fileSize: 10 * 1024 * 1024, // 10MB
     files: 10
   }
 });
@@ -122,7 +126,7 @@ router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
-        message: 'El archivo es demasiado grande. Máximo 50MB por archivo.'
+        message: 'El archivo es demasiado grande. Máximo 10MB por archivo.'
       });
     }
     if (error.code === 'LIMIT_FILE_COUNT') {
