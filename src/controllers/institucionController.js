@@ -2,6 +2,7 @@ import Institucion from '../models/Institucion.js';
 import User from '../models/User.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
+import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 import csv from 'csv-parser';
 import { Readable } from 'stream';
@@ -96,7 +97,8 @@ export const preregistrarDocentesCSV = async (req, res) => {
       contraseña: cedula,
       rol: 'docente',
       estado: 'activo',
-      institucionId
+      institucionId,
+      fotoPerfilUrl: AVATAR_PREDETERMINADO
     });
 
     await docente.save();
@@ -173,7 +175,8 @@ export const crearInstitucion = async (req, res) => {
       contraseña: adminCedula, // cédula como contraseña inicial
       rol: 'administrador',
       estado: 'activo',
-      institucionId: institucion._id
+      institucionId: institucion._id,
+      fotoPerfilUrl: AVATAR_PREDETERMINADO
     });
 
     await admin.save();
@@ -265,7 +268,8 @@ export const preregistrarDocente = async (req, res) => {
       contraseña: cedula,
       rol: 'docente',
       estado: 'activo',
-      institucionId: admin.institucionId
+      institucionId: admin.institucionId,
+      fotoPerfilUrl: AVATAR_PREDETERMINADO
     });
 
     await docente.save();
