@@ -14,6 +14,24 @@ function resourceTypeDeFormato(formato) {
   return 'raw';
 }
 
+// Con multipart/form-data (FormData), cualquier array armado en el cliente con
+// JSON.stringify() llega a req.body como STRING, no como array real —
+// Array.isArray() sobre ese string siempre da false, así que el campo se
+// ignoraba en silencio (o, si se intentaba usar .filter()/.map() sobre él,
+// tronaba con "filter is not a function"). Esto normaliza ambos casos.
+function parseJSONArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 // Crear tarea
 export const createTarea = async (req, res) => {
   try {
@@ -28,6 +46,9 @@ export const createTarea = async (req, res) => {
     // El docente de la tarea es siempre el usuario autenticado, nunca el del body
     // (evita que cualquier usuario cree tareas suplantando a otro docente)
     req.body.docenteId = req.user.userId;
+
+    // FormData manda esto como string JSON — normalizar antes de usarlo
+    req.body.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
 
     // Validar que los participantes seleccionados pertenezcan al curso
     if (req.body.asignacionTipo === 'seleccionados' &&
@@ -74,15 +95,13 @@ export const createTarea = async (req, res) => {
       archivosAdjuntos.push(...subidos);
     }
 
-    if (req.body.enlaces && Array.isArray(req.body.enlaces)) {
-      for (const enlace of req.body.enlaces) {
-        archivosAdjuntos.push({
-          tipo: 'enlace',
-          url: enlace.url,
-          nombre: enlace.nombre || 'Enlace',
-          descripcion: enlace.descripcion || ''
-        });
-      }
+    for (const enlace of parseJSONArray(req.body.enlaces)) {
+      archivosAdjuntos.push({
+        tipo: 'enlace',
+        url: enlace.url,
+        nombre: enlace.nombre || 'Enlace',
+        descripcion: enlace.descripcion || ''
+      });
     }
 
     req.body.archivosAdjuntos = archivosAdjuntos;
@@ -279,14 +298,12 @@ export const updateTarea = async (req, res) => {
 
     let archivosAdjuntos = [...(tareaActual.archivosAdjuntos || [])];
 
-    if (req.body.archivosAEliminar && Array.isArray(req.body.archivosAEliminar)) {
-      for (const publicId of req.body.archivosAEliminar) {
-        const archivo = archivosAdjuntos.find(a => a.publicId === publicId);
-        if (archivo && archivo.publicId) {
-          await eliminarArchivoCloudinary(archivo.publicId, resourceTypeDeFormato(archivo.formato));
-        }
-        archivosAdjuntos = archivosAdjuntos.filter(a => a.publicId !== publicId);
+    for (const publicId of parseJSONArray(req.body.archivosAEliminar)) {
+      const archivo = archivosAdjuntos.find(a => a.publicId === publicId);
+      if (archivo && archivo.publicId) {
+        await eliminarArchivoCloudinary(archivo.publicId, resourceTypeDeFormato(archivo.formato));
       }
+      archivosAdjuntos = archivosAdjuntos.filter(a => a.publicId !== publicId);
     }
 
     let nuevosSubidos = [];
@@ -305,21 +322,21 @@ export const updateTarea = async (req, res) => {
       archivosAdjuntos.push(...nuevosSubidos);
     }
 
-    if (req.body.nuevosEnlaces && Array.isArray(req.body.nuevosEnlaces)) {
-      for (const enlace of req.body.nuevosEnlaces) {
-        archivosAdjuntos.push({
-          tipo: 'enlace',
-          url: enlace.url,
-          nombre: enlace.nombre || 'Enlace',
-          descripcion: enlace.descripcion || ''
-        });
-      }
+    for (const enlace of parseJSONArray(req.body.nuevosEnlaces)) {
+      archivosAdjuntos.push({
+        tipo: 'enlace',
+        url: enlace.url,
+        nombre: enlace.nombre || 'Enlace',
+        descripcion: enlace.descripcion || ''
+      });
     }
 
     updateData.archivosAdjuntos = archivosAdjuntos;
 
     if (updateData.asignacionTipo === 'todos') {
       updateData.participantesSeleccionados = [];
+    } else if ('participantesSeleccionados' in updateData) {
+      updateData.participantesSeleccionados = parseJSONArray(updateData.participantesSeleccionados);
     }
 
     let updatedTarea;
