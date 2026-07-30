@@ -198,6 +198,16 @@ export const crearInstitucion = async (req, res) => {
     });
   } catch (error) {
     console.error('[crearInstitucion]', error);
+
+    if (error.code === 11000) {
+      const campo = Object.keys(error.keyPattern || {})[0] || 'dato';
+      return res.status(400).json({ message: `Ya existe un registro con ese ${campo}` });
+    }
+    if (error.name === 'ValidationError') {
+      const mensaje = Object.values(error.errors).map(e => e.message).join(', ');
+      return res.status(400).json({ message: mensaje });
+    }
+
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
