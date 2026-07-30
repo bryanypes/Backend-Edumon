@@ -5,9 +5,7 @@ import { validationResult } from 'express-validator';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { enviarCorreoRecuperacion } from '../services/mailService.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
-
-const AVATAR_PREDETERMINADO =
-  'https://res.cloudinary.com/djvilfslm/image/upload/v1761514239/fotos-perfil-predeterminadas/avatar1.webp';
+import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 

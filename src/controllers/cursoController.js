@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
+import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 function formatearDocente(docenteId) {
   if (!docenteId) return null;
@@ -103,7 +104,8 @@ async function procesarUsuariosCSV(file, cursoId) {
             correo: correoTemporal,
             contraseña,
             rol: 'padre',
-            estado: 'activo'
+            estado: 'activo',
+            fotoPerfilUrl: AVATAR_PREDETERMINADO
           });
 
           usuario = await nuevoUsuario.save();
@@ -555,7 +557,8 @@ export const agregarParticipante = async (req, res) => {
         correo: correoTemporal,
         contraseña: contraseña?.trim() || cedula.trim(),
         rol: 'padre',
-        estado: 'activo'
+        estado: 'activo',
+        fotoPerfilUrl: AVATAR_PREDETERMINADO
       });
 
       usuario = await nuevoUsuario.save();
