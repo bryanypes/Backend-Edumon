@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import User from "../models/User.js";
 import Institucion from "../models/Institucion.js";
+import { AVATAR_PREDETERMINADO } from "../utils/avatarPredeterminado.js";
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ async function seed() {
         rol: "administrador",
         telefono: "+573187654321",
         institucionId: institucion._id,
+        fotoPerfilUrl: AVATAR_PREDETERMINADO,
       },
       {
         nombre: "Lucía Fernanda",
@@ -49,6 +51,7 @@ async function seed() {
         rol: "superadmin",
         telefono: "+573209871234",
         institucionId: null,
+        fotoPerfilUrl: AVATAR_PREDETERMINADO,
       },
     ];
 
