@@ -14,6 +14,7 @@ import {
   updateTareaValidator,
   tareaIdValidator 
 } from '../middlewares/validators/tareaValidator.js';
+import { normalizeMultipartArrays } from '../middlewares/normalizeMultipartArrays.js';
 import { 
   canViewTarea, 
   canModifyTarea,
@@ -71,6 +72,7 @@ router.post(
   authMiddleware,
   requireRole(['administrador', 'docente']),
   upload.array('archivos', 10),
+  normalizeMultipartArrays(['enlaces', 'participantesSeleccionados', 'etiquetas', 'criterios']),
   createTareaValidator,
   createTarea
 );
@@ -97,6 +99,7 @@ router.put(
   '/:id', 
   authMiddleware, 
   upload.array('archivos', 10),
+  normalizeMultipartArrays(['nuevosEnlaces', 'participantesSeleccionados', 'etiquetas', 'archivosAEliminar', 'criterios']),
   tareaIdValidator, 
   canModifyTarea, // MIDDLEWARE DE VALIDACIÓN
   updateTareaValidator, 
