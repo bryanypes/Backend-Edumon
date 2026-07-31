@@ -9,6 +9,7 @@ import {
   deleteTarea 
 } from '../controllers/tareaController.js';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
+import { normalizeMultipartArrays } from '../middlewares/normalizeMultipartArrays.js';
 import { 
   createTareaValidator, 
   updateTareaValidator,
@@ -71,6 +72,7 @@ router.post(
   authMiddleware,
   requireRole(['administrador', 'docente']),
   upload.array('archivos', 10),
+  normalizeMultipartArrays(['enlaces', 'participantesSeleccionados', 'etiquetas']),
   createTareaValidator,
   createTarea
 );
@@ -97,6 +99,7 @@ router.put(
   '/:id', 
   authMiddleware, 
   upload.array('archivos', 10),
+  normalizeMultipartArrays(['nuevosEnlaces', 'participantesSeleccionados', 'etiquetas', 'archivosAEliminar']),
   tareaIdValidator, 
   canModifyTarea, // MIDDLEWARE DE VALIDACIÓN
   updateTareaValidator, 
