@@ -286,7 +286,7 @@ export const updateTarea = async (req, res) => {
     }
 
     const { id } = req.params;
-    const updateData = { ...req.body };
+    const updateData = {};
 
     // Obtener tarea actual
     const tareaActual = await Tarea.findById(id);
@@ -294,6 +294,24 @@ export const updateTarea = async (req, res) => {
       return res.status(404).json({
         message: "Tarea no encontrada"
       });
+    }
+
+    const camposActualizables = [
+      'titulo',
+      'descripcion',
+      'fechaEntrega',
+      'tipoEntrega',
+      'estado',
+      'cursoId',
+      'moduloId',
+      'asignacionTipo',
+      'criterios'
+    ];
+
+    for (const campo of camposActualizables) {
+      if (Object.prototype.hasOwnProperty.call(req.body, campo)) {
+        updateData[campo] = req.body[campo];
+      }
     }
 
     let archivosAdjuntos = [...(tareaActual.archivosAdjuntos || [])];
@@ -322,7 +340,11 @@ export const updateTarea = async (req, res) => {
       archivosAdjuntos.push(...nuevosSubidos);
     }
 
-    for (const enlace of parseJSONArray(req.body.nuevosEnlaces)) {
+    const nuevosEnlaces = req.body.nuevosEnlaces !== undefined
+      ? parseJSONArray(req.body.nuevosEnlaces)
+      : parseJSONArray(req.body.enlaces);
+
+    for (const enlace of nuevosEnlaces) {
       archivosAdjuntos.push({
         tipo: 'enlace',
         url: enlace.url,
@@ -333,10 +355,10 @@ export const updateTarea = async (req, res) => {
 
     updateData.archivosAdjuntos = archivosAdjuntos;
 
-    if (updateData.asignacionTipo === 'todos') {
+    if (req.body.asignacionTipo === 'todos') {
       updateData.participantesSeleccionados = [];
-    } else if ('participantesSeleccionados' in updateData) {
-      updateData.participantesSeleccionados = parseJSONArray(updateData.participantesSeleccionados);
+    } else if (Object.prototype.hasOwnProperty.call(req.body, 'participantesSeleccionados')) {
+      updateData.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
     }
 
     let updatedTarea;

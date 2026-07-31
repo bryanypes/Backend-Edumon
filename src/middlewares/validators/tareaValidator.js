@@ -21,10 +21,6 @@ export const createTareaValidator = [
       return true;
     }),
   
-  body('docenteId')
-    .notEmpty().withMessage('El ID del docente es obligatorio')
-    .isMongoId().withMessage('El ID del docente no es válido'),
-  
   body('etiquetas')
     .optional()
     .isArray().withMessage('Las etiquetas deben ser un array'),
@@ -88,10 +84,6 @@ export const updateTareaValidator = [
   body('fechaEntrega')
     .optional()
     .isISO8601().withMessage('La fecha de entrega debe ser válida'),
-  
-  body('docenteId')
-    .optional()
-    .isMongoId().withMessage('El ID del docente no es válido'),
   
   body('tipoEntrega')
     .optional()
