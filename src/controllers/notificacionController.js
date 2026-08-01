@@ -203,6 +203,10 @@ export const marcarVariasLeidas = async (req, res) => {
     const { notificacionIds } = req.body;
     const usuarioIdString = req.user.userId.toString();
 
+    if (!Array.isArray(notificacionIds) || notificacionIds.length === 0) {
+      return res.status(400).json({ message: 'Debes enviar una lista de notificaciones' });
+    }
+
     const resultado = await Notificacion.updateMany(
       {
         _id: { $in: notificacionIds },

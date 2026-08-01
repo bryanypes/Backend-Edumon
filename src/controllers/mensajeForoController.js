@@ -3,6 +3,7 @@ import Foro from '../models/Foro.js';
 import User from '../models/User.js';
 import Curso from '../models/Curso.js';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
@@ -41,7 +42,12 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
         continue;
       }
 
-      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, carpeta, file.originalname);
+      const fileBuffer = await getFileBuffer(file);
+      if (!fileBuffer) {
+        throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+      }
+
+      const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, carpeta, file.originalname);
       archivos.push({
         url: resultado.url,
         publicId: resultado.publicId,

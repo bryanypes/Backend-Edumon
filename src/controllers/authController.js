@@ -334,6 +334,10 @@ export const changePassword = async (req, res) => {
       return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { contraseñaActual, contraseñaNueva } = req.body;
+    if (!contraseñaActual || !contraseñaNueva) {
+      return res.status(400).json({ message: 'La contraseña actual y la nueva son obligatorias' });
+    }
+
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
@@ -427,6 +431,9 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { correo, codigo, contraseñaNueva } = req.body;
+    if (!correo || !codigo || !contraseñaNueva) {
+      return res.status(400).json({ message: 'Correo, código y contraseña nueva son obligatorios' });
+    }
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
 
     const user = await User.findOne({
@@ -457,6 +464,9 @@ export const resetPasswordPhone = async (req, res) => {
       return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { telefono, codigo, contraseñaNueva } = req.body;
+    if (!telefono || !codigo || !contraseñaNueva) {
+      return res.status(400).json({ message: 'Teléfono, código y contraseña nueva son obligatorios' });
+    }
 
     const telefonoNormalizado = normalizarTelefono(telefono);
     if (!telefonoNormalizado)
@@ -491,6 +501,11 @@ async function enviarSMSRecuperacion(telefonoNormalizado, nombre, codigo) {
 
   const mensaje =
     `🔐 Edumon\n\nHola ${nombre}, tu código de recuperación es:\n\n*${codigo}*\n\nExpira en 15 minutos. Si no lo solicitaste, ignora este mensaje.`;
+
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_WHATSAPP_NUMBER) {
+    console.warn('Configuración de Twilio incompleta; se omite el envío de SMS de recuperación.');
+    return;
+  }
 
   await client.messages.create({
     from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
