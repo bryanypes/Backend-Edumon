@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import MensajeForo from '../models/MensajeForo.js'; 
 import mongoose from 'mongoose';  
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
@@ -51,7 +52,12 @@ const procesarArchivosAdjuntos = async (files) => {
         continue;
       }
 
-      const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'foros', file.originalname);
+      const fileBuffer = await getFileBuffer(file);
+      if (!fileBuffer) {
+        throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+      }
+
+      const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'foros', file.originalname);
 
       archivos.push({
         url: resultado.url,

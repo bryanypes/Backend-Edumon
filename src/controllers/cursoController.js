@@ -9,6 +9,7 @@ import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloud
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 function formatearDocente(docenteId) {
   if (!docenteId) return null;
@@ -39,7 +40,12 @@ async function procesarUsuariosCSV(file, cursoId) {
 
     console.log(' Procesando CSV para curso:', curso.nombre);
 
-    const stream = Readable.from(file.buffer.toString());
+    const fileBuffer = await getFileBuffer(file);
+    if (!fileBuffer) {
+      throw new Error('No se pudo leer el archivo CSV');
+    }
+
+    const stream = Readable.from(fileBuffer.toString());
     const usuarios = [];
 
     await new Promise((resolve, reject) => {
@@ -186,21 +192,28 @@ export const createCurso = async (req, res) => {
     let publicIdFoto = null;
 
     if (req.files?.fotoPortada?.[0]) {
-      const resultadoCloudinary = await subirImagenCloudinary(
-        req.files.fotoPortada[0].buffer,
-        req.files.fotoPortada[0].mimetype,
-        'fotos_cursos_portada'
-      );
-      urlFoto = resultadoCloudinary.url;
-      publicIdFoto = resultadoCloudinary.publicId;
+      const file = req.files.fotoPortada[0];
+      const fileBuffer = await getFileBuffer(file);
+      if (fileBuffer) {
+        const resultadoCloudinary = await subirImagenCloudinary(
+          fileBuffer,
+          file.mimetype,
+          'fotos_cursos_portada'
+        );
+        urlFoto = resultadoCloudinary.url;
+        publicIdFoto = resultadoCloudinary.publicId;
+      }
     } else if (req.file && req.file.fieldname === 'fotoPortada') {
-      const resultadoCloudinary = await subirImagenCloudinary(
-        req.file.buffer,
-        req.file.mimetype,
-        'fotos_cursos_portada'
-      );
-      urlFoto = resultadoCloudinary.url;
-      publicIdFoto = resultadoCloudinary.publicId;
+      const fileBuffer = await getFileBuffer(req.file);
+      if (fileBuffer) {
+        const resultadoCloudinary = await subirImagenCloudinary(
+          fileBuffer,
+          req.file.mimetype,
+          'fotos_cursos_portada'
+        );
+        urlFoto = resultadoCloudinary.url;
+        publicIdFoto = resultadoCloudinary.publicId;
+      }
     }
 
     const institucionId = req.user.institucionId;
@@ -410,15 +423,18 @@ export const updateCurso = async (req, res) => {
 
     if (req.file) {
       if (curso.fotoPortadaPublicId) {
-        await eliminarArchivoCloudinary(curso.fotoPortadaPublicId, 'image');
+        await eliminarArchivoCloudinary(curso.fotoPortadaPublicId, 'image').catch(() => {});
       }
-      const resultadoCloudinary = await subirImagenCloudinary(
-        req.file.buffer,
-        req.file.mimetype,
-        'fotos_cursos_portada'
-      );
-      updateData.fotoPortadaUrl = resultadoCloudinary.url;
-      updateData.fotoPortadaPublicId = resultadoCloudinary.publicId;
+      const fileBuffer = await getFileBuffer(req.file);
+      if (fileBuffer) {
+        const resultadoCloudinary = await subirImagenCloudinary(
+          fileBuffer,
+          req.file.mimetype,
+          'fotos_cursos_portada'
+        );
+        updateData.fotoPortadaUrl = resultadoCloudinary.url;
+        updateData.fotoPortadaPublicId = resultadoCloudinary.publicId;
+      }
     }
 
     const cursoActualizado = await Curso.findByIdAndUpdate(

@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 // docente y padre ya se acotan a sus propios cursos/eventos en este archivo; a
 // administrador nunca se le restringía a su propia institución, por lo que podía
@@ -66,17 +67,23 @@ export const createEvento = async (req, res) => {
     const subidas = [];
     if (req.files?.imagenPortada?.[0]) {
       const file = req.files.imagenPortada[0];
-      subidas.push(
-        subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-portadas')
-          .then(resultado => { imagenPortada = { url: resultado.url, publicId: resultado.publicId }; })
-      );
+      const fileBuffer = await getFileBuffer(file);
+      if (fileBuffer) {
+        subidas.push(
+          subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-portadas')
+            .then(resultado => { imagenPortada = { url: resultado.url, publicId: resultado.publicId }; })
+        );
+      }
     }
     if (req.files?.adjunto?.[0]) {
       const file = req.files.adjunto[0];
-      subidas.push(
-        subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-adjuntos', file.originalname)
-          .then(resultado => { adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname }; })
-      );
+      const fileBuffer = await getFileBuffer(file);
+      if (fileBuffer) {
+        subidas.push(
+          subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-adjuntos', file.originalname)
+            .then(resultado => { adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname }; })
+        );
+      }
     }
     if (subidas.length > 0) await Promise.all(subidas);
 
@@ -248,7 +255,11 @@ export const updateEvento = async (req, res) => {
           await eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {});
         }
         const file = req.files.imagenPortada[0];
-        const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-portadas');
+        const fileBuffer = await getFileBuffer(file);
+        if (!fileBuffer) {
+          throw new Error('No se pudo leer la imagen del evento');
+        }
+        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-portadas');
         updateData.imagenPortada = { url: resultado.url, publicId: resultado.publicId };
       })());
     }
@@ -259,7 +270,11 @@ export const updateEvento = async (req, res) => {
           await eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {});
         }
         const file = req.files.adjunto[0];
-        const resultado = await subirArchivoCloudinary(file.buffer, file.mimetype, 'eventos-adjuntos', file.originalname);
+        const fileBuffer = await getFileBuffer(file);
+        if (!fileBuffer) {
+          throw new Error('No se pudo leer el adjunto del evento');
+        }
+        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-adjuntos', file.originalname);
         updateData.adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
       })());
     }

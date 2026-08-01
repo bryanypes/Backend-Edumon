@@ -6,6 +6,7 @@ import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 import csv from 'csv-parser';
 import { Readable } from 'stream';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 // Admin del colegio: preregistrar docentes masivamente desde CSV
 export const preregistrarDocentesCSV = async (req, res) => {
@@ -23,8 +24,13 @@ export const preregistrarDocentesCSV = async (req, res) => {
     const resultados = { exitosos: [], errores: [], duplicados: [] };
     const usuarios = [];
 
+    const fileBuffer = await getFileBuffer(req.file);
+    if (!fileBuffer) {
+      return res.status(400).json({ message: 'No se pudo leer el archivo CSV' });
+    }
+
     // Parsear CSV
-    const stream = Readable.from(req.file.buffer.toString());
+    const stream = Readable.from(fileBuffer.toString());
 
     await new Promise((resolve, reject) => {
       stream
