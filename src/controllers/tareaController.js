@@ -3,6 +3,7 @@ import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 // Determina el resource_type de Cloudinary a partir del formato guardado en el adjunto
 function resourceTypeDeFormato(formato) {
@@ -81,17 +82,22 @@ export const createTarea = async (req, res) => {
     const archivosAdjuntos = [];
 
     if (req.files && req.files.length > 0) {
-      const subidos = await Promise.all(req.files.map(file =>
-        subirArchivoCloudinary(file.buffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname)
-          .then(resultado => ({
-            tipo: 'archivo',
-            url: resultado.url,
-            publicId: resultado.publicId,
-            nombre: file.originalname,
-            formato: resultado.format,
-            tamano: file.size
-          }))
-      ));
+      const subidos = await Promise.all(req.files.map(async (file) => {
+        const fileBuffer = await getFileBuffer(file);
+        if (!fileBuffer) {
+          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+        }
+
+        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
+        return {
+          tipo: 'archivo',
+          url: resultado.url,
+          publicId: resultado.publicId,
+          nombre: file.originalname,
+          formato: resultado.format,
+          tamano: file.size
+        };
+      }));
       archivosAdjuntos.push(...subidos);
     }
 
@@ -326,17 +332,22 @@ export const updateTarea = async (req, res) => {
 
     let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
-      nuevosSubidos = await Promise.all(req.files.map(file =>
-        subirArchivoCloudinary(file.buffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname)
-          .then(resultado => ({
-            tipo: 'archivo',
-            url: resultado.url,
-            publicId: resultado.publicId,
-            nombre: file.originalname,
-            formato: resultado.format,
-            tamano: file.size
-          }))
-      ));
+      nuevosSubidos = await Promise.all(req.files.map(async (file) => {
+        const fileBuffer = await getFileBuffer(file);
+        if (!fileBuffer) {
+          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+        }
+
+        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
+        return {
+          tipo: 'archivo',
+          url: resultado.url,
+          publicId: resultado.publicId,
+          nombre: file.originalname,
+          formato: resultado.format,
+          tamano: file.size
+        };
+      }));
       archivosAdjuntos.push(...nuevosSubidos);
     }
 

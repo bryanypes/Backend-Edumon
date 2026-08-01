@@ -3,6 +3,7 @@ import Tarea from '../models/Tarea.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 // Crear entrega
 export const createEntrega = async (req, res) => {
@@ -39,16 +40,21 @@ export const createEntrega = async (req, res) => {
     // Si un archivo falla al subir, se omite y se registra el error, pero no se aborta la entrega completa
     let archivosAdjuntos = [];
     if (req.files && req.files.length > 0) {
-      const resultados = await Promise.allSettled(req.files.map(file =>
-        subirArchivoCloudinary(file.buffer, file.mimetype, 'archivos-entregas', file.originalname)
-          .then(archivoSubido => ({
-            url: archivoSubido.url,
-            publicId: archivoSubido.publicId,
-            nombreOriginal: file.originalname,
-            tipoArchivo: file.mimetype,
-            tamano: file.size
-          }))
-      ));
+      const resultados = await Promise.allSettled(req.files.map(async (file) => {
+        const fileBuffer = await getFileBuffer(file);
+        if (!fileBuffer) {
+          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+        }
+
+        const archivoSubido = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-entregas', file.originalname);
+        return {
+          url: archivoSubido.url,
+          publicId: archivoSubido.publicId,
+          nombreOriginal: file.originalname,
+          tipoArchivo: file.mimetype,
+          tamano: file.size
+        };
+      }));
 
       resultados.forEach((resultado, i) => {
         if (resultado.status === 'fulfilled') {
@@ -169,16 +175,21 @@ export const updateEntrega = async (req, res) => {
 
     let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
-      nuevosSubidos = await Promise.all(req.files.map(file =>
-        subirArchivoCloudinary(file.buffer, file.mimetype, 'archivos-entregas', file.originalname)
-          .then(archivoSubido => ({
-            url: archivoSubido.url,
-            publicId: archivoSubido.publicId,
-            nombreOriginal: file.originalname,
-            tipoArchivo: file.mimetype,
-            tamano: file.size
-          }))
-      ));
+      nuevosSubidos = await Promise.all(req.files.map(async (file) => {
+        const fileBuffer = await getFileBuffer(file);
+        if (!fileBuffer) {
+          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+        }
+
+        const archivoSubido = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-entregas', file.originalname);
+        return {
+          url: archivoSubido.url,
+          publicId: archivoSubido.publicId,
+          nombreOriginal: file.originalname,
+          tipoArchivo: file.mimetype,
+          tamano: file.size
+        };
+      }));
       updateData.archivosAdjuntos = [...(entrega.archivosAdjuntos || []), ...nuevosSubidos];
     }
 

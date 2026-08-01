@@ -3,6 +3,7 @@ import { validationResult } from 'express-validator';
 import cloudinary from '../config/cloudinary.js';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
+import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 // Crear usuario (desde panel de administración)
 export const createUser = async (req, res) => {
@@ -166,11 +167,19 @@ export const updateUser = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
 
+    if (!id) {
+      return res.status(400).json({ message: 'ID de usuario requerido' });
+    }
+
     // Campos protegidos — nunca se actualizan por esta ruta
     delete updateData.contraseña;
     delete updateData._id;
     delete updateData.fechaRegistro;
     delete updateData.modoOscuro; // se maneja por su propia ruta
+    delete updateData.rol;
+    delete updateData.estado;
+    delete updateData.institucionId;
+    delete updateData.esTitular;
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
@@ -209,6 +218,10 @@ export const updateOwnProfile = async (req, res) => {
 
     const { userId } = req.user; // nunca desde req.params — así nadie edita a otro
     const { nombre, apellido, correo, telefono } = req.body; // whitelist explícita
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Usuario no autenticado' });
+    }
 
     const [existingCorreo, existingTelefono] = await Promise.all([
       correo   ? User.findOne({ correo, _id: { $ne: userId } })   : null,
@@ -264,6 +277,9 @@ export const changePassword = async (req, res) => {
 
     const { id } = req.params;
     const { contraseñaActual, nuevaContraseña } = req.body;
+    if (!contraseñaActual || !nuevaContraseña) {
+      return res.status(400).json({ message: 'La contraseña actual y la nueva son obligatorias' });
+    }
 
     const user = await User.findById(id);
     if (!user) {
@@ -364,8 +380,13 @@ export const updateFotoPerfil = async (req, res) => {
         await eliminarArchivoCloudinary(publicIdAnterior, 'image');
       }
 
+      const fileBuffer = await getFileBuffer(req.file);
+      if (!fileBuffer) {
+        return res.status(400).json({ message: 'No se pudo leer la imagen de perfil' });
+      }
+
       const resultado = await subirImagenCloudinary(
-        req.file.buffer,
+        fileBuffer,
         req.file.mimetype,
         'fotos-perfil-usuarios'
       );
