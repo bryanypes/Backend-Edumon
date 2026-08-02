@@ -4,6 +4,7 @@ import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { parseJSONArray } from '../utils/parseJSONArray.js';
 
 // Determina el resource_type de Cloudinary a partir del formato guardado en el adjunto
 function resourceTypeDeFormato(formato) {
@@ -13,24 +14,6 @@ function resourceTypeDeFormato(formato) {
   if (IMAGENES.includes(ext)) return 'image';
   if (VIDEOS.includes(ext)) return 'video';
   return 'raw';
-}
-
-// Con multipart/form-data (FormData), cualquier array armado en el cliente con
-// JSON.stringify() llega a req.body como STRING, no como array real —
-// Array.isArray() sobre ese string siempre da false, así que el campo se
-// ignoraba en silencio (o, si se intentaba usar .filter()/.map() sobre él,
-// tronaba con "filter is not a function"). Esto normaliza ambos casos.
-function parseJSONArray(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string' && value.trim()) {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
 }
 
 // Crear tarea
@@ -364,6 +347,7 @@ export const updateTarea = async (req, res) => {
       });
     }
 
+    console.log('archivosAdjuntos a guardar:', archivosAdjuntos);
     updateData.archivosAdjuntos = archivosAdjuntos;
 
     if (req.body.asignacionTipo === 'todos') {
@@ -371,6 +355,8 @@ export const updateTarea = async (req, res) => {
     } else if (Object.prototype.hasOwnProperty.call(req.body, 'participantesSeleccionados')) {
       updateData.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
     }
+
+    console.log('payload final para updateTarea:', { id, updateData });
 
     let updatedTarea;
     try {
