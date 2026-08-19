@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { AVATAR_PREDETERMINADO } from "../utils/avatarPredeterminado.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -63,6 +64,7 @@ const userSchema = new mongoose.Schema(
     },
     fotoPerfilUrl: {
       type: String,
+      default: AVATAR_PREDETERMINADO, // ← único cambio
     },
     fcmToken: {
       type: String,
