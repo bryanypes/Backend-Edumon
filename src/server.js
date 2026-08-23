@@ -35,7 +35,7 @@ const isDev  = process.env.NODE_ENV === 'development';
 app.set('trust proxy', 1);
 
 // ─── Middlewares tempranos ────────────────────────────────────────────────────
-app.use(timeout('30s'));
+app.use(timeout('90s'));
 app.use(compression());
 
 // ─── Orígenes permitidos ──────────────────────────────────────────────────────
