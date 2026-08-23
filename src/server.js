@@ -35,7 +35,17 @@ const isDev  = process.env.NODE_ENV === 'development';
 app.set('trust proxy', 1);
 
 // ─── Middlewares tempranos ────────────────────────────────────────────────────
-app.use(timeout('30s'));
+// 30s se quedaba corto para las rutas que suben archivos a Cloudinary
+// (tareas, entregas, fotos de curso/perfil, CSV de docentes/padres/
+// instituciones — ver grep de "upload." en routes/): en Render, sin
+// arranque en caliente, un solo archivo de varios MB o una imagen externa
+// que Cloudinary tiene que descargar (ver "enlaces" en tareas) pueden
+// tardar más de 30s. La petición SÍ terminaba de procesarse en el
+// servidor, pero el cliente ya había recibido un 503 "Response timeout" y
+// el usuario veía el guardado como fallido — de ahí que hubiera que
+// reintentar varias veces (con el riesgo real de crear duplicados, porque
+// el intento anterior seguía corriendo en segundo plano).
+app.use(timeout('90s'));
 app.use(compression());
 
 // ─── Orígenes permitidos ──────────────────────────────────────────────────────
