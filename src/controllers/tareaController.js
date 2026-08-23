@@ -16,6 +16,32 @@ function resourceTypeDeFormato(formato) {
   return 'raw';
 }
 
+// Verifica que el usuario pertenezca al curso (mismo criterio usado en moduloController)
+function usuarioPerteneceACurso(curso, user) {
+  switch (user.rol) {
+    case 'superadmin':
+      return true;
+    case 'administrador':
+      return curso.institucionId?.toString() === user.institucionId;
+    case 'docente':
+      return curso.docenteId?.toString() === user.userId;
+    default:
+      return false;
+  }
+}
+
+// Traduce un ValidationError de Mongoose a una respuesta 400 con el campo específico
+function responderValidationError(res, error) {
+  const errores = Object.entries(error.errors).map(([campo, err]) => ({
+    campo,
+    mensaje: err.message
+  }));
+  return res.status(400).json({
+    message: "Errores de validación",
+    errors: errores
+  });
+}
+
 // Crear tarea
 export const createTarea = async (req, res) => {
   try {
@@ -34,17 +60,25 @@ export const createTarea = async (req, res) => {
     // FormData manda esto como string JSON — normalizar antes de usarlo
     req.body.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
 
+    // requireRole solo exige que sea docente/administrador, no que sea dueño del curso:
+    // sin este chequeo cualquier docente podía crear tareas en cursos ajenos.
+    const curso = await Curso.findById(req.body.cursoId).select('docenteId institucionId participantes');
+
+    if (!curso) {
+      return res.status(404).json({
+        message: "Curso no encontrado"
+      });
+    }
+
+    if (!usuarioPerteneceACurso(curso, req.user)) {
+      return res.status(403).json({
+        message: "No tienes permisos sobre este curso"
+      });
+    }
+
     // Validar que los participantes seleccionados pertenezcan al curso
     if (req.body.asignacionTipo === 'seleccionados' &&
       req.body.participantesSeleccionados?.length > 0) {
-
-      const curso = await Curso.findById(req.body.cursoId);
-
-      if (!curso) {
-        return res.status(404).json({
-          message: "Curso no encontrado"
-        });
-      }
 
       const participantesInvalidos = req.body.participantesSeleccionados.filter(
         participanteId => !curso.esParticipante(participanteId)
@@ -65,23 +99,30 @@ export const createTarea = async (req, res) => {
     const archivosAdjuntos = [];
 
     if (req.files && req.files.length > 0) {
-      const subidos = await Promise.all(req.files.map(async (file) => {
-        const fileBuffer = await getFileBuffer(file);
-        if (!fileBuffer) {
-          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
-        }
+      try {
+        const subidos = await Promise.all(req.files.map(async (file) => {
+          const fileBuffer = await getFileBuffer(file);
+          if (!fileBuffer) {
+            throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+          }
 
-        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
-        return {
-          tipo: 'archivo',
-          url: resultado.url,
-          publicId: resultado.publicId,
-          nombre: file.originalname,
-          formato: resultado.format,
-          tamano: file.size
-        };
-      }));
-      archivosAdjuntos.push(...subidos);
+          const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
+          return {
+            tipo: 'archivo',
+            url: resultado.url,
+            publicId: resultado.publicId,
+            nombre: file.originalname,
+            formato: resultado.format,
+            tamano: file.size
+          };
+        }));
+        archivosAdjuntos.push(...subidos);
+      } catch (uploadError) {
+        console.error('Error al subir archivos a Cloudinary:', uploadError);
+        return res.status(503).json({
+          message: "No se pudo subir el archivo, intenta de nuevo"
+        });
+      }
     }
 
     for (const enlace of parseJSONArray(req.body.enlaces)) {
@@ -130,6 +171,9 @@ export const createTarea = async (req, res) => {
       tarea: savedTarea
     });
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return responderValidationError(res, error);
+    }
     console.error('Error al crear tarea:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -315,23 +359,30 @@ export const updateTarea = async (req, res) => {
 
     let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
-      nuevosSubidos = await Promise.all(req.files.map(async (file) => {
-        const fileBuffer = await getFileBuffer(file);
-        if (!fileBuffer) {
-          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
-        }
+      try {
+        nuevosSubidos = await Promise.all(req.files.map(async (file) => {
+          const fileBuffer = await getFileBuffer(file);
+          if (!fileBuffer) {
+            throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+          }
 
-        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
-        return {
-          tipo: 'archivo',
-          url: resultado.url,
-          publicId: resultado.publicId,
-          nombre: file.originalname,
-          formato: resultado.format,
-          tamano: file.size
-        };
-      }));
-      archivosAdjuntos.push(...nuevosSubidos);
+          const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
+          return {
+            tipo: 'archivo',
+            url: resultado.url,
+            publicId: resultado.publicId,
+            nombre: file.originalname,
+            formato: resultado.format,
+            tamano: file.size
+          };
+        }));
+        archivosAdjuntos.push(...nuevosSubidos);
+      } catch (uploadError) {
+        console.error('Error al subir archivos a Cloudinary:', uploadError);
+        return res.status(503).json({
+          message: "No se pudo subir el archivo, intenta de nuevo"
+        });
+      }
     }
 
     const nuevosEnlaces = req.body.nuevosEnlaces !== undefined
@@ -347,7 +398,6 @@ export const updateTarea = async (req, res) => {
       });
     }
 
-    console.log('archivosAdjuntos a guardar:', archivosAdjuntos);
     updateData.archivosAdjuntos = archivosAdjuntos;
 
     if (req.body.asignacionTipo === 'todos') {
@@ -355,8 +405,6 @@ export const updateTarea = async (req, res) => {
     } else if (Object.prototype.hasOwnProperty.call(req.body, 'participantesSeleccionados')) {
       updateData.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
     }
-
-    console.log('payload final para updateTarea:', { id, updateData });
 
     let updatedTarea;
     try {
@@ -389,6 +437,9 @@ export const updateTarea = async (req, res) => {
       tarea: updatedTarea
     });
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return responderValidationError(res, error);
+    }
     console.error('Error al actualizar tarea:', error);
     res.status(500).json({
       message: "Error interno del servidor"
