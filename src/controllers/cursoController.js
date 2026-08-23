@@ -513,6 +513,16 @@ export const archivarCurso = async (req, res) => {
 // Agregar un único participante a un curso (crea el usuario si no existe)
 export const agregarParticipante = async (req, res) => {
   try {
+    // participanteValidator ya saneó el teléfono a +57XXXXXXXXXX; aquí se
+    // reportan sus errores para no crear participantes con datos fuera de norma
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
+      });
+    }
+
     const { id } = req.params;
     const { nombre, apellido, cedula, contraseña, telefono } = req.body;
     const usuarioLogueado = req.user;
@@ -569,8 +579,10 @@ export const agregarParticipante = async (req, res) => {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         cedula: cedula.trim(),
-        telefono: telefono?.trim() || '',
+        // Mismo formato que en el resto del sistema: +57XXXXXXXXXX
+        telefono: normalizarTelefono(telefono) || telefono?.trim() || '',
         correo: correoTemporal,
+        // Regla única del sistema: contraseña inicial = cédula
         contraseña: contraseña?.trim() || cedula.trim(),
         rol: 'padre',
         estado: 'activo',

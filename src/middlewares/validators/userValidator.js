@@ -1,4 +1,13 @@
 import { body, param } from 'express-validator';
+import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+
+/**
+ * Sanitizador único de teléfonos: acepte lo que acepte el cliente
+ * ("3001234567", "57 300 123 4567", "+573001234567"), lo que llega al
+ * controlador es SIEMPRE "+57XXXXXXXXXX". Si el número es inválido se deja
+ * el valor original para que .matches() produzca el mensaje de error correcto.
+ */
+const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const createUserValidator = [
   body('nombre')
@@ -33,13 +42,15 @@ export const createUserValidator = [
     .withMessage('El correo electrónico no es válido')
     .normalizeEmail(),
 
+  // La contraseña inicial es OPCIONAL: si no viene, el controlador aplica la
+  // regla única del sistema (contraseña = cédula), igual que al crear docentes,
+  // administradores de institución o participantes de un curso. Por eso aquí no
+  // se exige la política fuerte: esa se aplica a las contraseñas que ELIGE el
+  // usuario (registro público, cambio de contraseña y recuperación).
   body('contraseña')
-    .notEmpty()
-    .withMessage('La contraseña es requerida')
+    .optional({ checkFalsy: true })
     .isLength({ min: 6, max: 128 })
-    .withMessage('La contraseña debe tener entre 6 y 128 caracteres')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
+    .withMessage('La contraseña debe tener entre 6 y 128 caracteres'),
 
   body('rol')
     .notEmpty()
@@ -51,6 +62,7 @@ export const createUserValidator = [
     .notEmpty()
     .withMessage('El teléfono es requerido')
     .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
@@ -105,6 +117,7 @@ export const updateUserValidator = [
   body('telefono')
     .optional()
     .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
@@ -145,6 +158,7 @@ export const updateOwnProfileValidator = [
   body('telefono')
     .optional()
     .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 ];
