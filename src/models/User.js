@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema(
     },
     fotoPerfilUrl: {
       type: String,
-      default: AVATAR_PREDETERMINADO, // ← único cambio
+      default: AVATAR_PREDETERMINADO, 
     },
     fcmToken: {
       type: String,

@@ -44,8 +44,6 @@ export const subirImagenCloudinary = async (fileBuffer, mimetype, folder = 'gene
  */
 export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'archivos', originalName = 'archivo') => {
   try {
-    console.log(` Subiendo archivo: ${originalName} (${mimetype})`);
-    
     const b64 = Buffer.from(fileBuffer).toString('base64');
     const dataURI = `data:${mimetype};base64,${b64}`;
 
@@ -65,8 +63,6 @@ export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'arc
       unique_filename: true
     });
 
-    console.log(` Archivo subido exitosamente: ${result.secure_url}`);
-
     return {
       url: result.secure_url,
       publicId: result.public_id,
@@ -74,8 +70,7 @@ export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'arc
     };
 
   } catch (error) {
-    console.error(' Error al subir archivo a Cloudinary:', error);
-    console.error('Detalles del error:', error.message);
+    console.error('Error al subir archivo a Cloudinary:', error.message);
     throw new Error(`Error al subir el archivo: ${error.message}`);
   }
 };
@@ -87,22 +82,14 @@ export const subirArchivoCloudinary = async (fileBuffer, mimetype, folder = 'arc
  */
 export const eliminarArchivoCloudinary = async (publicId, resourceType = 'image') => {
   try {
-    if (!publicId) {
-      console.log(' No se proporcionó publicId para eliminar');
-      return;
-    }
-    
-    console.log(` Eliminando archivo: ${publicId} (tipo: ${resourceType})`);
-    
-    const result = await cloudinary.uploader.destroy(publicId, {
+    if (!publicId) return;
+
+    return await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
       invalidate: true // Invalidar caché de CDN
     });
-    
-    console.log(` Archivo eliminado de Cloudinary: ${publicId}`, result);
-    return result;
   } catch (error) {
-    console.error(' Error al eliminar archivo de Cloudinary:', error);
+    console.error('Error al eliminar archivo de Cloudinary:', error.message);
     // No lanzar error para no interrumpir el flujo principal
   }
 };
