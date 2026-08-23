@@ -19,16 +19,33 @@ function resourceTypeDeFormato(formato) {
 // Crear tarea
 export const createTarea = async (req, res) => {
   try {
+    // DIAGNÓSTICO TEMPORAL: el reporte es que "docenteId es obligatorio"
+    // sigue saliendo pese a que req.body.docenteId se fuerza desde
+    // req.user.userId más abajo, lo que no debería ser posible con el
+    // código actual. Este log confirma en los logs de Render, sin dudas,
+    // qué trae req.user y qué llegó en el body ANTES de tocar nada — quitar
+    // una vez se confirme la causa real.
+    console.log('[createTarea] req.user =', req.user, '| body.docenteId (antes) =', req.body?.docenteId, '| body keys =', Object.keys(req.body || {}));
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('[createTarea] validationResult falló:', JSON.stringify(errors.array()));
       return res.status(400).json({
         message: "Errores de validación",
         errors: errors.array()
       });
     }
 
-    // El docente de la tarea es siempre el usuario autenticado, nunca el del body
-    // (evita que cualquier usuario cree tareas suplantando a otro docente)
+    // El docente de la tarea es siempre el usuario autenticado, nunca el del
+    // body (evita que cualquier usuario cree tareas suplantando a otro
+    // docente). Falla temprano y con un mensaje claro si por algún motivo
+    // authMiddleware no llegó a poblar req.user — así "docenteId" nunca
+    // llega vacío a Tarea.save(), donde el error del schema no dice de
+    // dónde vino el problema.
+    if (!req.user?.userId) {
+      console.log('[createTarea] req.user.userId ausente — devolviendo 401');
+      return res.status(401).json({ message: "Usuario no autenticado" });
+    }
     req.body.docenteId = req.user.userId;
 
     // FormData manda esto como string JSON — normalizar antes de usarlo
@@ -65,22 +82,35 @@ export const createTarea = async (req, res) => {
     const archivosAdjuntos = [];
 
     if (req.files && req.files.length > 0) {
-      const subidos = await Promise.all(req.files.map(async (file) => {
-        const fileBuffer = await getFileBuffer(file);
-        if (!fileBuffer) {
-          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
-        }
+      // Aislado en su propio try/catch: si Cloudinary falla o se cuelga
+      // (ver timeout agregado en config/cloudinary.js), el docente necesita
+      // un mensaje claro y accionable — no el "Error interno del servidor"
+      // genérico del catch de abajo, que en producción ni siquiera muestra
+      // el detalle (error.message solo se expone en NODE_ENV=development).
+      let subidos;
+      try {
+        subidos = await Promise.all(req.files.map(async (file) => {
+          const fileBuffer = await getFileBuffer(file);
+          if (!fileBuffer) {
+            throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+          }
 
-        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
-        return {
-          tipo: 'archivo',
-          url: resultado.url,
-          publicId: resultado.publicId,
-          nombre: file.originalname,
-          formato: resultado.format,
-          tamano: file.size
-        };
-      }));
+          const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
+          return {
+            tipo: 'archivo',
+            url: resultado.url,
+            publicId: resultado.publicId,
+            nombre: file.originalname,
+            formato: resultado.format,
+            tamano: file.size
+          };
+        }));
+      } catch (uploadError) {
+        console.error('Error al subir archivos adjuntos de la tarea:', uploadError);
+        return res.status(503).json({
+          message: "No se pudo subir uno de los archivos adjuntos. Verifica tu conexión e intenta de nuevo; si el problema persiste, prueba con un archivo más liviano.",
+        });
+      }
       archivosAdjuntos.push(...subidos);
     }
 
@@ -95,11 +125,16 @@ export const createTarea = async (req, res) => {
 
     req.body.archivosAdjuntos = archivosAdjuntos;
 
-    const newTarea = new Tarea(req.body);
+    // docenteId explícito al construir el documento (no solo confiado a la
+    // mutación de arriba): así el creador de la tarea SIEMPRE es el usuario
+    // del token, sin importar qué más haya tocado req.body en el camino.
+    const newTarea = new Tarea({ ...req.body, docenteId: req.user.userId });
+    console.log('[createTarea] docenteId final en el documento =', newTarea.docenteId);
     let savedTarea;
     try {
       savedTarea = await newTarea.save();
     } catch (saveError) {
+      console.log('[createTarea] newTarea.save() falló:', saveError.name, saveError.message);
       // La tarea no se creó: limpiar los archivos que ya se subieron a Cloudinary
       await Promise.all(
         archivosAdjuntos
@@ -131,6 +166,17 @@ export const createTarea = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al crear tarea:', error);
+
+    // Un rechazo de validación del schema (ej. docenteId/fechaEntrega
+    // ausentes) es un problema de los datos enviados, no del servidor —
+    // debe volver como 400 con el campo específico, igual que los errores
+    // de express-validator, para que el frontend los pinte junto al campo
+    // (ver parseValidationErrors.js) en vez de un 500 genérico.
+    if (error.name === 'ValidationError') {
+      const errors = Object.entries(error.errors).map(([path, e]) => ({ path, msg: e.message }));
+      return res.status(400).json({ message: "Errores de validación", errors });
+    }
+
     res.status(500).json({
       message: "Error interno del servidor",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -315,22 +361,31 @@ export const updateTarea = async (req, res) => {
 
     let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
-      nuevosSubidos = await Promise.all(req.files.map(async (file) => {
-        const fileBuffer = await getFileBuffer(file);
-        if (!fileBuffer) {
-          throw new Error(`No se pudo leer el archivo ${file.originalname}`);
-        }
+      // Mismo aislamiento que en createTarea: un fallo/timeout de Cloudinary
+      // aquí debe ser un 503 claro, no colarse hasta el catch genérico.
+      try {
+        nuevosSubidos = await Promise.all(req.files.map(async (file) => {
+          const fileBuffer = await getFileBuffer(file);
+          if (!fileBuffer) {
+            throw new Error(`No se pudo leer el archivo ${file.originalname}`);
+          }
 
-        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
-        return {
-          tipo: 'archivo',
-          url: resultado.url,
-          publicId: resultado.publicId,
-          nombre: file.originalname,
-          formato: resultado.format,
-          tamano: file.size
-        };
-      }));
+          const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-adjuntos-tareas', file.originalname);
+          return {
+            tipo: 'archivo',
+            url: resultado.url,
+            publicId: resultado.publicId,
+            nombre: file.originalname,
+            formato: resultado.format,
+            tamano: file.size
+          };
+        }));
+      } catch (uploadError) {
+        console.error('Error al subir archivos adjuntos de la tarea:', uploadError);
+        return res.status(503).json({
+          message: "No se pudo subir uno de los archivos adjuntos. Verifica tu conexión e intenta de nuevo; si el problema persiste, prueba con un archivo más liviano.",
+        });
+      }
       archivosAdjuntos.push(...nuevosSubidos);
     }
 
@@ -390,6 +445,12 @@ export const updateTarea = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al actualizar tarea:', error);
+
+    if (error.name === 'ValidationError') {
+      const errors = Object.entries(error.errors).map(([path, e]) => ({ path, msg: e.message }));
+      return res.status(400).json({ message: "Errores de validación", errors });
+    }
+
     res.status(500).json({
       message: "Error interno del servidor"
     });

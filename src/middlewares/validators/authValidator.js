@@ -1,4 +1,15 @@
 import { body } from 'express-validator';
+import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+
+/**
+ * Sanitizador único de teléfonos: da igual si el cliente manda "3001234567",
+ * "57 300 123 4567" o "+573001234567" — al controlador siempre llega
+ * "+57XXXXXXXXXX". Si no es un número válido se conserva el valor original
+ * para que .matches() muestre el mensaje de error correcto.
+ *
+ * Es lo que permite que iniciar sesión funcione escribiendo el +57 o sin él.
+ */
+const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const registerValidator = [
   body('nombre')
@@ -32,6 +43,8 @@ export const registerValidator = [
 
   body('telefono')
     .notEmpty().withMessage('El teléfono es requerido')
+    .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
   body('institucionId')
@@ -43,6 +56,8 @@ export const registerValidator = [
 export const loginValidator = [
   body('telefono')
     .notEmpty().withMessage('El teléfono es requerido')
+    .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
   body('contraseña')
@@ -88,12 +103,16 @@ export const resetPasswordValidator = [
 export const forgotPasswordPhoneValidator = [
   body('telefono')
     .notEmpty().withMessage('El teléfono es requerido')
+    .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 ];
 
 export const resetPasswordPhoneValidator = [
   body('telefono')
     .notEmpty().withMessage('El teléfono es requerido')
+    .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
   body('codigo')

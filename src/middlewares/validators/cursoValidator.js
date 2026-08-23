@@ -1,4 +1,8 @@
 import { body, param } from 'express-validator';
+import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+
+/** Mismo saneado de teléfonos que en auth y usuarios: siempre +57XXXXXXXXXX. */
+const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const createCursoValidator = [
   body('nombre')
@@ -109,12 +113,17 @@ export const participanteValidator = [
   body('telefono')
     .notEmpty()
     .withMessage('El teléfono es requerido')
-    .trim(),
+    .trim()
+    .customSanitizer(sanitizarTelefono)
+    .matches(/^\+57\d{10}$/)
+    .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
   body('cedula')
     .notEmpty()
     .withMessage('La cédula es requerida')
     .trim()
+    .matches(/^\d{6,10}$/)
+    .withMessage('La cédula debe contener entre 6 y 10 dígitos numéricos')
 ];
 
 export const cursoIdValidator = [

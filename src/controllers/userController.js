@@ -51,12 +51,18 @@ export const createUser = async (req, res) => {
       institucionFinal = institucionId;
     }
 
+    // REGLA ÚNICA DEL SISTEMA: la contraseña inicial de cualquier usuario
+    // creado desde el panel es su cédula — igual que en institucionController
+    // (admin y docentes) y en cursoController (participantes). Solo se respeta
+    // otra contraseña si quien crea la envía explícitamente.
+    const contraseñaInicial = contraseña?.trim() || String(cedula).trim();
+
     const newUser = new User({
       nombre,
       apellido,
       cedula,
       correo,
-      contraseña,
+      contraseña: contraseñaInicial,
       rol,
       telefono,
       institucionId: institucionFinal,
