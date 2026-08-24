@@ -100,7 +100,7 @@ export const preregistrarDocentesCSV = async (req, res) => {
       cedula,
       telefono: telefonoNormalizado,
       correo: correoFinal,
-      contraseña: cedula,
+      contraseña: String(cedula).trim(), // regla única: contraseña inicial = cédula
       rol: 'docente',
       estado: 'activo',
       institucionId,
@@ -166,8 +166,13 @@ export const crearInstitucion = async (req, res) => {
       }
     }
 
+    // Los teléfonos se guardan SIEMPRE en +57XXXXXXXXXX, sin importar cómo los
+    // haya escrito quien crea la institución (con +57, con 57 o sin indicativo)
+    const telefonoInst  = normalizarTelefono(telefono) ?? telefono;
+    const telefonoAdmin = normalizarTelefono(adminTelefono) ?? adminTelefono;
+
     // Crear institución primero (sin adminId)
-    const institucion = new Institucion({ nombre, nit, direccion, telefono, correo });
+    const institucion = new Institucion({ nombre, nit, direccion, telefono: telefonoInst, correo });
     await institucion.save();
 
     // Crear usuario administrador del colegio
@@ -177,8 +182,8 @@ export const crearInstitucion = async (req, res) => {
       apellido: adminApellido,
       cedula: adminCedula,
       correo: adminCorreoFinal,
-      telefono: adminTelefono,
-      contraseña: adminCedula, // cédula como contraseña inicial
+      telefono: telefonoAdmin,
+      contraseña: String(adminCedula).trim(), // regla única: contraseña inicial = cédula
       rol: 'administrador',
       estado: 'activo',
       institucionId: institucion._id,
@@ -270,8 +275,9 @@ export const preregistrarDocente = async (req, res) => {
       apellido,
       cedula,
       correo: correoFinal,
-      telefono,
-      contraseña: cedula,
+      // Mismo formato de teléfono que en el resto del sistema: +57XXXXXXXXXX
+      telefono: normalizarTelefono(telefono) ?? telefono,
+      contraseña: String(cedula).trim(), // regla única: contraseña inicial = cédula
       rol: 'docente',
       estado: 'activo',
       institucionId: admin.institucionId,

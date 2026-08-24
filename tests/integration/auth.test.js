@@ -42,8 +42,15 @@ describe('POST /api/auth/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rechaza un teléfono que no está en formato +57XXXXXXXXXX', async () => {
-    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), telefono: '3001112233' });
+  it('acepta un teléfono colombiano sin el prefijo +57 y lo normaliza al guardarlo', async () => {
+    const datos = { ...datosValidos(), telefono: '3001112233' };
+    const res = await request(app).post('/api/auth/register').send(datos);
+    expect(res.status).toBe(201);
+    expect(res.body.user.telefono).toBe('+573001112233');
+  });
+
+  it('rechaza un teléfono que no es un número colombiano válido en ningún formato', async () => {
+    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), telefono: '123' });
     expect(res.status).toBe(400);
   });
 
@@ -95,8 +102,15 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
   });
 
-  it('responde 400 si el teléfono no tiene el formato +57XXXXXXXXXX', async () => {
-    const res = await request(app).post('/api/auth/login').send({ telefono: '3001112233', contraseña: 'x' });
+  it('inicia sesión aunque el teléfono se escriba sin el prefijo +57 (se normaliza antes de buscar)', async () => {
+    const padre = await crearPadre(); // factory ya guarda el telefono como +57XXXXXXXXXX
+    const sinPrefijo = padre.telefono.replace('+57', '');
+    const res = await request(app).post('/api/auth/login').send({ telefono: sinPrefijo, contraseña: CONTRASEÑA_PRUEBA });
+    expect(res.status).toBe(200);
+  });
+
+  it('responde 400 si el teléfono no es un número colombiano válido en ningún formato', async () => {
+    const res = await request(app).post('/api/auth/login').send({ telefono: '123', contraseña: 'x' });
     expect(res.status).toBe(400);
   });
 
