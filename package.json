@@ -12,7 +12,10 @@
     "seed": "node src/scripts/seedAdmins.js",
     "test:email": "node src/scripts/testBrevoEmail.js",
     "reset-db": "node reset.js",
-    "reset-db:confirm": "node reset.js --confirm"
+    "reset-db:confirm": "node reset.js --confirm",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "edumon",
@@ -48,6 +51,11 @@
     "twilio": "^5.10.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "@vitest/coverage-v8": "^4.1.11",
+    "mongodb-memory-server": "^11.2.0",
+    "nodemon": "^3.1.10",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.11"
   }
 }

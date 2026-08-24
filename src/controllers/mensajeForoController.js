@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import Curso from '../models/Curso.js';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { eventBus, EVENTOS } from '../events/EventBus.js';
 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
@@ -119,6 +120,16 @@ export const crearMensaje = async (req, res) => {
 
     await nuevoMensaje.save();
     await nuevoMensaje.populate('usuarioId', 'nombre apellido fotoPerfilUrl rol');
+
+    // Notificar: siempre en mensajes raíz; en respuestas, solo si quien
+    // responde es el docente (evita saturar a todo el curso con cada
+    // respuesta entre padres, pero un padre sí debe enterarse si el docente
+    // le responde).
+    const esRespuesta = Boolean(nuevoMensaje.respuestaA);
+    const autorEsDocente = nuevoMensaje.usuarioId.rol === 'docente';
+    if (!esRespuesta || autorEsDocente) {
+      eventBus.publicar(EVENTOS.FORO_NUEVO_MENSAJE, { mensaje: nuevoMensaje, foro });
+    }
 
     const respuesta = { message: 'Mensaje creado exitosamente', mensaje: nuevoMensaje };
     if (errores.length > 0) {

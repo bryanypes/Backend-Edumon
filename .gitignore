@@ -16,6 +16,9 @@ logs/*.log
 .DS_Store
 Thumbs.db
 
-# Compilados 
+# Compilados
 dist/
 build/
+
+# Cobertura de tests
+coverage/

@@ -63,11 +63,11 @@ export const registrarObservers = () => {
   eventBus.suscribir(EVENTOS.ENTREGA_CALIFICADA, async ({ entrega, tarea, padre, docente }) => {
     await notificador.notificarFamilia(padre._id, {
       tipo: 'calificacion',
-      mensaje: `"${tarea.titulo}" calificada por ${docente.nombre} ${docente.apellido}. Nota: ${entrega.calificacion.nota}/100`,
+      mensaje: `"${tarea.titulo}" calificada por ${docente.nombre} ${docente.apellido}. Valoración: ${entrega.calificacion.valoracion}/5`,
       prioridad: 'critica',
       referenciaId: entrega._id,
       referenciaModelo: 'Entrega',
-      metadata: { nota: entrega.calificacion.nota }
+      metadata: { valoracion: entrega.calificacion.valoracion }
     });
   });
 
@@ -101,6 +101,34 @@ export const registrarObservers = () => {
         metadata: { eventoTitulo: evento.titulo }
       }
     );
+  });
+
+  // Observer: Nuevo mensaje en foro → notificar a todos los participantes del
+  // curso menos a quien escribió. El controlador solo publica este evento en
+  // mensajes raíz, o en respuestas cuando el autor es el docente (ver
+  // mensajeForoController.crearMensaje).
+  eventBus.suscribir(EVENTOS.FORO_NUEVO_MENSAJE, async ({ mensaje, foro }) => {
+    const curso = await Curso.findById(foro.cursoId).populate('participantes.usuarioId', '_id');
+    if (!curso) return;
+
+    const autorId = mensaje.usuarioId._id.toString();
+    const destinatarios = curso.participantes
+      .filter(p => p.usuarioId && p.usuarioId._id.toString() !== autorId)
+      .map(p => p.usuarioId._id);
+
+    if (destinatarios.length === 0) return;
+
+    const autor = `${mensaje.usuarioId.nombre} ${mensaje.usuarioId.apellido}`;
+    const accion = mensaje.respuestaA ? 'respondió en' : 'publicó en';
+
+    await notificador.notificarFamilias(destinatarios, {
+      tipo: 'foro',
+      mensaje: `${autor} ${accion} el foro "${foro.titulo}"`,
+      prioridad: 'critica',
+      referenciaId: foro._id,
+      referenciaModelo: 'Foro',
+      metadata: { foroTitulo: foro.titulo, esRespuesta: Boolean(mensaje.respuestaA) }
+    });
   });
 
   // Observer: Bienvenida

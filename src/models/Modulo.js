@@ -36,14 +36,6 @@ const moduloSchema = new mongoose.Schema({
 moduloSchema.index({ cursoId: 1, fechaCreacion: -1 });
 moduloSchema.index({ estado: 1 });
 
-// Virtual para contar lecciones (si tienes ese modelo)
-moduloSchema.virtual('totalLecciones', {
-  ref: 'Leccion',
-  localField: '_id',
-  foreignField: 'moduloId',
-  count: true
-});
-
 // Método para verificar si el módulo pertenece a un curso
 moduloSchema.methods.perteneceACurso = function(cursoId) {
   return this.cursoId.toString() === cursoId.toString();

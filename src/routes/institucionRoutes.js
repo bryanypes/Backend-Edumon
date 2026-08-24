@@ -5,7 +5,8 @@ import {
   getInstituciones,
   getMiInstitucion,
   preregistrarDocente,
-  updateInstitucion
+  updateInstitucion,
+  cambiarEstadoInstitucion
 } from '../controllers/institucionController.js';
 // Agrega el import del middleware de CSV
 import { uploadCSVCloudinary } from '../middlewares/cloudinaryMiddleware.js';
@@ -19,6 +20,7 @@ router.use(authMiddleware);
 router.post('/', requireRole(['superadmin']), crearInstitucion);
 router.get('/', requireRole(['superadmin']), getInstituciones);
 router.put('/:id', requireRole(['superadmin']), updateInstitucion);
+router.patch('/:id/estado', requireRole(['superadmin']), cambiarEstadoInstitucion);
 
 // Admin del colegio
 router.get('/mi-institucion', requireRole(['administrador', 'superadmin']), getMiInstitucion);

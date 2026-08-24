@@ -192,6 +192,7 @@ export const getTareas = async (req, res) => {
 
     const userId = req.user.userId;
     const userRole = req.user.rol;
+    const institucionId = req.user.institucionId;
 
     const filter = {};
 
@@ -204,6 +205,12 @@ export const getTareas = async (req, res) => {
     // Docentes solo ven sus propias tareas; estudiantes/padres solo las de sus cursos
     if (userRole === 'docente') {
       filter.docenteId = userId;
+    }
+    else if (userRole === 'administrador') {
+      // Sin esto, un administrador veía tareas de TODAS las instituciones de
+      // la plataforma (mismo problema ya corregido antes en cursos/eventos/foros).
+      const cursosDeLaInstitucion = await Curso.find({ institucionId }).select('_id');
+      filter.cursoId = { $in: cursosDeLaInstitucion.map((c) => c._id) };
     }
     else if (userRole === 'estudiante' || userRole === 'padre') {
       const cursosDelUsuario = await Curso.find({

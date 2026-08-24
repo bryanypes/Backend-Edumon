@@ -34,7 +34,7 @@ const notificacionSchema = new mongoose.Schema({
   },
   referenciaModelo: {
     type: String,
-    enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento', 'Buzon']
+    enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento', 'Buzon', 'Foro']
   },
   // Datos adicionales para la notificación
   metadata: {

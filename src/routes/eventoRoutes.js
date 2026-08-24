@@ -6,6 +6,7 @@ import {
   getEventoById,
   updateEvento,
   deleteEvento,
+  cancelarEvento,
   getEventosHoy
 } from '../controllers/eventoController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
@@ -71,6 +72,13 @@ router.delete(
   authMiddleware,
   eventoIdValidator,
   deleteEvento
+);
+
+router.patch(
+  '/:id/cancelar',
+  authMiddleware,
+  eventoIdValidator,
+  cancelarEvento
 );
 
 export default router;
