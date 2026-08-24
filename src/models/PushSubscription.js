@@ -43,7 +43,8 @@ const pushSubscriptionSchema = new mongoose.Schema({
 
 // Índices
 pushSubscriptionSchema.index({ usuarioId: 1, activa: 1 });
-pushSubscriptionSchema.index({ endpoint: 1 }, { unique: true });
+// endpoint ya es unique:true arriba — un segundo .index() sobre el mismo
+// campo generaba un índice duplicado (warning de Mongoose en cada arranque).
 
 // Método para actualizar último uso
 pushSubscriptionSchema.methods.actualizarUso = async function() {

@@ -6,6 +6,7 @@ import {
   getMisCursos,
   updateCurso,
   archivarCurso,
+  restaurarCurso,
   agregarParticipante,
   removerParticipante,
   registrarUsuariosMasivo,
@@ -81,6 +82,14 @@ router.delete('/:id',
   requireRole(['administrador', 'docente']), 
   cursoIdValidator, 
   archivarCurso
+);
+
+// RESTAURAR CURSO (revierte el archivado)
+router.patch('/:id/restaurar',
+  authMiddleware,
+  requireRole(['administrador', 'docente']),
+  cursoIdValidator,
+  restaurarCurso
 );
 
 // AGREGAR PARTICIPANTE INDIVIDUAL
