@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import PerfilFamiliar from '../models/PerfilFamiliar.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
@@ -319,12 +320,44 @@ export const getProfile = async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
+    // Perfil familiar activo en esta sesión (ver seleccionarPerfil en
+    // perfilFamiliarController.js). Por defecto es el titular; si el token
+    // trae un perfilId secundario se resuelve su nombre/avatar propios para
+    // que el frontend pueda mostrar "estás como [nombre]".
+    let perfilActivo = {
+      _id:       user._id,
+      nombre:    user.nombre,
+      avatarUrl: user.fotoPerfilUrl,
+      esTitular: true,
+    };
+
+    if (req.user.perfilId && !req.user.esTitular) {
+      const perfil = await PerfilFamiliar.findOne({
+        _id:       req.user.perfilId,
+        titularId: req.user.userId,
+        activo:    true,
+      }).lean();
+
+      // Si el perfil fue eliminado, el token sigue vigente hasta que expire
+      // (máx. 15 min); mientras tanto se cae de vuelta al titular en vez de
+      // romper la respuesta.
+      if (perfil) {
+        perfilActivo = {
+          _id:       perfil._id,
+          nombre:    perfil.nombre,
+          avatarUrl: perfil.avatarUrl,
+          esTitular: false,
+        };
+      }
+    }
+
     return res.json({
       user: {
         ...publicUser(user),
         fechaRegistro: user.fechaRegistro,
         preferencias:  user.preferencias,
       },
+      perfilActivo,
     });
   } catch (error) {
     console.error('Error al obtener perfil:', error);
