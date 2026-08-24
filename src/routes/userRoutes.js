@@ -7,6 +7,7 @@ import {
   updateOwnProfile,
   updateUser,
   deleteUser,
+  reactivateUser,
   getFotosPredeterminadas,
   updateFotoPerfil,
   updateFcmToken,
@@ -75,5 +76,6 @@ router.get('/', authMiddleware, requireRole(['administrador', 'superadmin']), ge
 router.get('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, getUserById);
 router.put('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), updateUserValidator, updateUser);
 router.delete('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, deleteUser);
+router.patch('/:id/reactivar', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, reactivateUser);
 
 export default router;

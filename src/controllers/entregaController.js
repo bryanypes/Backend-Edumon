@@ -1,5 +1,6 @@
 import Entrega from '../models/Entrega.js';
 import Tarea from '../models/Tarea.js';
+import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
@@ -343,7 +344,7 @@ export const getAllEntregas = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
     const skip = (page - 1) * limit;
     const { estado } = req.query;
-    const userRole = req.user.rol;
+    const { rol: userRole, institucionId } = req.user;
 
     const filter = { estado: { $in: ['enviada', 'tarde'] } };
     if (estado && (estado === 'enviada' || estado === 'tarde')) filter.estado = estado;
@@ -353,6 +354,15 @@ export const getAllEntregas = async (req, res) => {
     } else if (userRole === 'padre') {
       // Un padre solo debe ver sus propias entregas, nunca las de otros padres
       filter.padreId = req.user.userId;
+    } else if (userRole === 'administrador') {
+      // Sin este filtro, un administrador veía entregas (y calificaciones) de
+      // TODAS las instituciones de la plataforma, igual que pasaba antes en
+      // cursos/eventos/foros antes de acotarlos por institución.
+      const cursosDeLaInstitucion = await Curso.find({ institucionId }).select('_id');
+      const tareasDeLaInstitucion = await Tarea.find({
+        cursoId: { $in: cursosDeLaInstitucion.map((c) => c._id) }
+      }).select('_id');
+      filter.tareaId = { $in: tareasDeLaInstitucion.map((t) => t._id) };
     }
 
     const [entregas, total] = await Promise.all([
@@ -391,6 +401,21 @@ export const getEntregasByTarea = async (req, res) => {
 
     const tarea = await Tarea.findById(tareaId);
     if (!tarea) return res.status(404).json({ message: "Tarea no encontrada" });
+
+    // La ruta solo exige rol docente/administrador, pero no verificaba que la
+    // tarea perteneciera a ESE docente o a la institución de ESE administrador
+    // — cualquier docente/admin autenticado podía leer entregas y
+    // calificaciones de una tarea ajena con solo conocer el tareaId.
+    const { userId, rol, institucionId } = req.user;
+    if (rol === 'docente' && tarea.docenteId.toString() !== userId) {
+      return res.status(403).json({ message: "No tienes permisos para ver las entregas de esta tarea" });
+    }
+    if (rol === 'administrador') {
+      const curso = await Curso.findById(tarea.cursoId).select('institucionId');
+      if (!curso || curso.institucionId.toString() !== institucionId) {
+        return res.status(403).json({ message: "No tienes permisos para ver las entregas de esta tarea" });
+      }
+    }
 
     const filter = { tareaId, estado: { $in: ['enviada', 'tarde'] } };
     if (estado && (estado === 'enviada' || estado === 'tarde')) filter.estado = estado;
@@ -438,6 +463,23 @@ export const getEntregasByPadre = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
     const skip = (page - 1) * limit;
     const { estado } = req.query;
+
+    // Igual que en getEntregasByTarea: la ruta solo exige rol docente/administrador,
+    // sin verificar que el padre consultado comparta curso/institución con quien
+    // consulta — cualquier docente o admin podía leer las entregas de un padre
+    // de otro curso/colegio con solo conocer su padreId.
+    const { userId, rol, institucionId } = req.user;
+    if (rol === 'docente') {
+      const compartenCurso = await Curso.exists({ docenteId: userId, 'participantes.usuarioId': padreId });
+      if (!compartenCurso) {
+        return res.status(403).json({ message: "No tienes permisos para ver las entregas de este padre" });
+      }
+    } else if (rol === 'administrador') {
+      const compartenInstitucion = await Curso.exists({ institucionId, 'participantes.usuarioId': padreId });
+      if (!compartenInstitucion) {
+        return res.status(403).json({ message: "No tienes permisos para ver las entregas de este padre" });
+      }
+    }
 
     const filter = { padreId, estado: { $in: ['enviada', 'tarde'] } };
     if (estado && (estado === 'enviada' || estado === 'tarde')) filter.estado = estado;

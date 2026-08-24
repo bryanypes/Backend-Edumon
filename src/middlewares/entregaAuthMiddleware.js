@@ -1,5 +1,6 @@
 import Tarea from '../models/Tarea.js';
 import Entrega from '../models/Entrega.js';
+import Curso from '../models/Curso.js';
 
 export const canCreateEntrega = async (req, res, next) => {
   try {
@@ -109,13 +110,12 @@ export const canModifyEntrega = async (req, res, next) => {
 export const canViewEntrega = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
-    const userRole = req.user.rol;
+    const { userId, rol: userRole, institucionId } = req.user;
 
     const entrega = await Entrega.findById(id)
       .populate({
         path: 'tareaId',
-        select: 'docenteId'
+        select: 'docenteId cursoId'
       })
       .lean();
 
@@ -133,7 +133,18 @@ export const canViewEntrega = async (req, res, next) => {
       return next();
     }
 
-    if (userRole === 'admin') {
+    // El rol real es "administrador" (no "admin") — este chequeo nunca se
+    // cumplía, así que un administrador siempre recibía 403 aquí aunque la
+    // entrega fuera de un curso de su propia institución. Se acota, igual que
+    // en el resto de la app, a la institución del administrador.
+    if (userRole === 'administrador') {
+      const curso = await Curso.findById(entrega.tareaId.cursoId).select('institucionId');
+      if (curso && curso.institucionId.toString() === institucionId) {
+        return next();
+      }
+    }
+
+    if (userRole === 'superadmin') {
       return next();
     }
 
@@ -200,10 +211,10 @@ export const filterEntregasForUser = async (req, res, next) => {
     const userId = req.user.userId;
     const userRole = req.user.rol;
 
-    // Si es admin, ve todas las entregas
-    if (userRole === 'admin') {
-      return next();
-    }
+    // administrador/superadmin: el filtrado por institución ahora se hace
+    // directamente en el controlador (getAllEntregas), así que aquí no hace
+    // falta nada especial para esos roles (antes había un chequeo a 'admin',
+    // un valor de rol que nunca existe realmente, así que nunca se ejecutaba).
 
     // Si es docente, solo ve entregas de sus tareas
     if (userRole === 'docente') {

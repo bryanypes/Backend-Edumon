@@ -321,3 +321,33 @@ export const updateInstitucion = async (req, res) => {
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
+
+// Activar/desactivar institución. El campo "activo" existía en el schema y
+// getInstituciones ya filtra por activo:true, pero nada lo cambiaba nunca.
+export const cambiarEstadoInstitucion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { activo } = req.body;
+
+    if (typeof activo !== 'boolean') {
+      return res.status(400).json({ message: 'El campo "activo" debe ser true o false' });
+    }
+
+    const institucion = await Institucion.findByIdAndUpdate(
+      id,
+      { activo },
+      { new: true }
+    ).populate('adminId', 'nombre apellido correo').lean();
+
+    if (!institucion) {
+      return res.status(404).json({ message: 'Institución no encontrada' });
+    }
+
+    res.json({
+      message: `Institución ${activo ? 'activada' : 'desactivada'} exitosamente`,
+      institucion
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+  }
+};

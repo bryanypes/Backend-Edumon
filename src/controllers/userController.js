@@ -334,6 +334,40 @@ export const deleteUser = async (req, res) => {
   }
 };
 
+// Reactivar usuario (revierte el soft delete → estado: activo)
+export const reactivateUser = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: "Errores de validación",
+        errors: errors.array()
+      });
+    }
+
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    if (user.estado === 'activo') {
+      return res.status(400).json({ message: "El usuario ya está activo" });
+    }
+
+    user.estado = 'activo';
+    await user.save();
+
+    res.json({
+      message: "Usuario reactivado exitosamente",
+      user
+    });
+  } catch (error) {
+    console.error('Error al reactivar usuario:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
 // Obtener fotos de perfil predeterminadas
 export const getFotosPredeterminadas = async (req, res) => {
   try {

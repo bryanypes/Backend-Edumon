@@ -510,6 +510,55 @@ export const archivarCurso = async (req, res) => {
   }
 };
 
+// Restaurar curso archivado (revierte el soft delete)
+export const restaurarCurso = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuarioLogueado = req.user;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de curso no válido" });
+    }
+
+    const curso = await Curso.findById(id);
+    if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
+    if (curso.estado === 'activo') {
+      return res.status(400).json({ message: "El curso ya está activo" });
+    }
+
+    const esDocenteDueño = usuarioLogueado.rol === 'docente' &&
+      curso.docenteId.toString() === usuarioLogueado.userId;
+    const esAdminDeLaInstitucion = usuarioLogueado.rol === 'administrador' &&
+      curso.institucionId.toString() === usuarioLogueado.institucionId;
+    const esSuperadmin = usuarioLogueado.rol === 'superadmin';
+
+    if (!esDocenteDueño && !esAdminDeLaInstitucion && !esSuperadmin) {
+      return res.status(403).json({ message: "No tienes permisos para restaurar este curso" });
+    }
+
+    curso.estado = 'activo';
+    await curso.save();
+
+    await curso.populate('docenteId', 'nombre apellido correo');
+    await curso.populate('participantes.usuarioId', 'nombre apellido correo rol');
+
+    res.json({
+      message: "Curso restaurado exitosamente",
+      curso: {
+        ...curso.toObject(),
+        docente: formatearDocente(curso.docenteId)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al restaurar curso:', error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Agregar un único participante a un curso (crea el usuario si no existe)
 export const agregarParticipante = async (req, res) => {
   try {

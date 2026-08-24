@@ -335,6 +335,54 @@ export const deleteEvento = async (req, res) => {
   }
 };
 
+// ─── Cancelar evento ───────────────────────────
+// El estado "cancelado" ya existía en el enum del schema, pero ningún
+// controlador lo asignaba. Usa findByIdAndUpdate (no .save()) a propósito:
+// el pre('save') del modelo recalcula el estado por fecha en cada save() y
+// pisaría "cancelado" apenas el evento ya hubiera empezado.
+export const cancelarEvento = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const { userId, rol, institucionId } = req.user;
+
+    if (!['administrador', 'docente'].includes(rol)) {
+      return res.status(403).json({ message: "No tienes permisos para cancelar eventos" });
+    }
+
+    const evento = await Evento.findById(id);
+    if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
+
+    if (rol === 'docente' && evento.docenteId.toString() !== userId) {
+      return res.status(403).json({ message: "No tienes permiso para cancelar este evento" });
+    }
+
+    if (rol === 'administrador' && !(await eventoPerteneceAInstitucion(evento.cursosIds, institucionId))) {
+      return res.status(403).json({ message: "No tienes permiso para cancelar este evento" });
+    }
+
+    if (evento.estado === 'cancelado') {
+      return res.status(400).json({ message: "El evento ya está cancelado" });
+    }
+    if (evento.estado === 'finalizado') {
+      return res.status(400).json({ message: "No se puede cancelar un evento que ya finalizó" });
+    }
+
+    const eventoCancelado = await Evento.findByIdAndUpdate(id, { estado: 'cancelado' }, { new: true })
+      .populate('docenteId', 'nombre apellido correo')
+      .populate('cursosIds', 'nombre codigoCurso');
+
+    res.json({ message: "Evento cancelado exitosamente", evento: eventoCancelado });
+  } catch (error) {
+    console.error('Error al cancelar evento:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
 // ─── Eventos del día ──────────────────────────
 export const getEventosHoy = async (req, res) => {
   try {

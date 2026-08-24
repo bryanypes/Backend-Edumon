@@ -63,16 +63,22 @@ const setSessionCookies = (res, accessToken, refreshToken) => {
   setAccessTokenCookie(res, accessToken);
 
   // Refresh token: persiste 7 días
+  // path: '/api/auth' (no '/api/auth/refresh') — debe llegar también a
+  // /api/auth/logout, que es quien la lee para revocar esa sesión puntual en
+  // BD. Con path: '/api/auth/refresh' el navegador nunca la envía a
+  // /api/auth/logout (path hermano, no un subpath), así que logout() jamás
+  // encontraba el token que debía revocar: solo limpiaba las cookies del
+  // cliente y la sesión seguía siendo válida en el servidor hasta expirar sola.
   res.cookie('refresh_token', refreshToken, {
     ...COOKIE_BASE,
-    path:   '/api/auth/refresh', // solo accesible desde ese endpoint
+    path:   '/api/auth',
     maxAge: REFRESH_TOKEN_TTL,
   });
 };
 
 const clearSessionCookies = (res) => {
   res.clearCookie('access_token',  { ...COOKIE_BASE });
-  res.clearCookie('refresh_token', { ...COOKIE_BASE, path: '/api/auth/refresh' });
+  res.clearCookie('refresh_token', { ...COOKIE_BASE, path: '/api/auth' });
 };
 
 /** Extrae el access token desde cookie o header (compatibilidad transitoria) */

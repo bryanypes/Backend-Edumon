@@ -110,12 +110,12 @@ export const canModifyTarea = async (req, res, next) => {
 export const filterTareasForUser = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const userRole = req.user.rol; // Asumiendo que el rol está en el token
+    const userRole = req.user.rol;
 
-    // Si es admin, ver todo (opcional)
-    if (userRole === 'admin') {
-      return next();
-    }
+    // administrador/superadmin: el filtrado (por institución) ahora se hace
+    // directamente en el controlador (getTareas); no hace falta nada especial
+    // aquí (antes había un chequeo a 'admin', un valor de rol que nunca
+    // existe realmente, así que nunca se ejecutaba).
 
     // Si es docente, puede ver todas sus tareas
     if (userRole === 'docente') {
