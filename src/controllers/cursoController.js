@@ -2,8 +2,7 @@
 import Curso from '../models/Curso.js';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';
-import csv from 'csv-parser';
-import { Readable } from 'stream';
+import { parseFilasUsuarios } from '../utils/parseExcelUsuarios.js';
 import mongoose from 'mongoose';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
@@ -22,7 +21,7 @@ function formatearDocente(docenteId) {
   };
 }
 
-// Procesa un CSV de usuarios y los agrega al curso (usado en creación y en carga masiva)
+// Procesa un Excel (.xlsx/.xlsm) de usuarios y los agrega al curso (usado en creación y en carga masiva)
 async function procesarUsuariosCSV(file, cursoId) {
   const resultados = {
     exitosos: [],
@@ -38,37 +37,24 @@ async function procesarUsuariosCSV(file, cursoId) {
       throw new Error("Curso no encontrado");
     }
 
-    console.log(' Procesando CSV para curso:', curso.nombre);
+    console.log(' Procesando Excel para curso:', curso.nombre);
 
     const fileBuffer = await getFileBuffer(file);
     if (!fileBuffer) {
-      throw new Error('No se pudo leer el archivo CSV');
+      throw new Error('No se pudo leer el archivo Excel');
     }
 
-    const stream = Readable.from(fileBuffer.toString());
-    const usuarios = [];
-
-    await new Promise((resolve, reject) => {
-      stream
-        .pipe(csv({
-          headers: ['nombre', 'apellido', 'telefono', 'cedula'],
-          skipEmptyLines: true
-        }))
-        .on('data', (data) => {
-          if (data.nombre === 'nombre' && data.apellido === 'apellido') return;
-          if (data.nombre && data.apellido && data.cedula && data.telefono) {
-            usuarios.push({
-              nombre: data.nombre.trim(),
-              apellido: data.apellido.trim(),
-              telefono: normalizarTelefono(data.telefono) || data.telefono?.trim() || '',
-              cedula: data.cedula.trim(),
-              contraseña: data.cedula.trim()
-            });
-          }
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
+    // A diferencia de preregistrarDocentesCSV, aquí el teléfono es obligatorio
+    // (se usa para contactar al padre) — mismo requisito que tenía el CSV.
+    const usuarios = (await parseFilasUsuarios(fileBuffer))
+      .filter((fila) => fila.telefono)
+      .map((fila) => ({
+        nombre: fila.nombre,
+        apellido: fila.apellido,
+        telefono: normalizarTelefono(fila.telefono) || fila.telefono,
+        cedula: fila.cedula,
+        contraseña: fila.cedula
+      }));
 
     console.log(` Total usuarios a procesar: ${usuarios.length}`);
 
@@ -150,7 +136,7 @@ async function procesarUsuariosCSV(file, cursoId) {
     }
 
     await curso.save();
-    console.log(`\nCSV procesado completamente`);
+    console.log(`\nExcel procesado completamente`);
 
     return {
       resumen: {
@@ -724,14 +710,14 @@ export const removerParticipante = async (req, res) => {
   }
 };
 
-// Carga masiva de usuarios vía CSV
+// Carga masiva de usuarios vía Excel (.xlsx/.xlsm)
 export const registrarUsuariosMasivo = async (req, res) => {
   try {
     const { id } = req.params;
     const usuarioLogueado = req.user;
 
     if (!req.file) {
-      return res.status(400).json({ message: "No se ha subido ningún archivo CSV" });
+      return res.status(400).json({ message: "No se ha subido ningún archivo Excel" });
     }
 
     const curso = await Curso.findById(id)
