@@ -174,6 +174,10 @@ export const updateEntrega = async (req, res) => {
       return res.status(404).json({ message: "Entrega no encontrada" });
     }
 
+    if (entrega.estado !== 'borrador') {
+      return res.status(400).json({ message: "Solo se pueden actualizar entregas en borrador" });
+    }
+
     let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
       nuevosSubidos = await Promise.all(req.files.map(async (file) => {
