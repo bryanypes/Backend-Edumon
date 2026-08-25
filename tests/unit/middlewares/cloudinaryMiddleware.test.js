@@ -41,13 +41,17 @@ describe('uploadImagenYCSV (creación de curso)', () => {
     expect(aceptado).toBe(true);
   });
 
-  it('acepta CSV por mimetype text/csv', async () => {
-    const { aceptado } = await filtrar(uploadImagenYCSV, 'text/csv', 'participantes.csv');
+  it('acepta Excel por mimetype de .xlsx', async () => {
+    const { aceptado } = await filtrar(
+      uploadImagenYCSV,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'participantes.xlsx'
+    );
     expect(aceptado).toBe(true);
   });
 
-  it('acepta CSV por extensión .csv aunque el mimetype sea genérico', async () => {
-    const { aceptado } = await filtrar(uploadImagenYCSV, 'application/octet-stream', 'participantes.csv');
+  it('acepta Excel por extensión .xlsm aunque el mimetype sea genérico', async () => {
+    const { aceptado } = await filtrar(uploadImagenYCSV, 'application/octet-stream', 'participantes.xlsm');
     expect(aceptado).toBe(true);
   });
 
@@ -58,13 +62,18 @@ describe('uploadImagenYCSV (creación de curso)', () => {
 });
 
 describe('uploadCSVCloudinary (carga masiva)', () => {
-  it('rechaza cualquier cosa que no sea CSV', async () => {
+  it('acepta .xlsm por extensión aunque el mimetype sea genérico', async () => {
+    const { aceptado } = await filtrar(uploadCSVCloudinary, 'application/octet-stream', 'participantes.xlsm');
+    expect(aceptado).toBe(true);
+  });
+
+  it('rechaza cualquier cosa que no sea Excel', async () => {
     const { err } = await filtrar(uploadCSVCloudinary, 'image/png', 'foto.png');
     expect(err).toBeInstanceOf(Error);
   });
 
-  it('el límite de tamaño está fijado en 2MB', () => {
-    expect(uploadCSVCloudinary.limits.fileSize).toBe(2 * 1024 * 1024);
+  it('el límite de tamaño está fijado en 5MB', () => {
+    expect(uploadCSVCloudinary.limits.fileSize).toBe(5 * 1024 * 1024);
   });
 });
 
