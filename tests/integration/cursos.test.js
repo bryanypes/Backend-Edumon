@@ -62,17 +62,17 @@ describe('POST /api/cursos', () => {
     expect(res.body.curso.fotoPortadaUrl).toMatch(/^https:\/\/res\.cloudinary\.com\//);
   });
 
-  it('carga participantes por CSV al crear el curso', async () => {
+  it('carga participantes por Excel al crear el curso', async () => {
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const docente = await crearDocente({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
 
     const res = await agent.post('/api/cursos')
-      .field('nombre', 'Curso con CSV')
+      .field('nombre', 'Curso con Excel')
       .field('descripcion', 'Descripción válida de curso')
       .field('docenteId', docente._id.toString())
-      .attach('archivoCSV', path.join(FIXTURES, 'participantes.csv'));
+      .attach('archivoCSV', path.join(FIXTURES, 'participantes.xlsm'));
 
     expect(res.status).toBe(201);
     expect(res.body.cargaMasiva.resumen.exitosos).toBe(2);
@@ -249,17 +249,17 @@ describe('Participantes de un curso', () => {
   });
 });
 
-describe('POST /api/cursos/:id/usuarios-masivo — carga CSV en un curso existente', () => {
+describe('POST /api/cursos/:id/usuarios-masivo — carga Excel en un curso existente', () => {
   let app;
   beforeEach(() => { ({ app } = crearApp()); });
 
-  it('el docente dueño carga participantes por CSV', async () => {
+  it('el docente dueño carga participantes por Excel', async () => {
     const curso = await crearCurso();
     const docente = await import('../../src/models/User.js').then((m) => m.default.findById(curso.docenteId));
     const agent = await loginComo(app, docente);
 
     const res = await agent.post(`/api/cursos/${curso._id}/usuarios-masivo`)
-      .attach('archivoCSV', path.join(FIXTURES, 'participantes.csv'));
+      .attach('archivoCSV', path.join(FIXTURES, 'participantes.xlsm'));
 
     expect(res.status).toBe(200);
     expect(res.body.resumen.exitosos).toBe(2);
@@ -271,7 +271,7 @@ describe('POST /api/cursos/:id/usuarios-masivo — carga CSV en un curso existen
     const agent = await loginComo(app, otroDocente);
 
     const res = await agent.post(`/api/cursos/${curso._id}/usuarios-masivo`)
-      .attach('archivoCSV', path.join(FIXTURES, 'participantes.csv'));
+      .attach('archivoCSV', path.join(FIXTURES, 'participantes.xlsm'));
     expect(res.status).toBe(403);
   });
 

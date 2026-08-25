@@ -4,15 +4,14 @@ import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
-import csv from 'csv-parser';
-import { Readable } from 'stream';
+import { parseFilasUsuarios } from '../utils/parseExcelUsuarios.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
-// Admin del colegio: preregistrar docentes masivamente desde CSV
+// Admin del colegio: preregistrar docentes masivamente desde Excel (.xlsx/.xlsm)
 export const preregistrarDocentesCSV = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: 'No se ha subido ningún archivo CSV' });
+      return res.status(400).json({ message: 'No se ha subido ningún archivo Excel' });
     }
 
     const admin = await User.findById(req.user.userId);
@@ -22,39 +21,21 @@ export const preregistrarDocentesCSV = async (req, res) => {
 
     const institucionId = admin.institucionId;
     const resultados = { exitosos: [], errores: [], duplicados: [] };
-    const usuarios = [];
 
     const fileBuffer = await getFileBuffer(req.file);
     if (!fileBuffer) {
-      return res.status(400).json({ message: 'No se pudo leer el archivo CSV' });
+      return res.status(400).json({ message: 'No se pudo leer el archivo Excel' });
     }
 
-    // Parsear CSV
-    const stream = Readable.from(fileBuffer.toString());
+    const filas = await parseFilasUsuarios(fileBuffer);
+    const usuarios = filas.map((fila) => ({
+      nombre: fila.nombre,
+      apellido: fila.apellido,
+      telefono: normalizarTelefono(fila.telefono) || fila.telefono || '',
+      cedula: fila.cedula
+    }));
 
-    await new Promise((resolve, reject) => {
-      stream
-        .pipe(csv({
-          headers: ['nombre', 'apellido', 'telefono', 'cedula'],
-          skipEmptyLines: true
-        }))
-        .on('data', (data) => {
-          // Saltar fila de headers
-          if (data.nombre === 'nombre' && data.apellido === 'apellido') return;
-          if (data.nombre && data.apellido && data.cedula) {
-            usuarios.push({
-              nombre: data.nombre.trim(),
-              apellido: data.apellido.trim(),
-              telefono: normalizarTelefono(data.telefono) || data.telefono?.trim() || '',
-              cedula: data.cedula.trim()
-            });
-          }
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
-
-    console.log(`[CSV Docentes] Total a procesar: ${usuarios.length}`);
+    console.log(`[Excel Docentes] Total a procesar: ${usuarios.length}`);
 
     for (const userData of usuarios) {
   try {

@@ -20,43 +20,47 @@ export const uploadImagenCloudinary = multer({
   }
 });
 
-// Middleware para IMÁGENES + CSV (sin validación estricta)
+// Permite .xlsx y .xlsm: el mimetype que reporta el navegador para .xlsm es
+// poco confiable (a veces llega como application/octet-stream), así que la
+// extensión del nombre de archivo es el fallback real, igual que antes con .csv.
+const esExcel = (file) => {
+  const tiposPermitidos = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel.sheet.macroEnabled.12',                    // .xlsm
+  ];
+  return tiposPermitidos.includes(file.mimetype) ||
+    file.originalname.endsWith('.xlsx') ||
+    file.originalname.endsWith('.xlsm');
+};
+
+// Middleware para IMÁGENES + Excel (sin validación estricta)
 export const uploadImagenYCSV = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB máximo
   },
   fileFilter: (req, file, cb) => {
-    // Permitir imágenes
     const allowedImages = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
-    
-    // Permitir CSV
-    const isCSV = file.mimetype === 'text/csv' || 
-                  file.mimetype === 'application/vnd.ms-excel' ||
-                  file.originalname.endsWith('.csv');
-    
-    // Si es imagen o CSV, aceptar
-    if (allowedImages.includes(file.mimetype) || isCSV) {
+
+    if (allowedImages.includes(file.mimetype) || esExcel(file)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP) o archivos CSV'), false);
+      cb(new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP) o archivos Excel (.xlsx, .xlsm)'), false);
     }
   }
 });
 
-// Middleware para CSV solamente
+// Middleware para Excel solamente
 export const uploadCSVCloudinary = multer({
   storage: storage,
   limits: {
-    fileSize: 2 * 1024 * 1024, // 2MB máximo para CSV
+    fileSize: 5 * 1024 * 1024, // 5MB máximo — un .xlsx/.xlsm pesa más que el .csv equivalente
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/csv' || 
-        file.mimetype === 'application/vnd.ms-excel' ||
-        file.originalname.endsWith('.csv')) {
+    if (esExcel(file)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten archivos CSV'), false);
+      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xlsm)'), false);
     }
   }
 });

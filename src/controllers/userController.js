@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import cloudinary from '../config/cloudinary.js';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
@@ -320,15 +321,33 @@ export const deleteUser = async (req, res) => {
 
     const { id } = req.params;
 
+    const userASuspender = await User.findById(id);
+    if (!userASuspender) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Un docente suspendido no puede iniciar sesión, pero sus cursos activos
+    // seguían apuntándole como docenteId: el curso quedaba "huérfano" para
+    // los padres/estudiantes sin que nadie lo notara. Se bloquea la
+    // suspensión hasta que el admin reasigne o archive esos cursos.
+    if (userASuspender.rol === 'docente') {
+      const cursosActivos = await Curso.find({ docenteId: id, estado: 'activo' })
+        .select('nombre codigoCurso')
+        .lean();
+
+      if (cursosActivos.length > 0) {
+        return res.status(400).json({
+          message: "No se puede suspender: el docente tiene cursos activos. Reasigna o archiva estos cursos primero.",
+          cursosActivos
+        });
+      }
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
       { estado: 'suspendido' },
       { new: true }
     );
-
-    if (!updatedUser) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
 
     res.json({
       message: "Usuario suspendido exitosamente",
