@@ -74,7 +74,7 @@ export const changePasswordValidator = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
 ];
 
-// ─── Recuperación por CORREO ──────────────────
+// Recuperación por CORREO
 export const forgotPasswordValidator = [
   body('correo')
     .notEmpty().withMessage('El correo es requerido')
@@ -99,7 +99,7 @@ export const resetPasswordValidator = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
 ];
 
-// ─── Recuperación por TELÉFONO ────────────────
+// Recuperación por TELÉFONO
 export const forgotPasswordPhoneValidator = [
   body('telefono')
     .notEmpty().withMessage('El teléfono es requerido')

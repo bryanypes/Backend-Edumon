@@ -39,7 +39,7 @@ export const crearApp = () => {
 
   app.set('trust proxy', 1);
 
-  // ─── Middlewares tempranos ────────────────────────────────────────────────────
+  // Middlewares tempranos
   // 30s se quedaba corto para las rutas que suben archivos a Cloudinary
   // (tareas, entregas, fotos de curso/perfil, CSV de docentes/padres/
   // instituciones — ver grep de "upload." en routes/): en Render, sin
@@ -53,7 +53,7 @@ export const crearApp = () => {
   app.use(timeout('90s'));
   app.use(compression());
 
-  // ─── Orígenes permitidos ──────────────────────────────────────────────────────
+  // Orígenes permitidos
   const frontendUrls = (process.env.FRONTEND_URL || '')
     .split(',')
     .map((url) => url.trim())
@@ -70,7 +70,7 @@ export const crearApp = () => {
     ...frontendUrls,
   ].filter(Boolean);
 
-  // ─── Seguridad (Helmet) ───────────────────────────────────────────────────────
+  // Seguridad (Helmet)
   app.use(
     helmet({
       hsts: {
@@ -105,7 +105,7 @@ export const crearApp = () => {
     next();
   });
 
-  // ─── Sanitización NoSQL ───────────────────────────────────────────────────────
+  // Sanitización NoSQL
   app.use((req, res, next) => {
     const sanitize = (obj) => {
       if (!obj || typeof obj !== 'object') return;
@@ -132,7 +132,7 @@ export const crearApp = () => {
     next();
   });
 
-  // ─── Rate limit global ────────────────────────────────────────────────────────
+  // Rate limit global
   const makeRateLimitHandler = (mensaje) =>
     rateLimit({
       windowMs:         15 * 60 * 1000,
@@ -175,7 +175,7 @@ export const crearApp = () => {
   app.use('/api/auth/login',    limiterAuth);
   app.use('/api/auth/register', limiterAuth);
 
-  // ─── CORS ─────────────────────────────────────────────────────────────────────
+  // CORS
   const corsAbiertoTemporalmente = !isDev && frontendUrls.length === 0;
   if (corsAbiertoTemporalmente) {
     console.warn(
@@ -193,12 +193,12 @@ export const crearApp = () => {
     }),
   );
 
-  // ─── Body parsers + Cookie parser ────────────────────────────────────────────
+  // Body parsers + Cookie parser
   app.use(cookieParser());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // ─── Socket.IO ────────────────────────────────────────────────────────────────
+  // Socket.IO
   const io = new Server(server, {
     cors: {
       origin:      isDev ? true : allowedOrigins,
@@ -212,7 +212,7 @@ export const crearApp = () => {
   global.io = io;
   setupSocketIO(io);
 
-  // ─── Rutas ────────────────────────────────────────────────────────────────────
+  // Rutas
   app.use('/api/auth',          authRoutes);
   app.use('/api/users',         userRoutes);
   app.use('/api/cursos',        cursoRoutes);
@@ -228,7 +228,7 @@ export const crearApp = () => {
   app.use('/api/perfiles',      perfilFamiliarRoutes);
   app.use('/api/buzon',         buzonRoutes);
 
-  // ─── Health check ─────────────────────────────────────────────────────────────
+  // Health check
   app.get('/', (req, res) => {
     res.json({
       message:   'API funcionando correctamente',
@@ -237,12 +237,12 @@ export const crearApp = () => {
     });
   });
 
-  // ─── 404 ──────────────────────────────────────────────────────────────────────
+  // 404
   app.use((req, res) => {
     res.status(404).json({ message: 'Ruta no encontrada' });
   });
 
-  // ─── Error handler global ─────────────────────────────────────────────────────
+  // Error handler global
   app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(err.status || 500).json({

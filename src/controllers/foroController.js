@@ -366,7 +366,6 @@ export const getDashboardForo = async (req, res) => {
     const { id } = req.params;
     const usuarioId = req.user.userId;
 
-    // ── 1. Verificar que el foro existe y el usuario tiene acceso ──────────────
     const foro = await Foro.findById(id)
       .populate('docenteId', 'nombre apellido fotoPerfilUrl rol')
       .populate('cursoId', 'nombre institucionId')
@@ -384,7 +383,6 @@ export const getDashboardForo = async (req, res) => {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 
-    // ── 2. Lanzar todas las queries en paralelo ────────────────────────────────
     const [mensajesRecientes, todosLosMensajes] = await Promise.all([
       // Últimos 10 mensajes raíz (sin respuestas) con autor
       MensajeForo.find({ foroId: id, respuestaA: null })
@@ -397,8 +395,7 @@ export const getDashboardForo = async (req, res) => {
       MensajeForo.find({ foroId: id }).lean()
     ]);
 
-    // ── 3. Participantes activos ───────────────────────────────────────────────
-    // Usuarios únicos que han publicado al menos un mensaje
+    // Participantes activos: usuarios únicos que han publicado al menos un mensaje
     const mapaParticipantes = new Map();
 
     for (const msg of todosLosMensajes) {
@@ -436,7 +433,6 @@ export const getDashboardForo = async (req, res) => {
       .sort((a, b) => b.totalMensajes - a.totalMensajes)
       .slice(0, 10); // Top 10
 
-    // ── 4. Estadísticas ───────────────────────────────────────────────────────
     const totalMensajes = todosLosMensajes.length;
     const totalRespuestas = todosLosMensajes.filter(m => m.respuestaA !== null).length;
     const totalRaiz = totalMensajes - totalRespuestas;
@@ -453,7 +449,7 @@ export const getDashboardForo = async (req, res) => {
         : 0
     };
 
-    // ── 5. Actividad por día (últimos 7 días) ─────────────────────────────────
+    // Actividad por día (últimos 7 días)
     const hace7Dias = new Date();
     hace7Dias.setDate(hace7Dias.getDate() - 6);
     hace7Dias.setHours(0, 0, 0, 0);
@@ -481,7 +477,6 @@ export const getDashboardForo = async (req, res) => {
       mensajes
     }));
 
-    // ── 6. Respuesta ──────────────────────────────────────────────────────────
     res.status(200).json({
       foro,
       mensajesRecientes,

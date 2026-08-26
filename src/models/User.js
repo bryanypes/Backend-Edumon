@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
       validate: {
         validator: function (v) {
           if (!v) return true;
-          return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(v);
+          return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/.test(v);
         },
         message: "El correo electrónico no es válido",
       },
@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema(
       type: [Boolean],
       default: [true, true],
     },
-    // ─── Preferencia de modo de pantalla ─────────────────────────────────
+    // Preferencia de modo de pantalla
     modoOscuro: {
       type: Boolean,
       default: false,
@@ -92,7 +92,7 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ─── Refresh Tokens ───────────────────────────────────────────────────
+    // Refresh Tokens
     // Se almacenan hasheados. Máximo 5 sesiones simultáneas.
     refreshTokens: {
       type: [
@@ -111,10 +111,10 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// ─── Índice TTL: Mongo limpia automáticamente los refresh tokens expirados
+// Índice TTL: Mongo limpia automáticamente los refresh tokens expirados
 userSchema.index({ 'refreshTokens.expiraEn': 1 }, { expireAfterSeconds: 0 });
 
-// ─── Hash contraseña antes de guardar ─────────────────────────────────────
+// Hash contraseña antes de guardar
 userSchema.pre("save", async function (next) {
   if (!this.isModified("contraseña")) return next();
   try {
@@ -126,12 +126,12 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// ─── Comparar contraseña ──────────────────────────────────────────────────
+// Comparar contraseña
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.contraseña);
 };
 
-// ─── No devolver contraseña en JSON ──────────────────────────────────────
+// No devolver contraseña en JSON
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.contraseña;
