@@ -25,7 +25,7 @@ import {
 
 const router = express.Router();
 
-// ─── Rutas públicas ───────────────────────────────────────────────────────────
+// Rutas públicas
 router.post('/register',              registerValidator,              register);
 router.post('/login',                 loginValidator,                 login);
 
@@ -35,11 +35,11 @@ router.post('/reset-password',        resetPasswordValidator,         resetPassw
 router.post('/forgot-password-phone', forgotPasswordPhoneValidator,   forgotPasswordPhone);
 router.post('/reset-password-phone',  resetPasswordPhoneValidator,    resetPasswordPhone);
 
-// ─── Refresh de sesión (no requiere access token válido) ──────────────────────
+// Refresh de sesión (no requiere access token válido)
 // Usa únicamente la cookie refresh_token (path restringido a este endpoint)
 router.post('/refresh', refresh);
 
-// ─── Rutas protegidas ─────────────────────────────────────────────────────────
+// Rutas protegidas
 router.get('/profile',         authMiddleware,                    getProfile);
 router.post('/change-password',authMiddleware, changePasswordValidator, changePassword);
 router.post('/logout',         authMiddleware,                    logout);

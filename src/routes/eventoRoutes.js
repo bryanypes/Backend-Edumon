@@ -46,7 +46,7 @@ const uploadEventoArchivos = multer({
   { name: 'adjunto', maxCount: 1 }
 ]);
 
-// ─── Rutas ────────────────────────────────────
+// Rutas
 router.get('/', authMiddleware, getEventos);
 router.get('/hoy', authMiddleware, getEventosHoy);
 router.get('/:id', authMiddleware, eventoIdValidator, getEventoById);

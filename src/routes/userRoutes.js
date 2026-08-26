@@ -29,7 +29,7 @@ import { param } from 'express-validator';
 
 const router = express.Router();
 
-// ─── Rutas /me (deben ir ANTES de /:id para no colisionar) ───
+// Rutas /me (deben ir ANTES de /:id para no colisionar)
 router.get('/me/profile', authMiddleware, getProfile);
 
 router.put('/me/profile',
@@ -56,7 +56,7 @@ router.patch('/me/modo-oscuro',
   updateModoOscuro
 );
 
-// ─── Rutas especiales (también antes de /:id) ────────────────
+// Rutas especiales (también antes de /:id)
 router.get('/fotos-predeterminadas', authMiddleware, getFotosPredeterminadas);
 router.get('/sesiones/ultimas', authMiddleware, getUltimasSesiones);
 
@@ -67,7 +67,7 @@ router.get(
   getPadreInfo
 );
 
-// ─── CRUD general (panel de administración — nunca abierto a padres/docentes) ─
+// CRUD general (panel de administración — nunca abierto a padres/docentes)
 // updateUserValidator permite cambiar "rol"; sin este requireRole cualquier
 // usuario autenticado podía autoelevarse a administrador vía PUT /:id.
 router.post('/', authMiddleware, requireRole(['administrador', 'superadmin']), createUserValidator, createUser);

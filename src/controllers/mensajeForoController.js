@@ -65,7 +65,7 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
   return { archivos, errores };
 };
 
-// ─── Crear mensaje ────────────────────────────
+// Crear mensaje
 export const crearMensaje = async (req, res) => {
   try {
     const { foroId, contenido, respuestaA } = req.body;
@@ -144,7 +144,7 @@ export const crearMensaje = async (req, res) => {
   }
 };
 
-// ─── Obtener mensajes de un foro ──────────────
+// Obtener mensajes de un foro
 export const obtenerMensajesPorForo = async (req, res) => {
   try {
     const { foroId } = req.params;
@@ -196,7 +196,7 @@ export const obtenerMensajesPorForo = async (req, res) => {
   }
 };
 
-// ─── Toggle like ──────────────────────────────
+// Toggle like
 export const toggleLikeMensaje = async (req, res) => {
   try {
     const { id } = req.params;
@@ -313,7 +313,7 @@ export const eliminarMensaje = async (req, res) => {
   }
 };
 
-// ─── Actualizar mensaje ───────────────────────
+// Actualizar mensaje
 export const actualizarMensaje = async (req, res) => {
   try {
     const { id } = req.params;

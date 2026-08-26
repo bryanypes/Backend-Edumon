@@ -82,8 +82,8 @@ export const canModifyEntrega = async (req, res, next) => {
       });
     }
 
-    // Opcional: Solo permitir modificar si está en borrador
-    // Comenta estas líneas si quieres permitir modificar entregas enviadas
+    // El DELETE en sí lo bloquea deleteEntrega/eliminarArchivoEntrega según su
+    // propia regla; aquí solo aplica al PUT y a enviar.
     if (entrega.estado !== 'borrador' && req.method !== 'DELETE') {
       return res.status(400).json({
         message: "Solo puedes modificar entregas en estado borrador"

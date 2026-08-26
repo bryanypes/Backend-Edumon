@@ -310,7 +310,7 @@ function agruparPorFecha(items) {
   }, {});
 }
 
-// ─── Helpers de rol ──────────────────────────────────────────────────────────
+// Helpers de rol
 
 // Mismo criterio de acceso que obtenerCursosDelUsuario, pero para un curso puntual
 // (rutas /:cursoId/*, que antes no verificaban pertenencia en absoluto).
@@ -350,7 +350,7 @@ async function obtenerCursosDelUsuario(userId, rol, institucionId) {
   }
 }
 
-// ─── Calendario general del usuario autenticado ───────────────────────────────
+// Calendario general del usuario autenticado
 
 export const obtenerCalendarioUsuario = async (req, res) => {
   try {
@@ -468,7 +468,7 @@ export const obtenerCalendarioUsuario = async (req, res) => {
   }
 };
 
-// ─── Próximos eventos del usuario autenticado ────────────────────────────────
+// Próximos eventos del usuario autenticado
 
 export const obtenerProximosEventosUsuario = async (req, res) => {
   try {

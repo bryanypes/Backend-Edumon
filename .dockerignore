@@ -3,5 +3,11 @@ node_modules
 .env.*
 *.log
 .git
+.github
 .gitignore
+.vscode
 README.md
+tests
+coverage
+vitest.config.js
+reset.js

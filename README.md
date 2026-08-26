@@ -2,22 +2,21 @@
 
 API REST del backend de **Edumon**, una plataforma de gestión escolar que conecta instituciones educativas, docentes y padres/acudientes: cursos, módulos, tareas, entregas con calificación, foros, calendario de eventos y notificaciones multicanal (WebSocket, push, WhatsApp, correo).
 
-Para el detalle completo (modelos de datos, endpoints, flujos, seguridad, etc.) ver **[DOCUMENTACION_TECNICA_EDUMON.md](DOCUMENTACION_TECNICA_EDUMON.md)**.
-
 ## Stack
 
-- Node.js 20 + Express 5
+- Node.js 24 + Express 5
 - MongoDB + Mongoose
 - Autenticación con JWT (cookies httpOnly, access + refresh token con rotación)
 - Socket.IO (tiempo real)
 - Cloudinary (archivos/imágenes), Firebase Admin (push), Twilio (WhatsApp), Brevo (correo)
+- Vitest + Supertest + mongodb-memory-server (pruebas), GitHub Actions (CI)
 
 ## Requisitos previos
 
-- Node.js `>= 20`
+- Node.js `>= 22`
 - Una instancia de MongoDB (local o Atlas)
 - Cuentas/credenciales de: Cloudinary, Firebase (proyecto con Cloud Messaging), Twilio (con WhatsApp habilitado), Brevo
-- (Opcional) Docker y Docker Compose
+- (Opcional) Docker
 
 ## Instalación
 
@@ -34,6 +33,9 @@ cp .env.example .env
 | `npm run dev` | Levanta el servidor en modo desarrollo (nodemon, recarga en caliente) |
 | `npm start` | Levanta el servidor en modo producción |
 | `npm run seed` | Crea una institución + un usuario `administrador` + un `superadmin` de ejemplo (ver credenciales impresas en consola) |
+| `npm test` | Corre toda la suite de pruebas (Vitest) |
+| `npm run test:watch` | Corre las pruebas en modo watch |
+| `npm run test:coverage` | Corre las pruebas con reporte de cobertura |
 | `npm run reset-db -- --confirm` | **Destructivo.** Borra toda la base de datos de `MONGO_URI`. Bloqueado si `NODE_ENV=production`; requiere el flag `--confirm` |
 
 El servidor arranca por defecto en `http://localhost:4000` (configurable con `PORT`). La ruta `GET /` sirve como health check.
@@ -48,13 +50,13 @@ Ver [.env.example](.env.example) para la lista completa con explicación de cada
 docker compose up --build
 ```
 
-Levanta el backend en el puerto `4000`, leyendo las variables desde `.env` (`docker-compose.yml`).
+Levanta el backend en el puerto `4000` leyendo las variables desde `.env`. La imagen corre con un usuario sin privilegios (no root), expone un healthcheck sobre `GET /` y hace apagado ordenado ante SIGTERM para no cortar peticiones en curso en cada redeploy.
 
 ## Estructura del proyecto
 
 ```
 src/
-├── config/        # conexión a Mongo, Cloudinary, Multer
+├── config/        # conexión a Mongo, Cloudinary
 ├── controllers/    # lógica de negocio por recurso
 ├── routes/         # definición de endpoints (montados bajo /api/...)
 ├── models/         # esquemas Mongoose
@@ -67,8 +69,6 @@ src/
 └── utils/
 ```
 
-Detalle completo de cada endpoint, modelo de datos y relaciones en [DOCUMENTACION_TECNICA_EDUMON.md](DOCUMENTACION_TECNICA_EDUMON.md).
-
 ## Seguridad (resumen)
 
 - JWT en cookies `httpOnly` (no `localStorage`), access token de 15 min + refresh token rotado de 7 días (hash SHA-256 en BD, máx. 5 sesiones simultáneas).
@@ -77,11 +77,14 @@ Detalle completo de cada endpoint, modelo de datos y relaciones en [DOCUMENTACIO
 - Helmet (CSP, HSTS, Permissions-Policy) y sanitización de payloads contra NoSQL injection.
 - Control de acceso por rol (`padre`, `docente`, `administrador`, `superadmin`) y por institución.
 
-Detalle completo en la sección "Security" de la documentación técnica.
-
 ## Testing
 
-Actualmente no hay suite de pruebas automatizadas ni pipeline de CI/CD configurados para este backend.
+Suite de pruebas con Vitest + Supertest + mongodb-memory-server (no toca una base de datos real, corre aislada). Se ejecuta automáticamente en GitHub Actions en cada push y pull request ([.github/workflows/tests.yml](.github/workflows/tests.yml)).
+
+```bash
+npm test              # toda la suite
+npm run test:coverage # con reporte de cobertura
+```
 
 ## Licencia
 

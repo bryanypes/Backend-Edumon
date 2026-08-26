@@ -1,11 +1,5 @@
 import Notificacion from '../models/Notificacion.js';
-import User from '../models/User.js';
 import { validationResult } from 'express-validator';
-import { 
-  enviarFCM,
-  enviarWhatsApp, 
-  enviarEmail 
-} from '../services/notificacionService.js';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
 
 // Crear notificación (uso interno principalmente)
@@ -27,7 +21,7 @@ export const createNotificacion = async (req, res) => {
       notificacion
     });
   } catch (error) {
-    console.error('❌ Error al crear notificación:', error);
+    console.error('Error al crear notificación:', error);
     res.status(500).json({ 
       message: 'Error al crear la notificación', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -105,7 +99,7 @@ export const getMisNotificaciones = async (req, res) => {
   }
 };
 
-//  Obtener notificación por ID
+// Obtener notificación por ID
 export const getNotificacionById = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -140,7 +134,7 @@ export const getNotificacionById = async (req, res) => {
   }
 };
 
-//  Marcar notificación como leída
+// Marcar notificación como leída
 export const marcarComoLeida = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -180,7 +174,7 @@ export const marcarComoLeida = async (req, res) => {
       noLeidas
     });
   } catch (error) {
-    console.error('❌ Error al marcar notificación:', error);
+    console.error('Error al marcar notificación:', error);
     res.status(500).json({ 
       message: 'Error al actualizar la notificación', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -226,7 +220,7 @@ export const marcarVariasLeidas = async (req, res) => {
       noLeidas
     });
   } catch (error) {
-    console.error(' Error al marcar notificaciones:', error);
+    console.error('Error al marcar notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -234,7 +228,7 @@ export const marcarVariasLeidas = async (req, res) => {
   }
 };
 
-//  Marcar todas como leídas
+// Marcar todas como leídas
 export const marcarTodasLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -257,7 +251,7 @@ export const marcarTodasLeidas = async (req, res) => {
       noLeidas: 0
     });
   } catch (error) {
-    console.error('❌ Error al marcar todas las notificaciones:', error);
+    console.error('Error al marcar todas las notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -265,7 +259,7 @@ export const marcarTodasLeidas = async (req, res) => {
   }
 };
 
-//  Eliminar notificación
+// Eliminar notificación
 export const deleteNotificacion = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -300,7 +294,7 @@ export const deleteNotificacion = async (req, res) => {
       noLeidas
     });
   } catch (error) {
-    console.error('❌ Error al eliminar notificación:', error);
+    console.error('Error al eliminar notificación:', error);
     res.status(500).json({ 
       message: 'Error al eliminar la notificación', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -308,7 +302,7 @@ export const deleteNotificacion = async (req, res) => {
   }
 };
 
-//  Eliminar todas las notificaciones leídas antiguas
+// Eliminar todas las notificaciones leídas antiguas
 export const eliminarLeidasAntiguas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -332,7 +326,7 @@ export const eliminarLeidasAntiguas = async (req, res) => {
       eliminadas: resultado.deletedCount
     });
   } catch (error) {
-    console.error(' Error al eliminar notificaciones antiguas:', error);
+    console.error('Error al eliminar notificaciones antiguas:', error);
     res.status(500).json({ 
       message: 'Error al eliminar notificaciones', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
