@@ -2,6 +2,7 @@ services:
   backend:
     build: .
     container_name: edumon-backend
+    init: true
     env_file:
       - .env
     ports:

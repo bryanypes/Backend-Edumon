@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { extractAccessToken } from '../controllers/authController.js';
 
-// ─── Middleware principal de autenticación ────────────────────────────────────
+// Middleware principal de autenticación
 export const authMiddleware = async (req, res, next) => {
   try {
     const token = extractAccessToken(req);
@@ -40,7 +40,7 @@ export const authMiddleware = async (req, res, next) => {
   }
 };
 
-// ─── Control de roles ─────────────────────────────────────────────────────────
+// Control de roles
 export const requireRole = (roles) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ message: 'No autenticado' });
   if (!roles.includes(req.user.rol))
@@ -48,7 +48,7 @@ export const requireRole = (roles) => (req, res, next) => {
   next();
 };
 
-// ─── Control de institución ───────────────────────────────────────────────────
+// Control de institución
 export const requireMismaInstitucion = (req, res, next) => {
   if (req.user.rol === 'superadmin') return next();
   if (!req.user.institucionId)

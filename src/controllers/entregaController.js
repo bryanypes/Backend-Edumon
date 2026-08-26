@@ -512,10 +512,7 @@ export const getEntregasByPadre = async (req, res) => {
   }
 };
 
-/**
- * Valorar entrega (1-5 estrellas)
- * CORRECCIÓN: docenteId se extrae de req.user.userId — nunca del body.
- */
+// Valorar entrega (1-5 estrellas)
 export const calificarEntrega = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -526,7 +523,7 @@ export const calificarEntrega = async (req, res) => {
     const { id } = req.params;
     const { valoracion, comentario } = req.body;
 
-    // CORRECCIÓN CRÍTICA: docenteId desde el token, no del body
+    // El docenteId siempre sale del token, nunca del body
     const docenteId = req.user.userId;
 
     const entrega = await Entrega.findById(id);

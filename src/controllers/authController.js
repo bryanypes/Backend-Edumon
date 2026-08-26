@@ -10,11 +10,11 @@ import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// ─── Duraciones ───────────────────────────────────────────────────────────────
+// Duraciones
 const ACCESS_TOKEN_TTL  = '15m';
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 
-// ─── Cookie base compartida ───────────────────────────────────────────────────
+// Cookie base compartida
 const COOKIE_BASE = {
   httpOnly: true,
   secure:   IS_PROD,           // solo HTTPS en producción — SameSite=None exige Secure
@@ -26,7 +26,7 @@ const COOKIE_BASE = {
   path:     '/',
 };
 
-// ─── Helpers de token ─────────────────────────────────────────────────────────
+// Helpers de token
 
 // `perfilId`/`esTitular` identifican qué perfil familiar está activo (ver
 // seleccionarPerfil en perfilFamiliarController.js); por defecto es el titular.
@@ -90,7 +90,7 @@ export const extractAccessToken = (req) => {
   return null;
 };
 
-// ─── Datos públicos de usuario ────────────────────────────────────────────────
+// Datos públicos de usuario
 const publicUser = (user) => ({
   id:                 user._id,
   nombre:             user.nombre,
@@ -106,7 +106,7 @@ const publicUser = (user) => ({
   primerInicioSesion: user.primerInicioSesion,
 });
 
-// ─── REGISTER ─────────────────────────────────────────────────────────────────
+// REGISTER
 export const register = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -175,7 +175,7 @@ export const register = async (req, res) => {
   }
 };
 
-// ─── LOGIN ────────────────────────────────────────────────────────────────────
+// LOGIN
 export const login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -235,7 +235,7 @@ export const login = async (req, res) => {
   }
 };
 
-// ─── REFRESH ──────────────────────────────────────────────────────────────────
+// REFRESH
 export const refresh = async (req, res) => {
   try {
     const rawToken = req.cookies?.refresh_token;
@@ -255,7 +255,7 @@ export const refresh = async (req, res) => {
       return res.status(401).json({ message: 'Sesión inválida o expirada' });
     }
 
-    // ─── Rotación: invalida el token usado y emite uno nuevo ─────────────
+    // Rotación: invalida el token usado y emite uno nuevo
     user.refreshTokens = user.refreshTokens.filter(
       (t) => t.tokenHash !== hash && t.expiraEn > new Date(),
     );
@@ -281,7 +281,7 @@ export const refresh = async (req, res) => {
   }
 };
 
-// ─── LOGOUT ───────────────────────────────────────────────────────────────────
+// LOGOUT
 export const logout = async (req, res) => {
   try {
     const rawToken = req.cookies?.refresh_token;
@@ -302,7 +302,7 @@ export const logout = async (req, res) => {
   }
 };
 
-// ─── LOGOUT ALL (cerrar todas las sesiones) ───────────────────────────────────
+// LOGOUT ALL (cerrar todas las sesiones)
 export const logoutAll = async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user.userId, { $set: { refreshTokens: [] } });
@@ -314,7 +314,7 @@ export const logoutAll = async (req, res) => {
   }
 };
 
-// ─── PROFILE ──────────────────────────────────────────────────────────────────
+// PROFILE
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -365,7 +365,7 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// ─── CHANGE PASSWORD ──────────────────────────────────────────────────────────
+// CHANGE PASSWORD
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -395,7 +395,7 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// ─── FORGOT PASSWORD (correo) ─────────────────────────────────────────────────
+// FORGOT PASSWORD (correo)
 export const forgotPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -428,7 +428,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// ─── FORGOT PASSWORD (teléfono) ───────────────────────────────────────────────
+// FORGOT PASSWORD (teléfono)
 export const forgotPasswordPhone = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -462,7 +462,7 @@ export const forgotPasswordPhone = async (req, res) => {
   }
 };
 
-// ─── RESET PASSWORD (correo) ──────────────────────────────────────────────────
+// RESET PASSWORD (correo)
 export const resetPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -495,7 +495,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// ─── RESET PASSWORD (teléfono) ────────────────────────────────────────────────
+// RESET PASSWORD (teléfono)
 export const resetPasswordPhone = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -533,7 +533,7 @@ export const resetPasswordPhone = async (req, res) => {
   }
 };
 
-// ─── Utilidad interna: WhatsApp SMS ──────────────────────────────────────────
+// Utilidad interna: WhatsApp SMS
 async function enviarSMSRecuperacion(telefonoNormalizado, nombre, codigo) {
   const twilio = (await import('twilio')).default;
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);

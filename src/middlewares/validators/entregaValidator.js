@@ -61,9 +61,8 @@ export const updateEntregaValidator = [
     })
 ];
 
-// CORRECCIÓN CRÍTICA: docenteId ya NO viene del body.
-// Se extrae de req.user.userId en el controlador.
-// El body solo acepta valoracion (1-5) y comentario opcional.
+// docenteId no viene del body (se extrae del token en el controlador);
+// el body solo acepta valoracion (1-5) y comentario opcional.
 export const calificarEntregaValidator = [
   param('id')
     .isMongoId().withMessage('El ID de la entrega no es válido'),

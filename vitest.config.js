@@ -19,7 +19,6 @@ export default defineConfig({
         'src/index.js',
         'src/server.js',
         'src/scripts/**',
-        'src/uploads/**',
       ],
     },
   },
