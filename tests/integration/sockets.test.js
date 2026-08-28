@@ -54,6 +54,22 @@ describe('Autenticación del handshake de Socket.IO', () => {
     expect(conteo.noLeidas).toBe(1);
   });
 
+  it('conecta con la cookie access_token aunque no venga auth.token (caso real del frontend web)', async () => {
+    const padre = await crearPadre();
+    const token = generarAccessToken(padre);
+
+    const socket = ioClient(baseUrl, {
+      transports: ['websocket'],
+      reconnection: false,
+      forceNew: true,
+      extraHeaders: { Cookie: `access_token=${token}` },
+    });
+    sockets.push(socket);
+
+    const conteo = await esperarEvento(socket, 'notificaciones:conteo');
+    expect(conteo.noLeidas).toBe(0);
+  });
+
   it('rechaza la conexión sin token', async () => {
     const socket = conectar(null);
     await expect(new Promise((resolve, reject) => {
