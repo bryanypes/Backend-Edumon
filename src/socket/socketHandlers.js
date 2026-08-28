@@ -7,11 +7,38 @@ const usuariosConectados = new Map();
 /**
  * Configurar Socket.IO
  */
+// Extrae un valor de cookie del header crudo "Cookie" del handshake de
+// Socket.IO — a diferencia de Express, socket.io NO trae cookie-parser
+// integrado, así que socket.handshake.headers.cookie llega como el string
+// completo sin parsear ("access_token=xxx; otracosa=yyy").
+const getCookieValue = (cookieHeader, name) => {
+  if (!cookieHeader) return null;
+  const match = cookieHeader
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+};
+
 export const setupSocketIO = (io) => {
   // Middleware de autenticación para Socket.IO
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
+      // El frontend web NO tiene ningún JWT en JS para mandar por
+      // handshake.auth.token — la sesión REST es 100% cookie httpOnly
+      // (ver apiClient.js del frontend), así que el token nunca existe en
+      // ningún estado de React/localStorage para poder mandarlo así. Por
+      // eso también se acepta la cookie "access_token" (la misma que ya
+      // usa authMiddleware.js para las peticiones REST) — el navegador la
+      // manda sola en el handshake porque la conexión de socket.io va al
+      // mismo origen que sirve el front (proxyeada por nginx), sin que el
+      // cliente tenga que hacer nada especial. auth.token/Authorization se
+      // mantienen para no romper ningún otro cliente (ej. Flutter) que sí
+      // maneje el token explícitamente.
+      const token =
+        socket.handshake.auth.token ||
+        socket.handshake.headers.authorization?.split(' ')[1] ||
+        getCookieValue(socket.handshake.headers.cookie, 'access_token');
 
       if (!token) {
         return next(new Error('Token no proporcionado'));
