@@ -15,8 +15,12 @@ const buzonSchema = new mongoose.Schema({
   },
   telefono: {
     type: String,
-    required: true,
     trim: true
+  },
+  institucion: {
+    type: String,
+    trim: true,
+    maxlength: 150
   },
   mensaje: {
     type: String,
