@@ -3,12 +3,18 @@ import Buzon from '../../../src/models/Buzon.js';
 import { crearMensajeBuzon } from '../../helpers/factories.js';
 
 describe('Buzon — validaciones de schema', () => {
-  it('requiere nombre, correo, telefono y mensaje', () => {
+  it('requiere nombre, correo y mensaje', () => {
     const error = new Buzon({}).validateSync();
     expect(error.errors.nombre).toBeDefined();
     expect(error.errors.correo).toBeDefined();
-    expect(error.errors.telefono).toBeDefined();
     expect(error.errors.mensaje).toBeDefined();
+  });
+
+  // El formulario público (landing) marca teléfono e institución como
+  // opcionales — el schema no debe exigirlos.
+  it('acepta un mensaje sin telefono ni institucion', () => {
+    const error = new Buzon({ nombre: 'A', correo: 'a@test.com', mensaje: 'Mensaje de prueba válido' }).validateSync();
+    expect(error).toBeUndefined();
   });
 
   it('rechaza un mensaje de menos de 10 caracteres', () => {
