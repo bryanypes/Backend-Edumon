@@ -60,11 +60,42 @@ describe('POST /api/buzon — pública', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rechaza un teléfono que no está en formato +57', async () => {
+  // El formulario público (landing) manda el teléfono tal cual lo escribe el
+  // visitante (sin +57) — igual que auth/user/curso, el validator lo normaliza
+  // en vez de rechazarlo. BUG REAL corregido: antes exigía el formato exacto
+  // +57XXXXXXXXXX, así que un teléfono en cualquier otro formato válido
+  // (o simplemente ausente, ver test siguiente) siempre devolvía 400.
+  it('acepta un teléfono sin +57 y lo normaliza', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
       nombre: 'X', correo: 'x@test.edumon.com', telefono: '3001112233', mensaje: 'Mensaje con longitud suficiente',
     });
+    expect(res.status).toBe(201);
+    const guardado = await Buzon.findOne({ correo: 'x@test.edumon.com' });
+    expect(guardado.telefono).toBe('+573001112233');
+  });
+
+  it('rechaza un teléfono que no es un número de celular válido', async () => {
+    const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
+      nombre: 'X', correo: 'x@test.edumon.com', telefono: 'abc', mensaje: 'Mensaje con longitud suficiente',
+    });
     expect(res.status).toBe(400);
+  });
+
+  it('acepta un mensaje sin teléfono (campo opcional)', async () => {
+    const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
+      nombre: 'Sin Telefono', correo: 'sintelefono@test.edumon.com', mensaje: 'Mensaje sin teléfono, válido',
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it('guarda la institución cuando se envía', async () => {
+    const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
+      nombre: 'Con Institucion', correo: 'coninstitucion@test.edumon.com', institucion: 'Colegio de Prueba',
+      mensaje: 'Mensaje con institución, válido',
+    });
+    expect(res.status).toBe(201);
+    const guardado = await Buzon.findOne({ correo: 'coninstitucion@test.edumon.com' });
+    expect(guardado.institucion).toBe('Colegio de Prueba');
   });
 
   it('el rate limit público (3 cada 15 min por IP) corta al cuarto envío', async () => {

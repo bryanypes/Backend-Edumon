@@ -13,12 +13,12 @@ export const enviarMensaje = async (req, res) => {
       });
     }
 
-    const { nombre, correo, telefono, mensaje } = req.body;
+    const { nombre, correo, telefono, institucion, mensaje } = req.body;
     if (!nombre || !correo || !mensaje) {
       return res.status(400).json({ message: 'Nombre, correo y mensaje son obligatorios' });
     }
 
-    const nuevoMensaje = await Buzon.create({ nombre, correo, telefono, mensaje });
+    const nuevoMensaje = await Buzon.create({ nombre, correo, telefono, institucion, mensaje });
 
     // Notificar al superadmin
     const superadmin = await User.findOne({ rol: 'superadmin' }).select('_id correo nombre').lean();

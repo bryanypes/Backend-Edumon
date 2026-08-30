@@ -1,5 +1,10 @@
 import { body } from 'express-validator';
 import rateLimit from 'express-rate-limit';
+import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+
+// Mismo saneador que auth/user/curso validators: acepta "3001234567",
+// "57 300 123 4567" o "+573001234567" y siempre deja "+57XXXXXXXXXX".
+const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const buzonValidator = [
   body('nombre')
@@ -15,10 +20,23 @@ export const buzonValidator = [
     .isEmail().withMessage('El correo no es válido')
     .normalizeEmail(),
 
+  // BUG REAL corregido: el formulario público (landing) marca este campo
+  // como opcional y manda el teléfono tal cual lo escribe el usuario (sin
+  // +57) — con `.notEmpty()` + regex estricto, CUALQUIER envío sin teléfono
+  // o sin el prefijo +57 devolvía 400 siempre, dejando el formulario de
+  // contacto roto en la práctica.
   body('telefono')
-    .notEmpty().withMessage('El teléfono es requerido')
+    .optional({ checkFalsy: true })
+    .trim()
+    .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos'),
+
+  body('institucion')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 150 })
+    .withMessage('La institución no puede exceder 150 caracteres'),
 
   body('mensaje')
     .notEmpty().withMessage('El mensaje es requerido')
