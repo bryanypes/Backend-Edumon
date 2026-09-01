@@ -3,7 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import timeout from 'connect-timeout';
 import compression from 'compression';
@@ -133,10 +133,16 @@ export const crearApp = () => {
   });
 
   // Rate limit global
+  // BUG REAL corregido: 100 req/15min por IP asumía un usuario = una IP.
+  // En un colegio, decenas de padres/docentes comparten la MISMA IP pública
+  // (wifi institucional/NAT) — con el límite viejo, tráfico legítimo de un
+  // puñado de familias agotaba la cuota y todos empezaban a ver 429, no solo
+  // quien estuviera abusando. 500/15min sigue frenando un flood real de una
+  // sola IP sin castigar el uso normal compartido.
   const makeRateLimitHandler = (mensaje) =>
     rateLimit({
       windowMs:         15 * 60 * 1000,
-      max:              100,
+      max:              500,
       standardHeaders:  true,
       legacyHeaders:    false,
       skipFailedRequests: false,
@@ -155,11 +161,20 @@ export const crearApp = () => {
   app.use('/api/', makeRateLimitHandler('Demasiadas solicitudes, intenta más tarde'));
 
   // Rate limit estricto para endpoints de autenticación
+  // BUG REAL corregido: al limitar por IP, un docente anunciando "entren
+  // ahora a la app" hacía que el 11º padre conectado desde la misma wifi del
+  // colegio quedara bloqueado sin haber hecho nada malo — el límite se
+  // agotaba con intentos de OTRAS personas. Ahora se limita por el teléfono
+  // que se está intentando usar (la credencial real bajo ataque en un
+  // brute-force), no por quién comparte la salida a internet; con
+  // ipKeyGenerator en vez de req.ip crudo para no reabrir el bypass de
+  // rate-limit por subred IPv6 que express-rate-limit v8 valida al arrancar.
   const limiterAuth = rateLimit({
     windowMs:        15 * 60 * 1000,
     max:             10,
     standardHeaders: true,
     legacyHeaders:   false,
+    keyGenerator: (req) => (req.body?.telefono ? `tel:${req.body.telefono}` : ipKeyGenerator(req.ip)),
     handler: (req, res) => {
       const retryAfter = Math.ceil(
         (req.rateLimit.resetTime - Date.now()) / 1000,
