@@ -27,8 +27,8 @@ import {
 
 const router = express.Router();
 
-// CREAR CURSO (con foto de portada + CSV opcional)
-router.post('/', 
+// admite foto de portada + CSV opcional
+router.post('/',
   authMiddleware, 
   requireRole(['administrador', 'docente']),
   uploadImagenYCSV.fields([           
@@ -39,36 +39,32 @@ router.post('/',
   createCurso
 );
 
-// LISTAR TODOS LOS CURSOS
-router.get('/', 
+router.get('/',
   authMiddleware, 
   requireRole(['administrador', 'docente', 'padre']), 
   getCursos
 );
 
-// OBTENER MIS CURSOS
-router.get('/mis-cursos', 
+router.get('/mis-cursos',
   authMiddleware, 
   getMisCursos
 );
 
-// Obtener participantes de un curso
-router.get('/:id/participantes', 
+router.get('/:id/participantes',
   authMiddleware, 
   requireRole(['administrador', 'docente']),
   cursoIdValidator,
   getParticipantesCurso
 );
 
-// OBTENER CURSO POR ID
-router.get('/:id', 
+router.get('/:id',
   authMiddleware, 
   cursoIdValidator, 
   getCursoById
 );
 
-// ACTUALIZAR CURSO (solo imagen, sin CSV)
-router.put('/:id', 
+// solo imagen aquí, sin CSV
+router.put('/:id',
   authMiddleware, 
   requireRole(['administrador', 'docente']),
   uploadImagenCloudinary.single('fotoPortada'), // Solo imagen aquí
@@ -76,15 +72,14 @@ router.put('/:id',
   updateCurso
 );
 
-// ARCHIVAR CURSO (soft delete)
-router.delete('/:id', 
+// soft delete
+router.delete('/:id',
   authMiddleware, 
   requireRole(['administrador', 'docente']), 
   cursoIdValidator, 
   archivarCurso
 );
 
-// RESTAURAR CURSO (revierte el archivado)
 router.patch('/:id/restaurar',
   authMiddleware,
   requireRole(['administrador', 'docente']),
@@ -92,23 +87,20 @@ router.patch('/:id/restaurar',
   restaurarCurso
 );
 
-// AGREGAR PARTICIPANTE INDIVIDUAL
-router.post('/:id/participantes', 
+router.post('/:id/participantes',
   authMiddleware, 
   requireRole(['administrador', 'docente', 'padre']), 
   participanteValidator, 
   agregarParticipante
 );
 
-// REMOVER PARTICIPANTE
-router.delete('/:id/participantes/:usuarioId', 
+router.delete('/:id/participantes/:usuarioId',
   authMiddleware, 
   requireRole(['administrador', 'docente']), 
   removerParticipante
 );
 
-// CARGA MASIVA DE USUARIOS (solo CSV)
-router.post('/:id/usuarios-masivo', 
+router.post('/:id/usuarios-masivo',
   authMiddleware, 
   requireRole(['administrador', 'docente']), 
   cursoIdValidator,

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { getTransportSMTP } from './smtpTransport.js';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import twilio from 'twilio';
@@ -7,12 +7,8 @@ import { emitirNotificacion } from '../socket/socketHandlers.js';
 import dotenv from 'dotenv';
 dotenv.config({ path: './.env' });
 
-// Si falta o está mal alguna variable de Firebase, initializeApp() lanza de
-// forma síncrona al importar este archivo (arranque del servidor) — sin este
-// try/catch tumbaba TODO el backend, incluido login y el resto de la API, por
-// una credencial de un solo canal de notificación (push). Con esto, el push
-// por FCM queda deshabilitado (enviarFCM ya falla de forma controlada, igual
-// que enviarEmail/enviarWhatsApp) pero el resto de la app arranca normal.
+// sin try/catch, una credencial de Firebase mal puesta tumbaba TODO el
+// backend al arrancar por solo un canal de notificación (push)
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -198,37 +194,24 @@ export const enviarWhatsApp = async (usuario, notificacion) => {
 
 export const enviarEmail = async (usuario, notificacion) => {
   if (!usuario.correo) return;
-  if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
-    throw new Error('Brevo no configurado');
+  if (!process.env.SMTP_HOST) {
+    throw new Error('SMTP no configurado');
   }
 
-  await axios.post(
-    'https://api.brevo.com/v3/smtp/email',
-    {
-      sender: {
-        name: process.env.BREVO_SENDER_NAME || 'Edumon',
-        email: process.env.BREVO_SENDER_EMAIL,
-      },
-      to: [{ email: usuario.correo, name: `${usuario.nombre} ${usuario.apellido}` }],
-      subject: obtenerTitulo(notificacion.tipo),
-      htmlContent: generarHTMLEmail(usuario, notificacion)
+  const transporte = getTransportSMTP();
+  await transporte.sendMail({
+    from: {
+      name:    process.env.SMTP_FROM_NAME || 'Edumon',
+      address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
     },
-    {
-      headers: {
-        'api-key': process.env.BREVO_API_KEY,
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      }
-    }
-  );
+    to: { name: `${usuario.nombre} ${usuario.apellido}`, address: usuario.correo },
+    subject: obtenerTitulo(notificacion.tipo),
+    html: generarHTMLEmail(usuario, notificacion)
+  });
 };
 
-/**
- * Recordatorio de tarea a 24h de vencer. Único punto de entrada de este
- * archivo que se usa en producción (lo dispara tareaScheduler.js); el resto
- * de eventos de dominio (tarea creada, entrega calificada, evento nuevo, etc.)
- * se notifican vía NotificacionObservers.js + NotificadorFacade.
- */
+// recordatorio a 24h de vencer, disparado por tareaScheduler.js; el resto de
+// eventos de dominio va por NotificacionObservers.js + NotificadorFacade
 export const notificarTareaProximaVencer = async (tarea) => {
   try {
     const [Curso, Entrega, UserModel] = await Promise.all([

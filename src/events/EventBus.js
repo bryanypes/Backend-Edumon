@@ -1,27 +1,16 @@
 // src/events/EventBus.js
 import { EventEmitter } from 'events';
 
-/**
- * PATRÓN OBSERVER
- * EventBus actúa como el "Subject" central.
- * Los listeners son los "Observers".
- * Desacopla quien emite el evento de quien lo procesa.
- */
+// Observer: EventBus es el subject, los listeners son los observers
 class EventBus extends EventEmitter {
   constructor() {
     super();
     this.setMaxListeners(20);
   }
 
-  /**
-   * Registrar un observer para un evento
-   * @param {string} evento 
-   * @param {Function} handler 
-   */
   suscribir(evento, handler) {
-    // EventEmitter no espera ni atrapa las promesas devueltas por los listeners:
-    // si un handler async rechaza sin try/catch propio, queda como unhandled
-    // rejection y puede tumbar el proceso. Se envuelve para loguear y no romper.
+    // EventEmitter no atrapa rejections de listeners async — sin este wrapper
+    // un handler que falla puede tumbar el proceso como unhandled rejection
     this.on(evento, async (...args) => {
       try {
         await handler(...args);
@@ -32,19 +21,11 @@ class EventBus extends EventEmitter {
     console.log(`[Observer] Suscrito a evento: "${evento}"`);
   }
 
-  /**
-   * Emitir evento — notifica a todos los observers suscritos
-   * @param {string} evento 
-   * @param {Object} datos 
-   */
   publicar(evento, datos) {
     console.log(`[Observer] Evento publicado: "${evento}"`);
     this.emit(evento, datos);
   }
 
-  /**
-   * Desuscribir un observer
-   */
   desuscribir(evento, handler) {
     this.off(evento, handler);
   }

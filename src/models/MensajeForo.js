@@ -42,7 +42,7 @@ const mensajeForoSchema = new mongoose.Schema({
     default: [],
     validate: {
       validator: function(v) {
-        return v.length <= 5; // Máximo 5 archivos
+        return v.length <= 5;
       },
       message: 'No se pueden adjuntar más de 5 archivos'
     }
@@ -71,12 +71,10 @@ const mensajeForoSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índices para optimizar consultas
 mensajeForoSchema.index({ foroId: 1, fechaCreacion: -1 });
 mensajeForoSchema.index({ usuarioId: 1 });
 mensajeForoSchema.index({ respuestaA: 1 });
 
-// Virtual para poblar información del usuario
 mensajeForoSchema.virtual('usuario', {
   ref: 'User',
   localField: 'usuarioId',
@@ -84,22 +82,18 @@ mensajeForoSchema.virtual('usuario', {
   justOne: true
 });
 
-// Método para dar/quitar like
 mensajeForoSchema.methods.toggleLike = function(usuarioId) {
   const index = this.likedBy.findIndex(id => id.toString() === usuarioId.toString());
-  
+
   if (index === -1) {
-    // Agregar like
     this.likedBy.push(usuarioId);
     this.likes += 1;
   } else {
-    // Quitar like
     this.likedBy.splice(index, 1);
     this.likes -= 1;
   }
 };
 
-// Método para verificar si un usuario ya dio like
 mensajeForoSchema.methods.yaLeDioLike = function(usuarioId) {
   return this.likedBy.some(id => id.toString() === usuarioId.toString());
 };

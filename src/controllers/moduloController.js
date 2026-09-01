@@ -34,9 +34,6 @@ function usuarioPerteneceACurso(curso, user) {
   }
 }
 
-// Verifica que el usuario (docente/administrador) tenga permiso para crear/editar/borrar
-// módulos del curso dado. Antes createModulo/updateModulo/deleteModulo/restoreModulo no
-// verificaban esto en absoluto: cualquier docente podía tocar módulos de cursos ajenos.
 async function verificarPermisoModulo(cursoId, user) {
   const curso = await Curso.findById(cursoId).select('docenteId institucionId');
   if (!curso) return { ok: false, status: 404, message: 'Curso no encontrado' };
@@ -46,7 +43,6 @@ async function verificarPermisoModulo(cursoId, user) {
   return { ok: true, curso };
 }
 
-// Crear módulo
 export const createModulo = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -86,7 +82,6 @@ export const createModulo = async (req, res) => {
   }
 };
 
-// Listar módulos con paginación, filtro por curso e incluye tareas
 export const getModulos = async (req, res) => {
   try {
     const page  = parseInt(req.query.page)  || 1;
@@ -110,8 +105,7 @@ export const getModulos = async (req, res) => {
       }
       filter.cursoId = cursoId;
     } else if (req.user.rol !== 'superadmin') {
-      // Sin cursoId explícito: antes devolvía módulos de TODOS los cursos de TODAS
-      // las instituciones. Se restringe a los cursos a los que el usuario tiene acceso.
+      // sin cursoId explícito, restringir a los cursos a los que el usuario tiene acceso
       const cursosPermitidos = req.user.rol === 'administrador'
         ? await Curso.find({ institucionId: req.user.institucionId }).select('_id').lean()
         : req.user.rol === 'docente'
@@ -161,7 +155,6 @@ export const getModulos = async (req, res) => {
   }
 };
 
-// Obtener módulo por ID
 export const getModuloById = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -200,7 +193,6 @@ export const getModuloById = async (req, res) => {
   }
 };
 
-// Obtener módulos por curso (incluye tareas)
 export const getModulosByCurso = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -246,7 +238,6 @@ export const getModulosByCurso = async (req, res) => {
   }
 };
 
-// Actualizar módulo
 export const updateModulo = async (req, res) => {
   try {
     const errors = validationResult(req);

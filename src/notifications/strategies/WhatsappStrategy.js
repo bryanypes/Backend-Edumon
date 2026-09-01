@@ -2,9 +2,6 @@
 import twilio from 'twilio';
 import { NotificacionStrategy } from './NotificacionStrategy.js';
 
-/**
- * Estrategia concreta: WhatsApp via Twilio
- */
 export class WhatsAppStrategy extends NotificacionStrategy {
   constructor() {
     super();

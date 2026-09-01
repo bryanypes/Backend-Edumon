@@ -27,10 +27,8 @@ const eventoSchema = new mongoose.Schema({
     required: [true, 'La fecha de fin es requerida'],
     validate: {
       validator: function(v) {
-        // En updates (findByIdAndUpdate), `this` es la query y no el documento,
-        // así que fechaInicio solo se puede leer si también viene en el update.
-        // Sin este fallback, cualquier update que toque fechaFin sin fechaInicio
-        // fallaba siempre (this.fechaInicio quedaba undefined).
+        // en updates, `this` es la query no el documento: sin este fallback
+        // this.fechaInicio queda undefined y el update siempre fallaba
         const update = typeof this.getUpdate === 'function' ? this.getUpdate() : null;
         const fechaInicio = this.fechaInicio ?? update?.fechaInicio ?? update?.$set?.fechaInicio;
         if (!fechaInicio) return true;
@@ -106,7 +104,6 @@ eventoSchema.virtual('participantes', {
   foreignField: '_id'
 });
 
-// Virtual: etiqueta legible de la categoría
 eventoSchema.virtual('categoriaLabel').get(function() {
   const labels = {
     escuela_padres: 'Escuela de Padres',

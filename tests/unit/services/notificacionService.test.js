@@ -6,50 +6,48 @@ import {
 } from '../../../src/services/notificacionService.js';
 import Notificacion from '../../../src/models/Notificacion.js';
 import Entrega from '../../../src/models/Entrega.js';
-import { axiosPostMock, fcmSendMock, twilioCreateMock } from '../../setup/mocks.js';
+import { nodemailerSendMailMock, fcmSendMock, twilioCreateMock } from '../../setup/mocks.js';
 import { crearPadre, crearDocente, crearTarea, crearCurso } from '../../helpers/factories.js';
 
 describe('enviarEmail', () => {
   beforeEach(() => {
-    axiosPostMock.mockClear();
+    nodemailerSendMailMock.mockClear();
   });
 
-  it('envía el correo vía la API de Brevo (no MailerSend)', async () => {
+  it('envía el correo vía SMTP (nodemailer)', async () => {
     const usuario = await crearPadre();
     const notificacion = { tipo: 'tarea', mensaje: 'Nueva tarea publicada' };
 
     await enviarEmail(usuario, notificacion);
 
-    expect(axiosPostMock).toHaveBeenCalledTimes(1);
-    const [url, body, config] = axiosPostMock.mock.calls[0];
-    expect(url).toBe('https://api.brevo.com/v3/smtp/email');
-    expect(body.to[0].email).toBe(usuario.correo);
-    expect(body.sender.email).toBe(process.env.BREVO_SENDER_EMAIL);
-    expect(config.headers['api-key']).toBe(process.env.BREVO_API_KEY);
+    expect(nodemailerSendMailMock).toHaveBeenCalledTimes(1);
+    const [msg] = nodemailerSendMailMock.mock.calls[0];
+    expect(msg.to.address).toBe(usuario.correo);
+    expect(msg.from.address).toBe(process.env.SMTP_FROM_EMAIL);
   });
 
-  it('no llama a Brevo si el usuario no tiene correo', async () => {
+  it('no llama a SMTP si el usuario no tiene correo', async () => {
     const usuario = await crearPadre({ correo: undefined });
     await enviarEmail(usuario, { tipo: 'tarea', mensaje: 'x' });
-    expect(axiosPostMock).not.toHaveBeenCalled();
+    expect(nodemailerSendMailMock).not.toHaveBeenCalled();
   });
 
-  it('lanza si BREVO_API_KEY no está configurada', async () => {
-    const original = process.env.BREVO_API_KEY;
-    delete process.env.BREVO_API_KEY;
+  it('lanza si SMTP_HOST no está configurado', async () => {
+    const original = process.env.SMTP_HOST;
+    delete process.env.SMTP_HOST;
     try {
       const usuario = await crearPadre();
-      await expect(enviarEmail(usuario, { tipo: 'tarea', mensaje: 'x' })).rejects.toThrow('Brevo no configurado');
-      expect(axiosPostMock).not.toHaveBeenCalled();
+      await expect(enviarEmail(usuario, { tipo: 'tarea', mensaje: 'x' })).rejects.toThrow('SMTP no configurado');
+      expect(nodemailerSendMailMock).not.toHaveBeenCalled();
     } finally {
-      process.env.BREVO_API_KEY = original;
+      process.env.SMTP_HOST = original;
     }
   });
 });
 
 describe('crearYEnviarNotificacion', () => {
   beforeEach(() => {
-    axiosPostMock.mockClear();
+    nodemailerSendMailMock.mockClear();
     fcmSendMock.mockClear();
     twilioCreateMock.mockClear();
   });
@@ -69,7 +67,7 @@ describe('crearYEnviarNotificacion', () => {
     expect(guardada.canalEnviado.email).toBe(true);
     expect(guardada.canalEnviado.whatsapp).toBe(true);
     expect(guardada.canalEnviado.push).toBe(false);
-    expect(axiosPostMock).toHaveBeenCalledTimes(1);
+    expect(nodemailerSendMailMock).toHaveBeenCalledTimes(1);
     expect(twilioCreateMock).toHaveBeenCalledTimes(1);
   });
 
@@ -85,7 +83,7 @@ describe('crearYEnviarNotificacion', () => {
     const guardada = await Notificacion.findById(notificacion._id);
     expect(guardada.canalEnviado.email).toBe(false);
     expect(guardada.canalEnviado.whatsapp).toBe(false);
-    expect(axiosPostMock).not.toHaveBeenCalled();
+    expect(nodemailerSendMailMock).not.toHaveBeenCalled();
     expect(twilioCreateMock).not.toHaveBeenCalled();
   });
 
@@ -100,13 +98,13 @@ describe('crearYEnviarNotificacion', () => {
 
     const guardada = await Notificacion.findById(notificacion._id);
     expect(guardada.canalEnviado.email).toBe(true);
-    expect(axiosPostMock).toHaveBeenCalledTimes(1);
+    expect(nodemailerSendMailMock).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('notificarTareaProximaVencer', () => {
   beforeEach(() => {
-    axiosPostMock.mockClear();
+    nodemailerSendMailMock.mockClear();
   });
 
   it('notifica solo a los padres que aún no han entregado', async () => {

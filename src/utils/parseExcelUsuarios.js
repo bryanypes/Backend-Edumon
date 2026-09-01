@@ -1,10 +1,7 @@
 import ExcelJS from 'exceljs';
 
-// Convierte el valor de una celda de ExcelJS a texto plano. Cubre los casos
-// que no son un string/número simple: celdas con fórmula (ExcelJS entrega
-// {formula, result}) y texto enriquecido ({richText: [...]}) — sin este
-// manejo, esas celdas se serializan como "[object Object]" en vez del valor
-// real que ve la persona que abre el archivo.
+// cubre celdas con fórmula ({formula, result}) y texto enriquecido ({richText})
+// que si no, se serializan como "[object Object]"
 function celdaATexto(valor) {
   if (valor === null || valor === undefined) return '';
   if (typeof valor === 'object') {
@@ -16,13 +13,7 @@ function celdaATexto(valor) {
   return String(valor).trim();
 }
 
-/**
- * Lee la primera hoja de un archivo Excel (.xlsx/.xlsm) con columnas
- * nombre, apellido, telefono, cedula en ese orden (columnas A-D), con o sin
- * fila de encabezados. Reemplaza al parseo por CSV que usaban preregistrarDocentesCSV
- * y procesarUsuariosCSV — mismo contrato de salida: filas ya recortadas,
- * exige nombre/apellido/cedula (telefono queda opcional para quien llama).
- */
+// lee la primera hoja: columnas nombre, apellido, telefono, cedula (A-D), con o sin encabezado
 export async function parseFilasUsuarios(buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);

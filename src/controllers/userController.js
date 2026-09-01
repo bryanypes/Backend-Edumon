@@ -19,9 +19,8 @@ export const createUser = async (req, res) => {
 
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
 
-    // findOne con un valor undefined (p.ej. correo/telefono ausentes) devuelve
-    // el primer documento que encuentre en la colección, así que cada búsqueda
-    // solo se dispara si el campo realmente viene en el body
+    // findOne(undefined) matchea el primer doc de la colección, por eso solo
+    // se busca si el campo realmente viene en el body
     const [superadminExistente, existingCedula, existingCorreo, existingTelefono] = await Promise.all([
       rol === 'superadmin' ? User.findOne({ rol: 'superadmin' }) : null,
       User.findOne({ cedula }),
@@ -52,10 +51,7 @@ export const createUser = async (req, res) => {
       institucionFinal = institucionId;
     }
 
-    // REGLA ÚNICA DEL SISTEMA: la contraseña inicial de cualquier usuario
-    // creado desde el panel es su cédula — igual que en institucionController
-    // (admin y docentes) y en cursoController (participantes). Solo se respeta
-    // otra contraseña si quien crea la envía explícitamente.
+    // contraseña inicial = cédula, salvo que se envíe una explícita (misma regla en todo el sistema)
     const contraseñaInicial = contraseña?.trim() || String(cedula).trim();
 
     const newUser = new User({
@@ -85,7 +81,6 @@ export const createUser = async (req, res) => {
   }
 };
 
-// Listar usuarios con paginación
 export const getUsers = async (req, res) => {
   try {
     const page  = parseInt(req.query.page)  || 1;
@@ -120,7 +115,6 @@ export const getUsers = async (req, res) => {
   }
 };
 
-// Obtener usuario por ID
 export const getUserById = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -178,7 +172,7 @@ export const updateUser = async (req, res) => {
       return res.status(400).json({ message: 'ID de usuario requerido' });
     }
 
-    // Campos protegidos — nunca se actualizan por esta ruta
+    // campos protegidos, nunca se actualizan por esta ruta
     delete updateData.contraseña;
     delete updateData._id;
     delete updateData.fechaRegistro;
@@ -271,7 +265,6 @@ export const updateOwnProfile = async (req, res) => {
   }
 };
 
-// Cambiar contraseña
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -326,10 +319,7 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Un docente suspendido no puede iniciar sesión, pero sus cursos activos
-    // seguían apuntándole como docenteId: el curso quedaba "huérfano" para
-    // los padres/estudiantes sin que nadie lo notara. Se bloquea la
-    // suspensión hasta que el admin reasigne o archive esos cursos.
+    // bloquear suspensión si el docente tiene cursos activos, para no dejarlos huérfanos
     if (userASuspender.rol === 'docente') {
       const cursosActivos = await Curso.find({ docenteId: id, estado: 'activo' })
         .select('nombre codigoCurso')
@@ -393,7 +383,6 @@ export const reactivateUser = async (req, res) => {
   }
 };
 
-// Obtener fotos de perfil predeterminadas
 export const getFotosPredeterminadas = async (req, res) => {
   try {
     const result = await cloudinary.api.resources({
@@ -472,7 +461,6 @@ export const updateFotoPerfil = async (req, res) => {
   }
 };
 
-// Actualizar FCM token
 export const updateFcmToken = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -513,7 +501,6 @@ export const updateFcmToken = async (req, res) => {
   }
 };
 
-// Actualizar preferencia de modo de pantalla (oscuro / claro)
 export const updateModoOscuro = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -556,7 +543,6 @@ export const updateModoOscuro = async (req, res) => {
   }
 };
 
-// Obtener últimas sesiones
 export const getUltimasSesiones = async (req, res) => {
   try {
     const { userId, rol } = req.user;
@@ -604,7 +590,6 @@ export const getUltimasSesiones = async (req, res) => {
   }
 };
 
-// Obtener info completa del padre/acudiente
 export const getPadreInfo = async (req, res) => {
   try {
     const errors = validationResult(req);

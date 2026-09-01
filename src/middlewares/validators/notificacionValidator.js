@@ -1,7 +1,6 @@
 import { body, param, query } from 'express-validator';
 import mongoose from 'mongoose';
 
-// Validador para crear notificación
 export const createNotificacionValidator = [
   body('usuarioId')
     .notEmpty().withMessage('El ID del usuario es obligatorio')
@@ -46,7 +45,6 @@ export const createNotificacionValidator = [
     .isObject().withMessage('Los metadatos deben ser un objeto')
 ];
 
-// Validador para actualizar notificación
 export const updateNotificacionValidator = [
   param('id')
     .notEmpty().withMessage('El ID de la notificación es obligatorio')
@@ -67,7 +65,6 @@ export const updateNotificacionValidator = [
     .isBoolean().withMessage('El filtro leído debe ser true o false')
 ];
 
-// Validador para marcar múltiples como leídas
 export const marcarVariasLeidasValidator = [
   body('notificacionIds')
     .notEmpty().withMessage('Los IDs de notificaciones son obligatorios')
@@ -80,7 +77,6 @@ export const marcarVariasLeidasValidator = [
     })
 ];
 
-// Validador para obtener notificaciones
 export const getNotificacionesValidator = [
   query('page')
     .optional()
@@ -100,7 +96,6 @@ export const getNotificacionesValidator = [
     .isBoolean().withMessage('El filtro leído debe ser true o false')
 ];
 
-// Validador para ID de notificación
 export const notificacionIdValidator = [
   param('id')
     .notEmpty().withMessage('El ID de la notificación es obligatorio')

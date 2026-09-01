@@ -15,7 +15,6 @@ async function eventoPerteneceAInstitucion(cursosIds, institucionId) {
   return count === cursosIds.length;
 }
 
-// Crear evento
 export const createEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -111,7 +110,6 @@ export const createEvento = async (req, res) => {
   }
 };
 
-// Listar eventos
 export const getEventos = async (req, res) => {
   try {
     const { userId, rol, institucionId } = req.user;
@@ -136,7 +134,6 @@ export const getEventos = async (req, res) => {
     }
 
     if (rol === 'administrador') {
-      // Sin este filtro, un administrador veía eventos de TODAS las instituciones.
       const cursosDeLaInstitucion = await Curso.find({ institucionId }).distinct('_id');
       filter.cursosIds = { $in: cursosDeLaInstitucion };
     }
@@ -165,7 +162,6 @@ export const getEventos = async (req, res) => {
   }
 };
 
-// Obtener evento por ID
 export const getEventoById = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -215,7 +211,6 @@ export const getEventoById = async (req, res) => {
   }
 };
 
-// Actualizar evento
 export const updateEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -292,7 +287,6 @@ export const updateEvento = async (req, res) => {
   }
 };
 
-// Eliminar evento
 export const deleteEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -335,11 +329,8 @@ export const deleteEvento = async (req, res) => {
   }
 };
 
-// Cancelar evento
-// El estado "cancelado" ya existía en el enum del schema, pero ningún
-// controlador lo asignaba. Usa findByIdAndUpdate (no .save()) a propósito:
-// el pre('save') del modelo recalcula el estado por fecha en cada save() y
-// pisaría "cancelado" apenas el evento ya hubiera empezado.
+// usa findByIdAndUpdate, no .save(): el pre('save') del modelo recalcula el
+// estado por fecha y pisaría "cancelado" apenas el evento ya hubiera empezado
 export const cancelarEvento = async (req, res) => {
   try {
     const errors = validationResult(req);

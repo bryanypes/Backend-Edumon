@@ -9,13 +9,11 @@ import {
   fcmSendMock,
   fcmSendMulticastMock,
   twilioCreateMock,
-  axiosPostMock,
+  nodemailerSendMailMock,
 } from './mocks.js';
 
 // ─── Variables de entorno de prueba ───────────────────────────────────────────
-// Deterministas y sin credenciales reales — todos los SDKs externos que las
-// usan están mockeados abajo, así que ninguna llamada a estas "credenciales"
-// llega jamás a una red real.
+// falsas pero con forma válida; los SDKs que las usan están mockeados abajo
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-do-not-use-in-production';
 process.env.FRONTEND_URL = '';
@@ -28,15 +26,16 @@ process.env.FIREBASE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\ntest\n-----END 
 process.env.TWILIO_ACCOUNT_SID = 'ACtestaccountsid0000000000000000';
 process.env.TWILIO_AUTH_TOKEN = 'test-twilio-auth-token';
 process.env.TWILIO_WHATSAPP_NUMBER = '+14155238886';
-process.env.BREVO_API_KEY = 'test-brevo-api-key';
-process.env.BREVO_SENDER_EMAIL = 'no-reply@test.edumon.local';
-process.env.BREVO_SENDER_NAME = 'Edumon Test';
+process.env.SMTP_HOST = 'smtp.test.edumon.local';
+process.env.SMTP_PORT = '587';
+process.env.SMTP_SECURE = 'false';
+process.env.SMTP_USER = 'no-reply@test.edumon.local';
+process.env.SMTP_PASS = 'test-smtp-password';
+process.env.SMTP_FROM_NAME = 'Edumon Test';
+process.env.SMTP_FROM_EMAIL = 'no-reply@test.edumon.local';
 
 // ─── Mocks globales de SDKs externos ──────────────────────────────────────────
-// Registrados en el setup file para que apliquen a TODO el árbol de módulos de
-// cada archivo de test (controllers, services, strategies) sin tener que
-// mockear en cada archivo. Ningún test golpea Cloudinary/Firebase/Twilio/Brevo
-// reales — así corren rápido, deterministas, y sin secretos en CI.
+// registrados aquí para que apliquen a todo el árbol de módulos sin mockear por archivo
 vi.mock('cloudinary', () => ({
   v2: {
     config: vi.fn(),
@@ -72,10 +71,9 @@ vi.mock('twilio', () => {
   return { default: twilioFactory };
 });
 
-vi.mock('axios', () => ({
+vi.mock('nodemailer', () => ({
   default: {
-    post: axiosPostMock,
-    get: vi.fn(async () => ({ data: {} })),
+    createTransport: vi.fn(() => ({ sendMail: nodemailerSendMailMock })),
   },
 }));
 
@@ -88,23 +86,13 @@ beforeAll(async () => {
   process.env.MONGO_URI = uri;
   await mongoose.connect(uri);
 
-  // Igual que server.js en producción: registra los observers UNA vez por
-  // archivo de test (cada archivo tiene su propio registro de módulos/eventBus
-  // aislado). Sin esto, publicar un evento (tarea creada, entrega calificada,
-  // mensaje de buzón...) no dispara ninguna notificación real en los tests de
-  // integración — exactamente el comportamiento de producción si server.js no
-  // llamara a esto al arrancar.
-  // Import dinámico (no estático arriba del archivo) a propósito: así se
-  // resuelve después de que los vi.mock() de este archivo ya evaluaron, sin
-  // importar el orden de las líneas — un import estático de NotificacionObservers.js
-  // arrastra axios/cloudinary/firebase-admin/twilio antes de tiempo y rompe el
-  // hoisting de vi.mock (TDZ sobre las variables mockeadas de mocks.js).
+  // igual que server.js: registra los observers, si no los eventos de dominio no notifican nada en los tests.
+  // import dinámico a propósito: uno estático arrastraría nodemailer/cloudinary/firebase/twilio
+  // antes de tiempo y rompería el hoisting de los vi.mock() de arriba (TDZ)
   const { registrarObservers } = await import('../../src/events/NotificacionObservers.js');
   registrarObservers();
 
-  // Stub por defecto de Socket.IO para tests unitarios que no levantan un app
-  // real (ej. NotificadorFacade). Los tests de integración/sockets reemplazan
-  // esto con la instancia real que crea crearApp().
+  // stub de Socket.IO para tests unitarios sin app real; integración/sockets usan la instancia real
   global.io = {
     to: () => ({ emit: () => {} }),
     emit: () => {},

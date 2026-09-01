@@ -28,5 +28,5 @@ export const fcmSendMulticastMock = vi.fn(async () => ({
 // ─── Twilio (WhatsApp) ────────────────────────────────────────────────────────
 export const twilioCreateMock = vi.fn(async () => ({ sid: 'mock-twilio-sid' }));
 
-// ─── Axios (Brevo / MailerSend HTTP) ──────────────────────────────────────────
-export const axiosPostMock = vi.fn(async () => ({ data: { messageId: 'mock-message-id' } }));
+// ─── Nodemailer (SMTP) ─────────────────────────────────────────────────────────
+export const nodemailerSendMailMock = vi.fn(async () => ({ messageId: 'mock-message-id' }));
