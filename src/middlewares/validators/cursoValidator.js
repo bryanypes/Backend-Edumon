@@ -25,16 +25,13 @@ export const createCursoValidator = [
     .isMongoId()
     .withMessage('El ID del docente debe ser un ObjectId válido'),
 
-  // Validar solo si se envía como string Y no hay archivo
   body('fotoPortadaUrl')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value, { req }) => {
-      // Si hay archivo subido, NO validar este campo
       if (req.files?.fotoPortada?.[0] || req.file?.fieldname === 'fotoPortada') {
         return true;
       }
 
-      // Si NO hay archivo pero SÍ hay valor, validar que sea URL válida
       if (value && value !== '') {
         const urlRegex = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i;
         if (!urlRegex.test(value)) {
@@ -72,12 +69,10 @@ export const updateCursoValidator = [
   body('fotoPortadaUrl')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value, { req }) => {
-      // Si hay archivo subido, NO validar este campo
       if (req.file?.fieldname === 'fotoPortada') {
         return true;
       }
 
-      // Si NO hay archivo pero SÍ hay valor, validar que sea URL válida
       if (value && value !== '') {
         const urlRegex = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i;
         if (!urlRegex.test(value)) {

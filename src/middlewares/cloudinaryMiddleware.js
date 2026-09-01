@@ -3,7 +3,7 @@ import multer from 'multer';
 
 const storage = multer.memoryStorage();
 
-// Middleware para IMÁGENES (cursos, perfiles)
+// imágenes: cursos, perfiles
 export const uploadImagenCloudinary = multer({
   storage: storage,
   limits: {
@@ -33,7 +33,7 @@ const esExcel = (file) => {
     file.originalname.endsWith('.xlsm');
 };
 
-// Middleware para IMÁGENES + Excel (sin validación estricta)
+// imágenes + Excel, sin validación estricta
 export const uploadImagenYCSV = multer({
   storage: storage,
   limits: {
@@ -50,7 +50,6 @@ export const uploadImagenYCSV = multer({
   }
 });
 
-// Middleware para Excel solamente
 export const uploadCSVCloudinary = multer({
   storage: storage,
   limits: {
@@ -65,7 +64,6 @@ export const uploadCSVCloudinary = multer({
   }
 });
 
-// Middleware para ARCHIVOS GENERALES (PDFs, documentos, etc.)
 export const uploadArchivoCloudinary = multer({
   storage: storage,
   limits: {

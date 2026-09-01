@@ -43,7 +43,6 @@ const userSchema = new mongoose.Schema(
       type: [Boolean],
       default: [true, true],
     },
-    // Preferencia de modo de pantalla
     modoOscuro: {
       type: Boolean,
       default: false,
@@ -92,8 +91,7 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    // Refresh Tokens
-    // Se almacenan hasheados. Máximo 5 sesiones simultáneas.
+    // se almacenan hasheados; máximo 5 sesiones simultáneas
     refreshTokens: {
       type: [
         {
@@ -114,7 +112,6 @@ const userSchema = new mongoose.Schema(
 // Índice TTL: Mongo limpia automáticamente los refresh tokens expirados
 userSchema.index({ 'refreshTokens.expiraEn': 1 }, { expireAfterSeconds: 0 });
 
-// Hash contraseña antes de guardar
 userSchema.pre("save", async function (next) {
   if (!this.isModified("contraseña")) return next();
   try {
@@ -126,12 +123,10 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Comparar contraseña
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.contraseña);
 };
 
-// No devolver contraseña en JSON
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.contraseña;

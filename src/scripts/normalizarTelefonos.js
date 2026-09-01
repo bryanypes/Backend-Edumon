@@ -1,10 +1,5 @@
-// src/scripts/normalizarTelefonos.js
-//
-// Migración única: deja TODOS los teléfonos ya guardados en el formato del
-// sistema (+57XXXXXXXXXX). Hace falta porque, antes de unificar los formularios,
-// algunos flujos (participantes de curso) guardaban el número tal cual lo
-// escribía el docente ("3001234567"), y como el login busca por teléfono exacto
-// esos usuarios no podían iniciar sesión desde la web.
+// migración única: normaliza teléfonos viejos a +57XXXXXXXXXX (algunos flujos
+// los guardaban tal cual los escribía el docente, y el login busca exacto)
 //
 // Uso:
 //   node src/scripts/normalizarTelefonos.js            → simulación (no escribe)
@@ -53,8 +48,7 @@ async function normalizarColeccion(Modelo, etiqueta) {
   }
 
   if (APLICAR && cambios.length) {
-    // Un teléfono duplicado tras normalizar significa dos cuentas con el mismo
-    // número: se informa y se deja intacto en vez de romper el login de ambas.
+    // si el normalizado choca con otra cuenta, se deja intacto en vez de romper ambos logins
     for (const c of cambios) {
       const choque = await Modelo.findOne({ telefono: c.normalizado, _id: { $ne: c._id } }).select("_id");
       if (choque) {

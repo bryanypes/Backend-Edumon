@@ -2,7 +2,6 @@ import Notificacion from '../models/Notificacion.js';
 import { validationResult } from 'express-validator';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
 
-// Crear notificación (uso interno principalmente)
 export const createNotificacion = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -13,7 +12,6 @@ export const createNotificacion = async (req, res) => {
     const notificacion = new Notificacion(req.body);
     await notificacion.save();
 
-    // Emitir por WebSocket
     await emitirNotificacion(notificacion);
 
     res.status(201).json({
@@ -29,7 +27,6 @@ export const createNotificacion = async (req, res) => {
   }
 };
 
-// Obtener notificaciones del usuario autenticado
 export const getMisNotificaciones = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -99,7 +96,6 @@ export const getMisNotificaciones = async (req, res) => {
   }
 };
 
-// Obtener notificación por ID
 export const getNotificacionById = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -134,7 +130,6 @@ export const getNotificacionById = async (req, res) => {
   }
 };
 
-// Marcar notificación como leída
 export const marcarComoLeida = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -182,7 +177,6 @@ export const marcarComoLeida = async (req, res) => {
   }
 };
 
-// Marcar múltiples notificaciones como leídas
 export const marcarVariasLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -228,7 +222,6 @@ export const marcarVariasLeidas = async (req, res) => {
   }
 };
 
-// Marcar todas como leídas
 export const marcarTodasLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -259,7 +252,6 @@ export const marcarTodasLeidas = async (req, res) => {
   }
 };
 
-// Eliminar notificación
 export const deleteNotificacion = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -302,7 +294,6 @@ export const deleteNotificacion = async (req, res) => {
   }
 };
 
-// Eliminar todas las notificaciones leídas antiguas
 export const eliminarLeidasAntiguas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {
@@ -334,7 +325,6 @@ export const eliminarLeidasAntiguas = async (req, res) => {
   }
 };
 
-// Obtener conteo de no leídas
 export const getConteoNoLeidas = async (req, res) => {
   try {
     if (!req.user || !req.user.userId) {

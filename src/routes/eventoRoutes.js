@@ -18,16 +18,12 @@ import {
 
 const router = express.Router();
 
-/**
- * Multer para eventos: acepta dos campos opcionales
- *  - imagenPortada: 1 imagen (portada/logo del evento)
- *  - adjunto: 1 archivo adicional (PDF, doc, etc.)
- */
+// acepta imagenPortada (1 imagen) y adjunto (1 archivo, PDF/doc), ambos opcionales
 const storage = multer.memoryStorage();
 
 const uploadEventoArchivos = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB por archivo
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const imageTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif'];
     const allTypes = [...imageTypes, 'application/pdf', 'application/msword',
@@ -46,7 +42,6 @@ const uploadEventoArchivos = multer({
   { name: 'adjunto', maxCount: 1 }
 ]);
 
-// Rutas
 router.get('/', authMiddleware, getEventos);
 router.get('/hoy', authMiddleware, getEventosHoy);
 router.get('/:id', authMiddleware, eventoIdValidator, getEventoById);

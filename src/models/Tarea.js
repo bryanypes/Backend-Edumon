@@ -124,32 +124,26 @@ const tareaSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índices para mejorar búsquedas
 tareaSchema.index({ cursoId: 1, moduloId: 1, fechaEntrega: -1 });
 tareaSchema.index({ docenteId: 1, estado: 1 });
 tareaSchema.index({ participantesSeleccionados: 1 });
 
-// Virtual para saber si la tarea está vencida
 tareaSchema.virtual('estaVencida').get(function() {
   return this.fechaEntrega < new Date() && this.estado === 'publicada';
 });
 
-// Virtual para contar archivos adjuntos
 tareaSchema.virtual('totalArchivos').get(function() {
   return this.archivosAdjuntos ? this.archivosAdjuntos.length : 0;
 });
 
-// Virtual para obtener solo archivos (no enlaces)
 tareaSchema.virtual('soloArchivos').get(function() {
   return this.archivosAdjuntos?.filter(a => a.tipo === 'archivo') || [];
 });
 
-// Virtual para obtener solo enlaces
 tareaSchema.virtual('soloEnlaces').get(function() {
   return this.archivosAdjuntos?.filter(a => a.tipo === 'enlace') || [];
 });
 
-// Middleware pre-save para limpiar participantes si es "todos"
 tareaSchema.pre('save', function(next) {
   if (this.asignacionTipo === 'todos') {
     this.participantesSeleccionados = [];

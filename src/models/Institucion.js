@@ -31,7 +31,6 @@ const institucionSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Generar código único antes de guardar
 institucionSchema.pre('save', async function (next) {
   if (!this.codigo) {
     let codigo, existe = true;

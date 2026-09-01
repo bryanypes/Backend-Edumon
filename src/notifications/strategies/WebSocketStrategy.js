@@ -1,9 +1,6 @@
 import { NotificacionStrategy } from './NotificacionStrategy.js';
 import Notificacion from '../../models/Notificacion.js';
 
-/**
- * Estrategia concreta: WebSocket via Socket.IO
- */
 export class WebSocketStrategy extends NotificacionStrategy {
   nombre() { return 'websocket'; }
 

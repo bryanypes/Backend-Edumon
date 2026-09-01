@@ -1,6 +1,5 @@
 import { body, param } from 'express-validator';
 
-// Validador para crear evento
 export const createEventoValidator = [
   body('titulo')
     .notEmpty()
@@ -59,10 +58,9 @@ export const createEventoValidator = [
 
   body('cursosIds')
     .custom((value) => {
-      // Permitir string (form-data) o array (JSON)
+      // acepta string de form-data o array JSON
       let cursosArray = value;
-      
-      // Si es string, intentar parsearlo
+
       if (typeof value === 'string') {
         try {
           cursosArray = JSON.parse(value);
@@ -70,18 +68,15 @@ export const createEventoValidator = [
           throw new Error('El formato de cursosIds es inválido. Debe ser un array JSON válido');
         }
       }
-      
-      // Verificar que sea array
+
       if (!Array.isArray(cursosArray)) {
         throw new Error('cursosIds debe ser un array');
       }
-      
-      // Verificar que tenga al menos 1 elemento
+
       if (cursosArray.length === 0) {
         throw new Error('Debes seleccionar al menos un curso');
       }
-      
-      // Verificar que todos sean IDs de Mongo válidos
+
       if (!cursosArray.every(id => /^[0-9a-fA-F]{24}$/.test(id))) {
         throw new Error('Uno o más IDs de curso no son válidos');
       }
@@ -96,7 +91,6 @@ export const createEventoValidator = [
     .withMessage('La categoría debe ser: escuela_padres, tarea o institucional')
 ];
 
-// Validador para actualizar evento
 export const updateEventoValidator = [
   param('id')
     .isMongoId()
@@ -151,7 +145,6 @@ export const updateEventoValidator = [
   .custom((value) => {
     let cursosArray = value;
 
-    // Si es string, intentar parsearlo
     if (typeof value === 'string') {
       try {
         cursosArray = JSON.parse(value);
@@ -160,17 +153,14 @@ export const updateEventoValidator = [
       }
     }
 
-    // Verificar que sea array
     if (!Array.isArray(cursosArray)) {
       throw new Error('cursosIds debe ser un array');
     }
 
-    // Verificar que tenga al menos 1 elemento
     if (cursosArray.length === 0) {
       throw new Error('Debes seleccionar al menos un curso');
     }
 
-    // Verificar que todos sean IDs válidos
     if (!cursosArray.every(id => /^[0-9a-fA-F]{24}$/.test(id))) {
       throw new Error('Uno o más IDs de curso no son válidos');
     }
@@ -190,7 +180,6 @@ export const updateEventoValidator = [
     .withMessage('El estado debe ser: programado, en_curso, finalizado o cancelado')
 ];
 
-// Validador para ID de evento
 export const eventoIdValidator = [
   param('id')
     .isMongoId()

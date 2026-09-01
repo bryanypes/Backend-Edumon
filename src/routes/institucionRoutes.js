@@ -8,7 +8,6 @@ import {
   updateInstitucion,
   cambiarEstadoInstitucion
 } from '../controllers/institucionController.js';
-// Agrega el import del middleware de CSV
 import { uploadCSVCloudinary } from '../middlewares/cloudinaryMiddleware.js';
 import { preregistrarDocentesCSV } from '../controllers/institucionController.js';
 
@@ -26,7 +25,6 @@ router.patch('/:id/estado', requireRole(['superadmin']), cambiarEstadoInstitucio
 router.get('/mi-institucion', requireRole(['administrador', 'superadmin']), getMiInstitucion);
 router.post('/docentes', requireRole(['administrador']), preregistrarDocente);
 
-// Admin del colegio: preregistrar docentes vía CSV
 router.post(
   '/docentes/csv',
   requireRole(['administrador']),

@@ -1,4 +1,4 @@
-import axios from "axios";
+import { getTransportSMTP } from "./smtpTransport.js";
 
 function generarHTMLRecuperacion(usuario, codigo) {
   return `<!DOCTYPE html>
@@ -26,28 +26,19 @@ function generarHTMLRecuperacion(usuario, codigo) {
 
 export async function enviarCorreoRecuperacion(usuario, codigo) {
   try {
-    await axios.post(
-      'https://api.brevo.com/v3/smtp/email',
-      {
-        sender: {
-          name:  process.env.BREVO_SENDER_NAME || 'Edumon',
-          email: process.env.BREVO_SENDER_EMAIL,
-        },
-        to: [{ email: usuario.correo, name: usuario.nombre }],
-        subject: '🔐 Código de recuperación de contraseña',
-        htmlContent: generarHTMLRecuperacion(usuario, codigo)
+    const transporte = getTransportSMTP();
+    await transporte.sendMail({
+      from: {
+        name:    process.env.SMTP_FROM_NAME || 'Edumon',
+        address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
       },
-      {
-        headers: {
-          'api-key':      process.env.BREVO_API_KEY,
-          'Content-Type': 'application/json',
-          Accept:         'application/json'
-        }
-      }
-    );
+      to: { name: usuario.nombre, address: usuario.correo },
+      subject: '🔐 Código de recuperación de contraseña',
+      html: generarHTMLRecuperacion(usuario, codigo)
+    });
     return true;
   } catch (error) {
-    console.error('[mailService] Error enviando recuperación:', error.response?.data || error.message);
+    console.error('[mailService] Error enviando recuperación:', error.message);
     throw error;
   }
 }

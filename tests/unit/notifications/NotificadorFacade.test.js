@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import notificador from '../../../src/notifications/NotificadorFacade.js';
 import Notificacion from '../../../src/models/Notificacion.js';
 import { crearPadre, crearPerfilFamiliar } from '../../helpers/factories.js';
-import { fcmSendMock, axiosPostMock, twilioCreateMock } from '../../setup/mocks.js';
+import { fcmSendMock, nodemailerSendMailMock, twilioCreateMock } from '../../setup/mocks.js';
 
 describe('NotificadorFacade — notificar (usuario individual)', () => {
   beforeEach(() => {
     fcmSendMock.mockClear();
-    axiosPostMock.mockClear();
+    nodemailerSendMailMock.mockClear();
     twilioCreateMock.mockClear();
   });
 

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { getTransportSMTP } from '../../services/smtpTransport.js';
 import { NotificacionStrategy } from './NotificacionStrategy.js';
 
 
@@ -7,7 +7,7 @@ export class EmailStrategy extends NotificacionStrategy {
 
   async enviar(usuario, notificacion) {
     if (!usuario.correo) return false;
-    if (!process.env.BREVO_API_KEY) return false;
+    if (!process.env.SMTP_HOST) return false;
 
     const titulos = {
       tarea: '📝 Nueva Tarea',
@@ -19,28 +19,19 @@ export class EmailStrategy extends NotificacionStrategy {
     };
 
     try {
-      await axios.post(
-        'https://api.brevo.com/v3/smtp/email',
-        {
-          sender: {
-            name:  process.env.BREVO_SENDER_NAME || 'Edumon',
-            email: process.env.BREVO_SENDER_EMAIL,
-          },
-          to: [{ email: usuario.correo, name: usuario.nombre }],
-          subject: titulos[notificacion.tipo] || 'Notificación Edumon',
-          htmlContent: this._generarHTML(usuario, notificacion)
+      const transporte = getTransportSMTP();
+      await transporte.sendMail({
+        from: {
+          name:    process.env.SMTP_FROM_NAME || 'Edumon',
+          address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         },
-        {
-          headers: {
-            'api-key':      process.env.BREVO_API_KEY,
-            'Content-Type': 'application/json',
-            Accept:         'application/json'
-          }
-        }
-      );
+        to: { name: usuario.nombre, address: usuario.correo },
+        subject: titulos[notificacion.tipo] || 'Notificación Edumon',
+        html: this._generarHTML(usuario, notificacion)
+      });
       return true;
     } catch (error) {
-      console.error('[EmailStrategy] Error:', error.response?.data || error.message);
+      console.error('[EmailStrategy] Error:', error.message);
       return false;
     }
   }

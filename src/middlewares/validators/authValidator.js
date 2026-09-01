@@ -1,14 +1,7 @@
 import { body } from 'express-validator';
 import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
 
-/**
- * Sanitizador único de teléfonos: da igual si el cliente manda "3001234567",
- * "57 300 123 4567" o "+573001234567" — al controlador siempre llega
- * "+57XXXXXXXXXX". Si no es un número válido se conserva el valor original
- * para que .matches() muestre el mensaje de error correcto.
- *
- * Es lo que permite que iniciar sesión funcione escribiendo el +57 o sin él.
- */
+// normaliza a +57XXXXXXXXXX así el login funciona con o sin el +57
 const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const registerValidator = [

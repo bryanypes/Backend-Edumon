@@ -1,11 +1,7 @@
 // src/models/PerfilFamiliar.js
 import mongoose from 'mongoose';
 
-/**
- * Un perfil familiar pertenece a una cuenta titular (User).
- * No tiene credenciales propias — se accede desde la sesión del titular.
- * Modelo similar a perfiles de Netflix.
- */
+// sin credenciales propias, se accede desde la sesión del titular (estilo perfiles de Netflix)
 const perfilFamiliarSchema = new mongoose.Schema({
   titularId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -23,7 +19,6 @@ const perfilFamiliarSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // FCM token del dispositivo donde este perfil está activo
   fcmToken: {
     type: String,
     default: null

@@ -10,7 +10,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seedAdmins.js",
-    "test:email": "node src/scripts/testBrevoEmail.js",
+    "test:email": "node src/scripts/testSmtpEmail.js",
     "reset-db": "node reset.js",
     "reset-db:confirm": "node reset.js --confirm",
     "test": "vitest run",
@@ -29,7 +29,6 @@
   "license": "SEE LICENSE IN README.md",
   "description": "Backend (API REST) de Edumon, plataforma de gestion escolar para instituciones, docentes y padres/acudientes.",
   "dependencies": {
-    "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",
     "compression": "^1.8.1",
@@ -47,6 +46,7 @@
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "nodemailer": "^9.1.0",
     "socket.io": "^4.8.1",
     "twilio": "^5.10.3"
   },

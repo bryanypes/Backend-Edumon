@@ -32,11 +32,9 @@ const moduloSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índices para mejorar búsquedas
 moduloSchema.index({ cursoId: 1, fechaCreacion: -1 });
 moduloSchema.index({ estado: 1 });
 
-// Método para verificar si el módulo pertenece a un curso
 moduloSchema.methods.perteneceACurso = function(cursoId) {
   return this.cursoId.toString() === cursoId.toString();
 };

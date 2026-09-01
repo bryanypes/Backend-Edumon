@@ -10,26 +10,19 @@ import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// Duraciones
 const ACCESS_TOKEN_TTL  = '15m';
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 
-// Cookie base compartida
 const COOKIE_BASE = {
   httpOnly: true,
-  secure:   IS_PROD,           // solo HTTPS en producción — SameSite=None exige Secure
-  // 'none' en prod: el frontend (web/Flutter web) vive en un origen distinto al backend
-  // (ej. Render), así que la cookie es cross-site. 'strict'/'lax' hacen que el navegador
-  // NUNCA la reenvíe en ese caso — el login "funciona" pero toda petición protegida
-  // siguiente llega sin cookie y cae en 401.
+  secure:   IS_PROD,           // SameSite=None exige Secure
+  // 'none' en prod porque frontend y backend viven en orígenes distintos (cross-site);
+  // con 'strict'/'lax' el navegador no reenvía la cookie y todo cae en 401
   sameSite: IS_PROD ? 'none' : 'lax',
   path:     '/',
 };
 
-// Helpers de token
-
-// `perfilId`/`esTitular` identifican qué perfil familiar está activo (ver
-// seleccionarPerfil en perfilFamiliarController.js); por defecto es el titular.
+// perfilId/esTitular identifican el perfil familiar activo (ver seleccionarPerfil)
 export const generarAccessToken = (user, { perfilId = null, esTitular = true } = {}) =>
   jwt.sign(
     {
@@ -53,7 +46,6 @@ const generarRefreshToken = () => {
 // Exportado para que otros controladores (ej. seleccionarPerfil) puedan renovar
 // solo el access token sin tocar el refresh token / la sesión de login.
 export const setAccessTokenCookie = (res, accessToken) => {
-  // Access token: expira cuando cierra el browser o en 15 min
   res.cookie('access_token', accessToken, {
     ...COOKIE_BASE,
     maxAge: 15 * 60 * 1000,
@@ -63,13 +55,8 @@ export const setAccessTokenCookie = (res, accessToken) => {
 const setSessionCookies = (res, accessToken, refreshToken) => {
   setAccessTokenCookie(res, accessToken);
 
-  // Refresh token: persiste 7 días
-  // path: '/api/auth' (no '/api/auth/refresh') — debe llegar también a
-  // /api/auth/logout, que es quien la lee para revocar esa sesión puntual en
-  // BD. Con path: '/api/auth/refresh' el navegador nunca la envía a
-  // /api/auth/logout (path hermano, no un subpath), así que logout() jamás
-  // encontraba el token que debía revocar: solo limpiaba las cookies del
-  // cliente y la sesión seguía siendo válida en el servidor hasta expirar sola.
+  // path: '/api/auth' (no '/api/auth/refresh') para que también llegue a
+  // /api/auth/logout, que la necesita para revocar la sesión en BD
   res.cookie('refresh_token', refreshToken, {
     ...COOKIE_BASE,
     path:   '/api/auth',
@@ -90,7 +77,6 @@ export const extractAccessToken = (req) => {
   return null;
 };
 
-// Datos públicos de usuario
 const publicUser = (user) => ({
   id:                 user._id,
   nombre:             user.nombre,
@@ -147,13 +133,11 @@ export const register = async (req, res) => {
 
     const savedUser = await newUser.save();
 
-    // Emitir sesión completa igual que en login
     const accessToken    = generarAccessToken(savedUser);
     const { raw, hash }  = generarRefreshToken();
     const expiraEn       = new Date(Date.now() + REFRESH_TOKEN_TTL);
 
-    // refreshTokens tiene select:false en el schema, pero savedUser es el mismo
-    // documento recién creado en memoria, así que ya lo trae sin necesidad de recargarlo
+    // refreshTokens tiene select:false, pero savedUser ya lo trae en memoria
     savedUser.refreshTokens.push({
       tokenHash: hash,
       expiraEn,
@@ -199,12 +183,11 @@ export const login = async (req, res) => {
     const esPrimerInicio = user.primerInicioSesion;
     user.ultimoAcceso    = new Date();
 
-    // Limpiar refresh tokens expirados antes de agregar uno nuevo
     user.refreshTokens = user.refreshTokens.filter(
       (t) => t.expiraEn > new Date(),
     );
 
-    // Máximo 5 sesiones simultáneas: eliminar la más antigua si se supera
+    // máximo 5 sesiones simultáneas
     if (user.refreshTokens.length >= 5) {
       user.refreshTokens.sort((a, b) => a.creadoEn - b.creadoEn);
       user.refreshTokens.shift();
@@ -244,7 +227,6 @@ export const refresh = async (req, res) => {
 
     const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    // Buscar usuario que tenga ese hash y no esté expirado
     const user = await User.findOne({
       'refreshTokens.tokenHash': hash,
       'refreshTokens.expiraEn':  { $gt: new Date() },
@@ -320,10 +302,7 @@ export const getProfile = async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-    // Perfil familiar activo en esta sesión (ver seleccionarPerfil en
-    // perfilFamiliarController.js). Por defecto es el titular; si el token
-    // trae un perfilId secundario se resuelve su nombre/avatar propios para
-    // que el frontend pueda mostrar "estás como [nombre]".
+    // perfil familiar activo en esta sesión; por defecto el titular
     let perfilActivo = {
       _id:       user._id,
       nombre:    user.nombre,
@@ -338,9 +317,7 @@ export const getProfile = async (req, res) => {
         activo:    true,
       }).lean();
 
-      // Si el perfil fue eliminado, el token sigue vigente hasta que expire
-      // (máx. 15 min); mientras tanto se cae de vuelta al titular en vez de
-      // romper la respuesta.
+      // si el perfil fue eliminado, cae de vuelta al titular hasta que expire el token
       if (perfil) {
         perfilActivo = {
           _id:       perfil._id,

@@ -79,13 +79,11 @@ const procesarArchivosAdjuntos = async (files) => {
   return { archivos, errores };
 };
 
-// Crear foro
 export const crearForo = async (req, res) => {
   try {
     const { titulo, descripcion, cursoId, publico } = req.body;
     const docenteId = req.user.userId;
 
-    // Validaciones básicas
     if (!titulo || !descripcion || !cursoId) {
       return res.status(400).json({ 
         message: 'Faltan campos requeridos: titulo, descripcion, cursoId' 
@@ -98,8 +96,6 @@ export const crearForo = async (req, res) => {
       return res.status(404).json({ message: 'Curso no encontrado' });
     }
 
-    // "administrador" antes tenía bypass total (sin importar la institución del curso);
-    // ahora solo puede crear foros en cursos de su propia institución.
     if (req.user.rol === 'docente' && curso.docenteId.toString() !== docenteId) {
       return res.status(403).json({
         message: 'No tienes permisos para crear foros en este curso'
@@ -163,7 +159,6 @@ export const crearForo = async (req, res) => {
   }
 };
 
-// Obtener foros de un curso
 export const obtenerForosPorCurso = async (req, res) => {
   try {
     const { cursoId } = req.params;
@@ -198,7 +193,6 @@ export const obtenerForosPorCurso = async (req, res) => {
   }
 };
 
-// Obtener un foro por ID
 export const obtenerForoPorId = async (req, res) => {
   try {
     const { id } = req.params;
@@ -229,7 +223,6 @@ export const obtenerForoPorId = async (req, res) => {
   }
 };
 
-// Actualizar foro
 export const actualizarForo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -241,7 +234,6 @@ export const actualizarForo = async (req, res) => {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    // Verificar permisos
     const esCreador = foro.docenteId.toString() === usuarioId;
     const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
       (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
@@ -250,7 +242,6 @@ export const actualizarForo = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permisos para actualizar este foro' });
     }
 
-    // Actualizar campos
     if (titulo) foro.titulo = titulo;
     if (descripcion) foro.descripcion = descripcion;
     if (estado) foro.estado = estado;
@@ -273,7 +264,6 @@ export const actualizarForo = async (req, res) => {
   }
 };
 
-// Eliminar foro
 export const eliminarForo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -284,7 +274,6 @@ export const eliminarForo = async (req, res) => {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    // Verificar permisos
     const esCreador = foro.docenteId.toString() === usuarioId;
     const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
       (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
@@ -335,7 +324,6 @@ export const cambiarEstadoForo = async (req, res) => {
       return res.status(404).json({ message: 'Foro no encontrado' });
     }
 
-    // Verificar permisos
     const esCreador = foro.docenteId.toString() === usuarioId;
     const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
       (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
@@ -358,9 +346,7 @@ export const cambiarEstadoForo = async (req, res) => {
   }
 };
 
-// GET /foros/:id/dashboard
-// Devuelve foro + mensajes recientes + participantes activos + estadísticas + actividad
-// NO reemplaza las APIs separadas — solo optimiza UX con un solo fetch
+// agrega foro + mensajes recientes + participantes activos + estadísticas en un fetch
 export const getDashboardForo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -384,18 +370,15 @@ export const getDashboardForo = async (req, res) => {
     }
 
     const [mensajesRecientes, todosLosMensajes] = await Promise.all([
-      // Últimos 10 mensajes raíz (sin respuestas) con autor
       MensajeForo.find({ foroId: id, respuestaA: null })
         .sort({ fechaCreacion: -1 })
         .limit(10)
         .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
         .lean(),
 
-      // Todos los mensajes para calcular estadísticas y actividad
       MensajeForo.find({ foroId: id }).lean()
     ]);
 
-    // Participantes activos: usuarios únicos que han publicado al menos un mensaje
     const mapaParticipantes = new Map();
 
     for (const msg of todosLosMensajes) {
@@ -414,7 +397,6 @@ export const getDashboardForo = async (req, res) => {
       }
     }
 
-    // Poblar datos de usuario para los participantes
     const idsParticipantes = [...mapaParticipantes.keys()].map(
       id => new mongoose.Types.ObjectId(id)
     );
@@ -431,7 +413,7 @@ export const getDashboardForo = async (req, res) => {
         ultimaActividad: mapaParticipantes.get(u._id.toString()).ultimaActividad
       }))
       .sort((a, b) => b.totalMensajes - a.totalMensajes)
-      .slice(0, 10); // Top 10
+      .slice(0, 10);
 
     const totalMensajes = todosLosMensajes.length;
     const totalRespuestas = todosLosMensajes.filter(m => m.respuestaA !== null).length;
@@ -449,7 +431,7 @@ export const getDashboardForo = async (req, res) => {
         : 0
     };
 
-    // Actividad por día (últimos 7 días)
+    // actividad por día, últimos 7 días
     const hace7Dias = new Date();
     hace7Dias.setDate(hace7Dias.getDate() - 6);
     hace7Dias.setHours(0, 0, 0, 0);

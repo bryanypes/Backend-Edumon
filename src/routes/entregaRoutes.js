@@ -46,10 +46,7 @@ router.get(
   getAllEntregas
 );
 
-// Solo docente/administrador: a diferencia de /mis-entregas/:tareaId (que se filtra por
-// req.user.userId), este endpoint no tenía ninguna verificación de propiedad, por lo que
-// cualquier padre autenticado podía leer las entregas y calificaciones de cualquier tarea
-// con solo conocer/adivinar el tareaId.
+// sin este rol, cualquier padre autenticado podía leer entregas de cualquier tarea
 router.get(
   '/tarea/:tareaId',
   authMiddleware,
@@ -57,8 +54,7 @@ router.get(
   getEntregasByTarea
 );
 
-// Solo docente/administrador: sin este rol, cualquier padre autenticado podía pasar el
-// padreId de otra familia y ver sus entregas/calificaciones.
+// sin este rol, cualquier padre autenticado podía pasar el padreId de otra familia
 router.get(
   '/padre/:padreId',
   authMiddleware,

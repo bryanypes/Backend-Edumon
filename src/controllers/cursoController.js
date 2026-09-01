@@ -154,7 +154,6 @@ async function procesarUsuariosCSV(file, cursoId) {
   }
 }
 
-// Crear curso
 export const createCurso = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -256,7 +255,6 @@ export const createCurso = async (req, res) => {
   }
 };
 
-// Listar cursos
 export const getCursos = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -265,10 +263,7 @@ export const getCursos = async (req, res) => {
 
     const { estado, docenteId } = req.query;
 
-    // Aislamiento por institución: sin este filtro, cualquier admin/docente/padre
-    // autenticado (el rol lo permite la ruta) podía listar los cursos de TODAS
-    // las instituciones de la plataforma, incluyendo datos de contacto de
-    // docentes y participantes de colegios ajenos.
+    // aislamiento por institución: sin esto, cualquier rol veía cursos de toda la plataforma
     const filtro = { institucionId: req.user.institucionId };
     filtro.estado = estado || { $in: ['activo', 'archivado'] };
     if (docenteId) filtro.docenteId = docenteId;
@@ -305,7 +300,6 @@ export const getCursos = async (req, res) => {
   }
 };
 
-// Obtener curso por ID
 export const getCursoById = async (req, res) => {
   try {
     const curso = await Curso.findById(req.params.id)
@@ -374,7 +368,6 @@ export const getMisCursos = async (req, res) => {
   }
 };
 
-// Actualizar curso
 export const updateCurso = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -614,11 +607,9 @@ export const agregarParticipante = async (req, res) => {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         cedula: cedula.trim(),
-        // Mismo formato que en el resto del sistema: +57XXXXXXXXXX
         telefono: normalizarTelefono(telefono) || telefono?.trim() || '',
         correo: correoTemporal,
-        // Regla única del sistema: contraseña inicial = cédula
-        contraseña: contraseña?.trim() || cedula.trim(),
+        contraseña: contraseña?.trim() || cedula.trim(), // regla única: contraseña inicial = cédula
         rol: 'padre',
         estado: 'activo',
         fotoPerfilUrl: AVATAR_PREDETERMINADO
@@ -668,7 +659,6 @@ export const agregarParticipante = async (req, res) => {
   }
 };
 
-// Remover participante de un curso
 export const removerParticipante = async (req, res) => {
   try {
     const { id, usuarioId } = req.params;

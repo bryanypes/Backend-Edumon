@@ -25,13 +25,8 @@ import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
 import buzonRoutes from './routes/buzonRoutes.js';
 
-/**
- * Construye la app Express + servidor HTTP + Socket.IO, sin efectos secundarios
- * (no conecta a Mongo, no arranca el scheduler, no llama a .listen()).
- * server.js es el único responsable de esas tres cosas en producción/desarrollo;
- * los tests importan este archivo directamente y controlan ellos mismos la BD
- * (mongodb-memory-server) y el ciclo de vida del servidor HTTP.
- */
+// Solo construye app + server + io. server.js conecta Mongo y arranca el
+// scheduler; los tests importan este archivo directo con su propia BD en memoria.
 export const crearApp = () => {
   const app    = express();
   const server = http.createServer(app);
@@ -39,21 +34,10 @@ export const crearApp = () => {
 
   app.set('trust proxy', 1);
 
-  // Middlewares tempranos
-  // 30s se quedaba corto para las rutas que suben archivos a Cloudinary
-  // (tareas, entregas, fotos de curso/perfil, CSV de docentes/padres/
-  // instituciones — ver grep de "upload." en routes/): en Render, sin
-  // arranque en caliente, un solo archivo de varios MB o una imagen externa
-  // que Cloudinary tiene que descargar (ver "enlaces" en tareas) pueden
-  // tardar más de 30s. La petición SÍ terminaba de procesarse en el
-  // servidor, pero el cliente ya había recibido un 503 "Response timeout" y
-  // el usuario veía el guardado como fallido — de ahí que hubiera que
-  // reintentar varias veces (con el riesgo real de crear duplicados, porque
-  // el intento anterior seguía corriendo en segundo plano).
+  // 30s es corto para uploads grandes a Cloudinary en Render (cold start)
   app.use(timeout('90s'));
   app.use(compression());
 
-  // Orígenes permitidos
   const frontendUrls = (process.env.FRONTEND_URL || '')
     .split(',')
     .map((url) => url.trim())
@@ -70,7 +54,6 @@ export const crearApp = () => {
     ...frontendUrls,
   ].filter(Boolean);
 
-  // Seguridad (Helmet)
   app.use(
     helmet({
       hsts: {
@@ -105,7 +88,6 @@ export const crearApp = () => {
     next();
   });
 
-  // Sanitización NoSQL
   app.use((req, res, next) => {
     const sanitize = (obj) => {
       if (!obj || typeof obj !== 'object') return;
@@ -132,13 +114,8 @@ export const crearApp = () => {
     next();
   });
 
-  // Rate limit global
-  // BUG REAL corregido: 100 req/15min por IP asumía un usuario = una IP.
-  // En un colegio, decenas de padres/docentes comparten la MISMA IP pública
-  // (wifi institucional/NAT) — con el límite viejo, tráfico legítimo de un
-  // puñado de familias agotaba la cuota y todos empezaban a ver 429, no solo
-  // quien estuviera abusando. 500/15min sigue frenando un flood real de una
-  // sola IP sin castigar el uso normal compartido.
+  // 500/15min por IP: con wifi institucional muchas familias comparten IP,
+  // un límite más bajo tumbaba a todo el colegio por el tráfico de unos pocos
   const makeRateLimitHandler = (mensaje) =>
     rateLimit({
       windowMs:         15 * 60 * 1000,
@@ -160,15 +137,8 @@ export const crearApp = () => {
 
   app.use('/api/', makeRateLimitHandler('Demasiadas solicitudes, intenta más tarde'));
 
-  // Rate limit estricto para endpoints de autenticación
-  // BUG REAL corregido: al limitar por IP, un docente anunciando "entren
-  // ahora a la app" hacía que el 11º padre conectado desde la misma wifi del
-  // colegio quedara bloqueado sin haber hecho nada malo — el límite se
-  // agotaba con intentos de OTRAS personas. Ahora se limita por el teléfono
-  // que se está intentando usar (la credencial real bajo ataque en un
-  // brute-force), no por quién comparte la salida a internet; con
-  // ipKeyGenerator en vez de req.ip crudo para no reabrir el bypass de
-  // rate-limit por subred IPv6 que express-rate-limit v8 valida al arrancar.
+  // Limita por teléfono en vez de IP: en wifi compartida de colegio, un
+  // límite por IP bloqueaba a todos los padres por los intentos de uno solo
   const limiterAuth = rateLimit({
     windowMs:        15 * 60 * 1000,
     max:             10,

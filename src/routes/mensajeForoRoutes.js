@@ -18,7 +18,6 @@ import { validationResult } from 'express-validator';
 
 const router = express.Router();
 
-// Middleware para manejar errores de validación
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -27,7 +26,6 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Middleware para subir archivos (imágenes, videos, PDFs)
 import multer from 'multer';
 
 const storage = multer.memoryStorage();
@@ -35,8 +33,8 @@ const storage = multer.memoryStorage();
 const uploadArchivosMensajeMiddleware = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB máximo
-    files: 5 // Máximo 5 archivos
+    fileSize: 10 * 1024 * 1024,
+    files: 5
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -59,9 +57,6 @@ const uploadArchivosMensajeMiddleware = multer({
   }
 });
 
-// Rutas de mensajes de foro
-
-// Crear mensaje/respuesta en foro
 router.post(
   '/',
   authMiddleware,
@@ -71,7 +66,6 @@ router.post(
   crearMensaje
 );
 
-// Obtener mensajes de un foro
 router.get(
   '/foro/:foroId',
   authMiddleware,
@@ -80,7 +74,6 @@ router.get(
   obtenerMensajesPorForo
 );
 
-// Dar/quitar like a un mensaje
 router.post(
   '/:id/like',
   authMiddleware,
@@ -89,7 +82,6 @@ router.post(
   toggleLikeMensaje
 );
 
-// Actualizar mensaje
 router.put(
   '/:id',
   authMiddleware,
@@ -98,7 +90,6 @@ router.put(
   actualizarMensaje
 );
 
-// Eliminar mensaje
 router.delete(
   '/:id',
   authMiddleware,

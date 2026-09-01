@@ -2,7 +2,6 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { extractAccessToken } from '../controllers/authController.js';
 
-// Middleware principal de autenticación
 export const authMiddleware = async (req, res, next) => {
   try {
     const token = extractAccessToken(req);

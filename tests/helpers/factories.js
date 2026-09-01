@@ -90,12 +90,8 @@ export async function crearModulo(overrides = {}) {
   });
 }
 
-// A las funciones "creadoras internas" de abajo (crearModulo, crearCurso...) NUNCA
-// se les pasa una clave con valor `undefined` explícito (ej. `{ cursoId: undefined }`):
-// el spread SÍ copia claves cuyo valor es `undefined` si la clave existe en el
-// objeto, y eso pisaría el valor por defecto que esa función ya calculó. Por
-// eso los helpers de abajo arman el objeto condicionalmente (`cursoId ? {cursoId} : {}`)
-// en vez de pasar `{ cursoId }` a secas.
+// nunca pasar { cursoId: undefined } a los creadores de abajo: el spread SÍ copia
+// claves con valor undefined y pisaría el default que la función ya calculó
 
 export async function crearTarea(overrides = {}) {
   const n = siguiente();

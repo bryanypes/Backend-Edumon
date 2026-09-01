@@ -20,11 +20,7 @@ export const buzonValidator = [
     .isEmail().withMessage('El correo no es válido')
     .normalizeEmail(),
 
-  // BUG REAL corregido: el formulario público (landing) marca este campo
-  // como opcional y manda el teléfono tal cual lo escribe el usuario (sin
-  // +57) — con `.notEmpty()` + regex estricto, CUALQUIER envío sin teléfono
-  // o sin el prefijo +57 devolvía 400 siempre, dejando el formulario de
-  // contacto roto en la práctica.
+  // opcional: el formulario público lo manda sin +57, y notEmpty() + regex estricto lo rechazaba siempre
   body('telefono')
     .optional({ checkFalsy: true })
     .trim()

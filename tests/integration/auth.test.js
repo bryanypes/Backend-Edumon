@@ -4,7 +4,7 @@ import crearApp from '../../src/app.js';
 import User from '../../src/models/User.js';
 import { crearPadre, telefonoDePrueba, cedulaDePrueba, CONTRASEÑA_PRUEBA } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
-import { axiosPostMock, twilioCreateMock } from '../setup/mocks.js';
+import { nodemailerSendMailMock, twilioCreateMock } from '../setup/mocks.js';
 
 describe('POST /api/auth/register', () => {
   let app;
@@ -189,11 +189,6 @@ describe('POST /api/auth/logout y /api/auth/logout-all', () => {
   let app;
   beforeEach(() => { ({ app } = crearApp()); });
 
-  // CORREGIDO: la cookie refresh_token tenía path: '/api/auth/refresh', así
-  // que un navegador real nunca la enviaba en una petición a /api/auth/logout
-  // (path hermano, no subpath) — el controlador nunca encontraba el token que
-  // debía revocar y la sesión seguía válida en BD pese al "logout". Ahora el
-  // path es '/api/auth', que sí cubre a /api/auth/logout.
   it('logout limpia las cookies del cliente Y revoca el refresh token de esa sesión en BD, sin tocar las demás sesiones', async () => {
     const padre = await crearPadre();
     await loginComo(app, padre); // primera sesión
@@ -266,12 +261,12 @@ describe('Recuperación de contraseña por correo', () => {
   let app;
   beforeEach(() => {
     ({ app } = crearApp());
-    axiosPostMock.mockClear();
+    nodemailerSendMailMock.mockClear();
   });
 
   const extraerCodigo = () => {
-    const [, cuerpo] = axiosPostMock.mock.calls.at(-1);
-    const match = cuerpo.htmlContent.match(/(\d{6})/);
+    const [msg] = nodemailerSendMailMock.mock.calls.at(-1);
+    const match = msg.html.match(/(\d{6})/);
     return match[1];
   };
 
@@ -280,7 +275,7 @@ describe('Recuperación de contraseña por correo', () => {
 
     const solicitud = await request(app).post('/api/auth/forgot-password').send({ correo: padre.correo });
     expect(solicitud.status).toBe(200);
-    expect(axiosPostMock).toHaveBeenCalledTimes(1);
+    expect(nodemailerSendMailMock).toHaveBeenCalledTimes(1);
 
     const codigo = extraerCodigo();
 
@@ -299,7 +294,7 @@ describe('Recuperación de contraseña por correo', () => {
     const res = await request(app).post('/api/auth/forgot-password').send({ correo: 'nadie@test.edumon.com' });
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/Si el correo está registrado/);
-    expect(axiosPostMock).not.toHaveBeenCalled();
+    expect(nodemailerSendMailMock).not.toHaveBeenCalled();
   });
 
   it('responde 400 con un código incorrecto', async () => {

@@ -6,7 +6,6 @@ import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { parseJSONArray } from '../utils/parseJSONArray.js';
 
-// Determina el resource_type de Cloudinary a partir del formato guardado en el adjunto
 function resourceTypeDeFormato(formato) {
   const IMAGENES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
   const VIDEOS = ['mp4', 'mpeg', 'mov', 'avi', 'webm'];
@@ -16,7 +15,7 @@ function resourceTypeDeFormato(formato) {
   return 'raw';
 }
 
-// Verifica que el usuario pertenezca al curso (mismo criterio usado en moduloController)
+// mismo criterio que moduloController
 function usuarioPerteneceACurso(curso, user) {
   switch (user.rol) {
     case 'superadmin':
@@ -30,11 +29,7 @@ function usuarioPerteneceACurso(curso, user) {
   }
 }
 
-// Traduce un ValidationError de Mongoose a una respuesta 400 con el campo específico.
-// Usa las mismas claves "path"/"msg" que express-validator (ver errors.array()
-// más abajo): parseValidationErrors.js en el frontend solo reconoce esas, así
-// que "campo"/"mensaje" aquí dejaría el mensaje de error sin pintar junto al
-// campo correspondiente.
+// path/msg igual que express-validator: el frontend solo reconoce esas claves
 function responderValidationError(res, error) {
   const errores = Object.entries(error.errors).map(([path, err]) => ({
     path,
@@ -46,7 +41,6 @@ function responderValidationError(res, error) {
   });
 }
 
-// Crear tarea
 export const createTarea = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -57,12 +51,7 @@ export const createTarea = async (req, res) => {
       });
     }
 
-    // El docente de la tarea es siempre el usuario autenticado, nunca el del
-    // body (evita que cualquier usuario cree tareas suplantando a otro
-    // docente). Falla temprano y con un mensaje claro si por algún motivo
-    // authMiddleware no llegó a poblar req.user — así "docenteId" nunca
-    // llega vacío a Tarea.save(), donde el error del schema no dice de
-    // dónde vino el problema.
+    // docenteId siempre del token, nunca del body, para evitar suplantación
     if (!req.user?.userId) {
       return res.status(401).json({ message: "Usuario no autenticado" });
     }
@@ -71,8 +60,7 @@ export const createTarea = async (req, res) => {
     // FormData manda esto como string JSON — normalizar antes de usarlo
     req.body.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
 
-    // requireRole solo exige que sea docente/administrador, no que sea dueño del curso:
-    // sin este chequeo cualquier docente podía crear tareas en cursos ajenos.
+    // requireRole no valida dueño del curso, solo el rol
     const curso = await Curso.findById(req.body.cursoId).select('docenteId institucionId participantes');
 
     if (!curso) {
@@ -87,7 +75,6 @@ export const createTarea = async (req, res) => {
       });
     }
 
-    // Validar que los participantes seleccionados pertenezcan al curso
     if (req.body.asignacionTipo === 'seleccionados' &&
       req.body.participantesSeleccionados?.length > 0) {
 
@@ -110,11 +97,7 @@ export const createTarea = async (req, res) => {
     const archivosAdjuntos = [];
 
     if (req.files && req.files.length > 0) {
-      // Aislado en su propio try/catch: si Cloudinary falla o se cuelga
-      // (ver timeout agregado en config/cloudinary.js), el docente necesita
-      // un mensaje claro y accionable — no el "Error interno del servidor"
-      // genérico del catch de abajo, que en producción ni siquiera muestra
-      // el detalle (error.message solo se expone en NODE_ENV=development).
+      // try/catch propio para devolver un 503 accionable en vez del 500 genérico
       try {
         const subidos = await Promise.all(req.files.map(async (file) => {
           const fileBuffer = await getFileBuffer(file);
@@ -152,15 +135,13 @@ export const createTarea = async (req, res) => {
 
     req.body.archivosAdjuntos = archivosAdjuntos;
 
-    // docenteId explícito al construir el documento (no solo confiado a la
-    // mutación de arriba): así el creador de la tarea SIEMPRE es el usuario
-    // del token, sin importar qué más haya tocado req.body en el camino.
+    // docenteId explícito otra vez para que nada en req.body lo pueda pisar
     const newTarea = new Tarea({ ...req.body, docenteId: req.user.userId });
     let savedTarea;
     try {
       savedTarea = await newTarea.save();
     } catch (saveError) {
-      // La tarea no se creó: limpiar los archivos que ya se subieron a Cloudinary
+      // save falló: limpiar lo ya subido a Cloudinary
       await Promise.all(
         archivosAdjuntos
           .filter(a => a.tipo === 'archivo' && a.publicId)
@@ -190,11 +171,6 @@ export const createTarea = async (req, res) => {
       tarea: savedTarea
     });
   } catch (error) {
-    // Un rechazo de validación del schema (ej. docenteId/fechaEntrega
-    // ausentes) es un problema de los datos enviados, no del servidor —
-    // debe volver como 400 con el campo específico, igual que los errores
-    // de express-validator, para que el frontend los pinte junto al campo
-    // (ver parseValidationErrors.js) en vez de un 500 genérico.
     if (error.name === 'ValidationError') {
       return responderValidationError(res, error);
     }
@@ -207,11 +183,10 @@ export const createTarea = async (req, res) => {
   }
 };
 
-// Listar tareas con paginación, filtros y permisos
 export const getTareas = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 10, 50); // máximo 50
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
     const skip = (page - 1) * limit;
     const { cursoId, moduloId, docenteId, estado, asignacionTipo } = req.query;
 
@@ -232,8 +207,7 @@ export const getTareas = async (req, res) => {
       filter.docenteId = userId;
     }
     else if (userRole === 'administrador') {
-      // Sin esto, un administrador veía tareas de TODAS las instituciones de
-      // la plataforma (mismo problema ya corregido antes en cursos/eventos/foros).
+      // limitar a la institución del admin, no toda la plataforma
       const cursosDeLaInstitucion = await Curso.find({ institucionId }).select('_id');
       filter.cursoId = { $in: cursosDeLaInstitucion.map((c) => c._id) };
     }
@@ -300,7 +274,6 @@ export const getTareas = async (req, res) => {
   }
 };
 
-// Obtener tarea por ID
 export const getTareaById = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -339,7 +312,6 @@ export const getTareaById = async (req, res) => {
   }
 };
 
-// Actualizar tarea
 export const updateTarea = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -353,7 +325,6 @@ export const updateTarea = async (req, res) => {
     const { id } = req.params;
     const updateData = {};
 
-    // Obtener tarea actual
     const tareaActual = await Tarea.findById(id);
     if (!tareaActual) {
       return res.status(404).json({
@@ -391,8 +362,7 @@ export const updateTarea = async (req, res) => {
 
     let nuevosSubidos = [];
     if (req.files && req.files.length > 0) {
-      // Mismo aislamiento que en createTarea: un fallo/timeout de Cloudinary
-      // aquí debe ser un 503 claro, no colarse hasta el catch genérico.
+      // mismo aislamiento que en createTarea
       try {
         nuevosSubidos = await Promise.all(req.files.map(async (file) => {
           const fileBuffer = await getFileBuffer(file);
@@ -459,7 +429,7 @@ export const updateTarea = async (req, res) => {
         .populate('moduloId', 'titulo')
         .populate('participantesSeleccionados', 'nombre apellido correo');
     } catch (updateError) {
-      // La actualización falló: limpiar los archivos recién subidos a Cloudinary
+      // update falló: limpiar lo recién subido a Cloudinary
       await Promise.all(
         nuevosSubidos.map(a => eliminarArchivoCloudinary(a.publicId, resourceTypeDeFormato(a.formato)))
       );
@@ -482,7 +452,6 @@ export const updateTarea = async (req, res) => {
   }
 };
 
-// Cerrar tarea (cambiar estado)
 export const closeTarea = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -548,8 +517,7 @@ export const deleteTarea = async (req, res) => {
       );
     }
 
-    // Los archivos ya fueron borrados de Cloudinary: limpiar también las referencias
-    // en el documento para no dejar enlaces rotos en archivosAdjuntos
+    // limpiar referencias a los archivos ya borrados de Cloudinary
     const updatedTarea = await Tarea.findByIdAndUpdate(
       id,
       { estado: 'cerrada', archivosAdjuntos: (tarea.archivosAdjuntos || []).filter(a => a.tipo !== 'archivo') },

@@ -1,12 +1,6 @@
 import Tarea from '../models/Tarea.js';
 
-/**
- * Middleware para verificar si un usuario puede ver una tarea específica
- * Permite acceso a:
- * - Docente asignado a la tarea
- * - Participantes seleccionados (si asignacionTipo es "seleccionados")
- * - Todos los participantes del curso (si asignacionTipo es "todos")
- */
+// acceso: docente asignado, o participante del curso/seleccionados según asignacionTipo
 export const canViewTarea = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -23,12 +17,10 @@ export const canViewTarea = async (req, res, next) => {
       });
     }
 
-    // 1. Si es el docente asignado, tiene acceso total
     if (tarea.docenteId._id.toString() === userId) {
       return next();
     }
 
-    // 2. Si la tarea es para "seleccionados"
     if (tarea.asignacionTipo === 'seleccionados') {
       const isSelected = tarea.participantesSeleccionados.some(
         participante => participante.toString() === userId
@@ -43,7 +35,6 @@ export const canViewTarea = async (req, res, next) => {
       return next();
     }
 
-    // 3. Si la tarea es para "todos", verificar que sea participante del curso
     if (tarea.asignacionTipo === 'todos') {
       const isParticipante = tarea.cursoId.participantes.some(
         p => p.usuarioId.toString() === userId
@@ -58,7 +49,6 @@ export const canViewTarea = async (req, res, next) => {
       return next();
     }
 
-    // Si no cumple ninguna condición, denegar acceso
     return res.status(403).json({
       message: "No tienes permiso para ver esta tarea"
     });
@@ -71,10 +61,7 @@ export const canViewTarea = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware para verificar si un usuario puede modificar/eliminar una tarea
- * Solo permite al docente asignado
- */
+// solo el docente asignado puede modificar/eliminar
 export const canModifyTarea = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -103,31 +90,18 @@ export const canModifyTarea = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware para filtrar tareas en el listado según el usuario
- * Modifica el query para mostrar solo las tareas que el usuario puede ver
- */
 export const filterTareasForUser = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const userRole = req.user.rol;
 
-    // administrador/superadmin: el filtrado (por institución) ahora se hace
-    // directamente en el controlador (getTareas); no hace falta nada especial
-    // aquí (antes había un chequeo a 'admin', un valor de rol que nunca
-    // existe realmente, así que nunca se ejecutaba).
-
-    // Si es docente, puede ver todas sus tareas
+    // admin/superadmin se filtran por institución directo en getTareas
     if (userRole === 'docente') {
-      // Agregar filtro adicional para solo sus tareas (opcional)
-      // req.query.docenteId = userId;
       return next();
     }
 
-    // Para estudiantes/padres: modificar el query
-    // Guardar el userId para usarlo en el controlador
     req.filteredUserId = userId;
-    
+
     next();
   } catch (error) {
     console.error('Error en filterTareasForUser:', error);

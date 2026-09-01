@@ -58,11 +58,7 @@ export const canCreateEntrega = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware para verificar si un usuario puede modificar una entrega
- * Solo el padre que creó la entrega puede modificarla
- * Además, solo se puede modificar si está en estado "borrador"
- */
+// Solo el padre que creó la entrega puede modificarla, y solo en estado "borrador"
 export const canModifyEntrega = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -82,8 +78,7 @@ export const canModifyEntrega = async (req, res, next) => {
       });
     }
 
-    // El DELETE en sí lo bloquea deleteEntrega/eliminarArchivoEntrega según su
-    // propia regla; aquí solo aplica al PUT y a enviar.
+    // DELETE tiene su propia regla en deleteEntrega/eliminarArchivoEntrega
     if (entrega.estado !== 'borrador' && req.method !== 'DELETE') {
       return res.status(400).json({
         message: "Solo puedes modificar entregas en estado borrador"
@@ -101,12 +96,7 @@ export const canModifyEntrega = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware para verificar si un usuario puede ver una entrega específica
- * Pueden ver:
- * - El padre que creó la entrega
- * - El docente de la tarea
- */
+// pueden ver: el padre que creó la entrega, el docente de la tarea, admin/superadmin
 export const canViewEntrega = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -133,10 +123,6 @@ export const canViewEntrega = async (req, res, next) => {
       return next();
     }
 
-    // El rol real es "administrador" (no "admin") — este chequeo nunca se
-    // cumplía, así que un administrador siempre recibía 403 aquí aunque la
-    // entrega fuera de un curso de su propia institución. Se acota, igual que
-    // en el resto de la app, a la institución del administrador.
     if (userRole === 'administrador') {
       const curso = await Curso.findById(entrega.tareaId.cursoId).select('institucionId');
       if (curso && curso.institucionId.toString() === institucionId) {
@@ -161,12 +147,7 @@ export const canViewEntrega = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware para verificar si un usuario puede calificar una entrega
- * Solo el docente asignado a la tarea puede calificar.
- * docenteId se toma de req.user.userId (token), no del body: el body lo bloquea
- * calificarEntregaValidator, así que no se valida aquí para no duplicar esa regla.
- */
+// solo el docente asignado a la tarea puede calificar
 export const canCalificarEntrega = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -185,7 +166,6 @@ export const canCalificarEntrega = async (req, res, next) => {
       });
     }
 
-    // Verificar que sea el docente asignado a la tarea
     if (entrega.tareaId.docenteId.toString() !== userId) {
       return res.status(403).json({
         message: "Solo el docente asignado a la tarea puede calificar entregas"
@@ -203,30 +183,18 @@ export const canCalificarEntrega = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware para filtrar entregas en el listado según el usuario
- */
 export const filterEntregasForUser = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const userRole = req.user.rol;
 
-    // administrador/superadmin: el filtrado por institución ahora se hace
-    // directamente en el controlador (getAllEntregas), así que aquí no hace
-    // falta nada especial para esos roles (antes había un chequeo a 'admin',
-    // un valor de rol que nunca existe realmente, así que nunca se ejecutaba).
-
-    // Si es docente, solo ve entregas de sus tareas
+    // admin/superadmin se filtran por institución directo en getAllEntregas
     if (userRole === 'docente') {
-      // Obtener IDs de tareas del docente
       const tareas = await Tarea.find({ docenteId: userId }).select('_id').lean();
       const tareaIds = tareas.map(t => t._id);
-      
-      // Agregar filtro al query
       req.docenteTareaIds = tareaIds;
     }
 
-    // Si es padre/estudiante, solo ve sus propias entregas
     if (userRole === 'padre') {
       req.filteredPadreId = userId;
     }

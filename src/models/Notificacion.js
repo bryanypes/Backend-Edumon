@@ -27,7 +27,6 @@ const notificacionSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // Referencia al recurso que generó la notificación
   referenciaId: {
     type: mongoose.Schema.Types.ObjectId,
     refPath: 'referenciaModelo'
@@ -36,13 +35,11 @@ const notificacionSchema = new mongoose.Schema({
     type: String,
     enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento', 'Buzon', 'Foro']
   },
-  // Datos adicionales para la notificación
   metadata: {
     type: Map,
     of: mongoose.Schema.Types.Mixed,
     default: {}
   },
-  // Prioridad para determinar si enviar push/whatsapp/email
   prioridad: {
     type: String,
     enum: {
@@ -51,14 +48,12 @@ const notificacionSchema = new mongoose.Schema({
     },
     default: "media"
   },
-  // Canales por los que se envió
   canalEnviado: {
     websocket: { type: Boolean, default: false },
     push: { type: Boolean, default: false },
     whatsapp: { type: Boolean, default: false },
     email: { type: Boolean, default: false }
   },
-  // Para notificaciones agrupadas
   agrupacionId: {
     type: String
   }
@@ -68,20 +63,17 @@ const notificacionSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índices para mejorar búsquedas
 notificacionSchema.index({ usuarioId: 1, fecha: -1 });
 notificacionSchema.index({ usuarioId: 1, leido: 1 });
 notificacionSchema.index({ tipo: 1, fecha: -1 });
 notificacionSchema.index({ agrupacionId: 1 });
 notificacionSchema.index({ fecha: 1 }, { expireAfterSeconds: 7776000 }); // 90 días
 
-// Virtual para saber si es reciente (últimas 24h)
 notificacionSchema.virtual('esReciente').get(function () {
   const unDia = 24 * 60 * 60 * 1000;
   return (Date.now() - this.fecha.getTime()) < unDia;
 });
 
-// Método estático para marcar múltiples como leídas
 notificacionSchema.statics.marcarVariasLeidas = async function (usuarioId, notificacionIds) {
   return this.updateMany(
     {
@@ -92,7 +84,6 @@ notificacionSchema.statics.marcarVariasLeidas = async function (usuarioId, notif
   );
 };
 
-// Método estático para marcar todas como leídas
 notificacionSchema.statics.marcarTodasLeidas = async function (usuarioId) {
   return this.updateMany(
     { usuarioId, leido: false },
@@ -100,14 +91,12 @@ notificacionSchema.statics.marcarTodasLeidas = async function (usuarioId) {
   );
 };
 
-// Método estático para obtener no leídas
 notificacionSchema.statics.obtenerNoLeidas = async function (usuarioId) {
   return this.find({ usuarioId, leido: false })
     .sort({ fecha: -1 })
     .populate('referenciaId');
 };
 
-// Método estático para contar no leídas
 notificacionSchema.statics.contarNoLeidas = async function (usuarioId) {
   return this.countDocuments({ usuarioId, leido: false });
 };

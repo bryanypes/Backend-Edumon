@@ -5,9 +5,7 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     setupFiles: ['./tests/setup/vitest.setup.js'],
-    // Los tests de integración comparten una sola BD en memoria por archivo,
-    // así que se corren en serie dentro de cada archivo (evita choques entre
-    // beforeEach/afterEach de distintos tests) pero en paralelo entre archivos.
+    // en serie dentro de cada archivo (comparten una BD en memoria), en paralelo entre archivos
     fileParallelism: true,
     testTimeout: 20000,
     hookTimeout: 30000,

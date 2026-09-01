@@ -1,12 +1,7 @@
 import { body, param } from 'express-validator';
 import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
 
-/**
- * Sanitizador único de teléfonos: acepte lo que acepte el cliente
- * ("3001234567", "57 300 123 4567", "+573001234567"), lo que llega al
- * controlador es SIEMPRE "+57XXXXXXXXXX". Si el número es inválido se deja
- * el valor original para que .matches() produzca el mensaje de error correcto.
- */
+// normaliza a +57XXXXXXXXXX; si es inválido deja el valor original para que .matches() falle con el mensaje correcto
 const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const createUserValidator = [
@@ -42,11 +37,8 @@ export const createUserValidator = [
     .withMessage('El correo electrónico no es válido')
     .normalizeEmail(),
 
-  // La contraseña inicial es OPCIONAL: si no viene, el controlador aplica la
-  // regla única del sistema (contraseña = cédula), igual que al crear docentes,
-  // administradores de institución o participantes de un curso. Por eso aquí no
-  // se exige la política fuerte: esa se aplica a las contraseñas que ELIGE el
-  // usuario (registro público, cambio de contraseña y recuperación).
+  // opcional: si no viene, el controlador la fija a la cédula (regla única del sistema);
+  // la política fuerte de contraseña solo aplica a las que el usuario elige
   body('contraseña')
     .optional({ checkFalsy: true })
     .isLength({ min: 6, max: 128 })
@@ -66,8 +58,7 @@ export const createUserValidator = [
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
-  // institucionId es requerido SOLO para docente y administrador.
-  // padre y superadmin no la necesitan.
+  // requerido solo para docente/administrador
   body('institucionId')
     .if(body('rol').isIn(['docente', 'administrador']))
     .notEmpty()

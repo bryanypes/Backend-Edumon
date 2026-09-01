@@ -6,7 +6,6 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
-// Crear entrega
 export const createEntrega = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -341,7 +340,6 @@ export const eliminarArchivoEntrega = async (req, res) => {
   }
 };
 
-// Listar todas las entregas
 export const getAllEntregas = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -359,9 +357,7 @@ export const getAllEntregas = async (req, res) => {
       // Un padre solo debe ver sus propias entregas, nunca las de otros padres
       filter.padreId = req.user.userId;
     } else if (userRole === 'administrador') {
-      // Sin este filtro, un administrador veía entregas (y calificaciones) de
-      // TODAS las instituciones de la plataforma, igual que pasaba antes en
-      // cursos/eventos/foros antes de acotarlos por institución.
+      // limitar a la institución del admin, no toda la plataforma
       const cursosDeLaInstitucion = await Curso.find({ institucionId }).select('_id');
       const tareasDeLaInstitucion = await Tarea.find({
         cursoId: { $in: cursosDeLaInstitucion.map((c) => c._id) }
@@ -394,7 +390,6 @@ export const getAllEntregas = async (req, res) => {
   }
 };
 
-// Listar entregas de una tarea específica
 export const getEntregasByTarea = async (req, res) => {
   try {
     const { tareaId } = req.params;
@@ -406,10 +401,7 @@ export const getEntregasByTarea = async (req, res) => {
     const tarea = await Tarea.findById(tareaId);
     if (!tarea) return res.status(404).json({ message: "Tarea no encontrada" });
 
-    // La ruta solo exige rol docente/administrador, pero no verificaba que la
-    // tarea perteneciera a ESE docente o a la institución de ESE administrador
-    // — cualquier docente/admin autenticado podía leer entregas y
-    // calificaciones de una tarea ajena con solo conocer el tareaId.
+    // el rol no basta: verificar que sea dueño de la tarea / de su institución
     const { userId, rol, institucionId } = req.user;
     if (rol === 'docente' && tarea.docenteId.toString() !== userId) {
       return res.status(403).json({ message: "No tienes permisos para ver las entregas de esta tarea" });
@@ -459,7 +451,6 @@ export const getEntregasByTarea = async (req, res) => {
   }
 };
 
-// Listar entregas de un padre
 export const getEntregasByPadre = async (req, res) => {
   try {
     const { padreId } = req.params;
@@ -468,10 +459,7 @@ export const getEntregasByPadre = async (req, res) => {
     const skip = (page - 1) * limit;
     const { estado } = req.query;
 
-    // Igual que en getEntregasByTarea: la ruta solo exige rol docente/administrador,
-    // sin verificar que el padre consultado comparta curso/institución con quien
-    // consulta — cualquier docente o admin podía leer las entregas de un padre
-    // de otro curso/colegio con solo conocer su padreId.
+    // igual que getEntregasByTarea: verificar que comparta curso/institución con el padre
     const { userId, rol, institucionId } = req.user;
     if (rol === 'docente') {
       const compartenCurso = await Curso.exists({ docenteId: userId, 'participantes.usuarioId': padreId });
@@ -574,7 +562,6 @@ export const calificarEntrega = async (req, res) => {
   }
 };
 
-// Obtener entrega por ID
 export const getEntregaById = async (req, res) => {
   try {
     const errors = validationResult(req);

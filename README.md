@@ -8,14 +8,14 @@ API REST del backend de **Edumon**, una plataforma de gestión escolar que conec
 - MongoDB + Mongoose
 - Autenticación con JWT (cookies httpOnly, access + refresh token con rotación)
 - Socket.IO (tiempo real)
-- Cloudinary (archivos/imágenes), Firebase Admin (push), Twilio (WhatsApp), Brevo (correo)
+- Cloudinary (archivos/imágenes), Firebase Admin (push), Twilio (WhatsApp), SMTP (correo)
 - Vitest + Supertest + mongodb-memory-server (pruebas), GitHub Actions (CI)
 
 ## Requisitos previos
 
 - Node.js `>= 22`
 - Una instancia de MongoDB (local o Atlas)
-- Cuentas/credenciales de: Cloudinary, Firebase (proyecto con Cloud Messaging), Twilio (con WhatsApp habilitado), Brevo
+- Cuentas/credenciales de: Cloudinary, Firebase (proyecto con Cloud Messaging), Twilio (con WhatsApp habilitado), servidor SMTP
 - (Opcional) Docker
 
 ## Instalación
@@ -42,7 +42,7 @@ El servidor arranca por defecto en `http://localhost:4000` (configurable con `PO
 
 ## Variables de entorno
 
-Ver [.env.example](.env.example) para la lista completa con explicación de cada una (base de datos, JWT, Cloudinary, Firebase, Twilio, Brevo). Ninguna tiene valores por defecto sensibles cargados en el repo; `.env` está en `.gitignore` y nunca debe subirse.
+Ver [.env.example](.env.example) para la lista completa con explicación de cada una (base de datos, JWT, Cloudinary, Firebase, Twilio, SMTP). Ninguna tiene valores por defecto sensibles cargados en el repo; `.env` está en `.gitignore` y nunca debe subirse.
 
 ## Docker
 
@@ -52,22 +52,16 @@ docker compose up --build
 
 Levanta el backend en el puerto `4000` leyendo las variables desde `.env`. La imagen corre con un usuario sin privilegios (no root), expone un healthcheck sobre `GET /` y hace apagado ordenado ante SIGTERM para no cortar peticiones en curso en cada redeploy.
 
-> **Este `docker-compose.yml` es solo para desarrollo/pruebas del backend por
-> separado** (levanta únicamente este servicio). Para el despliegue real
-> (frontend + backend juntos en la misma VM), el `docker-compose.yml` que se
-> usa es el del repo del frontend (`Edumon-Repositorio-nuevo/docker-compose.yml`)
-> — ese sí levanta ambos contenedores en una misma red y hace que el
-> frontend le hable a este backend por su nombre de servicio interno
-> (`backend:4000`), sin tocar nada de la imagen de este repo.
+> Este `docker-compose.yml` es solo para levantar el backend suelto en
+> desarrollo. El despliegue real (frontend + backend en la misma VM) usa el
+> `docker-compose.yml` del repo del frontend, que levanta ambos contenedores
+> en una red compartida (`backend:4000`).
 
 ### Antes de exponerlo a internet
 
-En cuanto se defina el dominio real de la VM, falta un solo ajuste: poner ese
-dominio en `FRONTEND_URL` del `.env`. Esa variable alimenta tanto el CORS
-como el `Content-Security-Policy` (`connectSrc`) — no hay que tocar nada más
-en el código. Sin HTTPS en la VM, el login queda roto en producción: las
-cookies de sesión se marcan `Secure` cuando `NODE_ENV=production`, así que el
-navegador no las guarda si no hay TLS.
+Poner el dominio real de la VM en `FRONTEND_URL` (alimenta CORS y el CSP
+`connectSrc`). Sin HTTPS, el login queda roto: las cookies se marcan `Secure`
+en producción y el navegador no las guarda sin TLS.
 
 ## Estructura del proyecto
 

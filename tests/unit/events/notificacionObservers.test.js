@@ -13,12 +13,8 @@ vi.mock('../../../src/notifications/NotificadorFacade.js', () => ({
   },
 }));
 
-// registrarObservers() ya se llama una vez por archivo en tests/setup/vitest.setup.js
-// (beforeAll global, igual que server.js en producción) — como ese beforeAll
-// corre antes de que este archivo importe NotificacionObservers.js, y el mock
-// de arriba ya está hoisteado en el grafo de módulos de ESTE archivo, los
-// observers que registró el setup global ya están enlazados al notificador
-// mockeado de aquí. Registrar de nuevo aquí duplicaría cada suscripción.
+// registrarObservers() ya corre en el beforeAll global de vitest.setup.js, enlazada
+// al mock de arriba — no volver a registrar aquí o cada suscripción queda duplicada
 const { eventBus, EVENTOS } = await import('../../../src/events/EventBus.js');
 const { crearCurso, crearPadre, crearDocente, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo } = await import('../../helpers/factories.js');
 
@@ -28,10 +24,8 @@ beforeEach(() => {
   notificarFamiliasMock.mockClear();
 });
 
-// Los observers de tarea.creada/tarea.cerrada hacen una consulta real a Mongo
-// (resolverDestinatariosTarea) antes de notificar, así que un solo tick
-// (setImmediate) no alcanza a esperar esa I/O real. Se hace polling sobre el
-// propio mock hasta que efectivamente lo llamen, con un timeout de seguridad.
+// los observers hacen una consulta real a Mongo antes de notificar, así que un
+// solo tick no alcanza — se hace polling sobre el mock con timeout de seguridad
 const esperarLlamada = async (mockFn, timeoutMs = 2000) => {
   const inicio = Date.now();
   while (mockFn.mock.calls.length === 0) {
