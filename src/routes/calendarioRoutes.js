@@ -15,7 +15,6 @@ router.use(authMiddleware);
 router.get('/calendario', obtenerCalendarioUsuario);
 router.get('/calendario/proximos', obtenerProximosEventosUsuario);
 
-// Rutas por curso (existentes)
 router.get('/:cursoId', obtenerCalendarioCurso);
 router.get('/:cursoId/dia', obtenerEventosDia);
 router.get('/:cursoId/proximos', obtenerProximosEventos);

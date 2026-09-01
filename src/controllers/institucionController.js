@@ -147,16 +147,12 @@ export const crearInstitucion = async (req, res) => {
       }
     }
 
-    // Los teléfonos se guardan SIEMPRE en +57XXXXXXXXXX, sin importar cómo los
-    // haya escrito quien crea la institución (con +57, con 57 o sin indicativo)
     const telefonoInst  = normalizarTelefono(telefono) ?? telefono;
     const telefonoAdmin = normalizarTelefono(adminTelefono) ?? adminTelefono;
 
-    // Crear institución primero (sin adminId)
     const institucion = new Institucion({ nombre, nit, direccion, telefono: telefonoInst, correo });
     await institucion.save();
 
-    // Crear usuario administrador del colegio
     const adminCorreoFinal = adminCorreo || `${adminCedula}@${institucion.codigo.toLowerCase()}.edu`;
     const admin = new User({
       nombre: adminNombre,
@@ -173,11 +169,9 @@ export const crearInstitucion = async (req, res) => {
 
     await admin.save();
 
-    // Vincular admin a la institución
     institucion.adminId = admin._id;
     await institucion.save();
 
-    // Disparar evento de bienvenida (Observer lo captura)
     eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, admin);
 
     res.status(201).json({
@@ -287,7 +281,6 @@ export const preregistrarDocente = async (req, res) => {
   }
 };
 
-// Actualizar institución
 export const updateInstitucion = async (req, res) => {
   try {
     const { id } = req.params;
@@ -309,8 +302,7 @@ export const updateInstitucion = async (req, res) => {
   }
 };
 
-// Activar/desactivar institución. El campo "activo" existía en el schema y
-// getInstituciones ya filtra por activo:true, pero nada lo cambiaba nunca.
+// el campo "activo" existía y se filtraba por él, pero nada lo cambiaba nunca
 export const cambiarEstadoInstitucion = async (req, res) => {
   try {
     const { id } = req.params;

@@ -41,9 +41,7 @@ describe('POST /api/entregas', () => {
     const res = await agent.post('/api/entregas').send({
       tareaId: tarea._id.toString(), padreId: (await crearPadre())._id.toString(), textoRespuesta: 'x',
     });
-    // canCreateEntrega corre antes que el controlador y corta con 403 apenas
-    // ve que padreId no es el usuario autenticado (el validator también lo
-    // marcaría como error, pero nunca llega a evaluarse en el controlador).
+    // canCreateEntrega corta con 403 antes de que el controlador se ejecute
     expect(res.status).toBe(403);
   });
 

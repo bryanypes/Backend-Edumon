@@ -23,7 +23,6 @@ import {
 
 const router = express.Router();
 
-// Configuración de Multer para archivos en memoria
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
@@ -53,20 +52,11 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    // 10MB: límite real del plan de Cloudinary actual para imágenes y archivos
-    // "raw" (PDF/Word/Excel/etc). Un límite más alto aquí deja pasar archivos
-    // que luego Cloudinary rechaza, y como createTarea/updateTarea suben todos
-    // los archivos con Promise.all, un solo archivo grande tumbaba la tarea entera.
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 10 * 1024 * 1024, // límite del plan de Cloudinary; con Promise.all, un archivo grande tumbaba toda la tarea
     files: 10
   }
 });
 
-// Rutas
-
-// Crear tarea - Solo docentes/administradores pueden crear.
-// createTarea no validaba el rol (a diferencia de cursoRoutes/foroRoutes), así que
-// cualquier usuario autenticado, incluido un padre, podía crear tareas.
 router.post(
   '/',
   authMiddleware,
@@ -77,54 +67,49 @@ router.post(
   createTarea
 );
 
-// Listar tareas - Con filtrado automático según usuario
 router.get(
-  '/', 
-  authMiddleware, 
+  '/',
+  authMiddleware,
   filterTareasForUser,
   getTareas
 );
 
-// Ver tarea específica - Verifica permisos de visualización
 router.get(
-  '/:id', 
-  authMiddleware, 
+  '/:id',
+  authMiddleware,
   tareaIdValidator,
-  canViewTarea, // MIDDLEWARE DE VALIDACIÓN
+  canViewTarea,
   getTareaById
 );
 
-// Actualizar tarea - Solo el docente asignado
 router.put(
-  '/:id', 
-  authMiddleware, 
+  '/:id',
+  authMiddleware,
   upload.array('archivos', 10),
   normalizeMultipartArrays(['nuevosEnlaces', 'participantesSeleccionados', 'etiquetas', 'archivosAEliminar', 'criterios']),
-  tareaIdValidator, 
-  canModifyTarea, // MIDDLEWARE DE VALIDACIÓN
-  updateTareaValidator, 
+  tareaIdValidator,
+  canModifyTarea,
+  updateTareaValidator,
   updateTarea
 );
 
-// Cerrar tarea - Solo el docente asignado
 router.patch(
-  '/:id/close', 
-  authMiddleware, 
+  '/:id/close',
+  authMiddleware,
   tareaIdValidator,
-  canModifyTarea, // MIDDLEWARE DE VALIDACIÓN
+  canModifyTarea,
   closeTarea
 );
 
-// Eliminar tarea - Solo el docente asignado
 router.delete(
-  '/:id', 
-  authMiddleware, 
+  '/:id',
+  authMiddleware,
   tareaIdValidator,
-  canModifyTarea, // MIDDLEWARE DE VALIDACIÓN
+  canModifyTarea,
   deleteTarea
 );
 
-// Manejo de errores de multer
+// errores de multer
 router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {

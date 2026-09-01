@@ -2,16 +2,9 @@ import cron from 'node-cron';
 import Tarea from '../models/Tarea.js';
 import { notificarTareaProximaVencer } from '../services/notificacionService.js';
 
-/**
- * Busca tareas publicadas que vencen entre 23h y 24h desde ahora y dispara el
- * recordatorio. Ventana de 1 hora (coincide con la frecuencia del cron) en vez
- * de "próximas 24h": con una ventana de 24h cada tarea caería en el rango de
- * las 24 ejecuciones horarias siguientes y se reenviaría el recordatorio cada
- * hora hasta el vencimiento.
- *
- * Exportada por separado del registro del cron para poder invocarla
- * directamente desde los tests, sin depender de temporizadores reales.
- */
+// ventana de 23h-24h (no "próximas 24h"): con 24h completas cada tarea caería
+// en las 24 corridas horarias siguientes y el recordatorio se reenviaría cada hora.
+// exportada aparte del cron para poder invocarla directo desde los tests.
 export const verificarTareasProximasAVencer = async () => {
   try {
     console.log(' Verificando tareas próximas a vencer...');
@@ -41,9 +34,6 @@ export const verificarTareasProximasAVencer = async () => {
   }
 };
 
-/**
- * Ejecutar cada hora para verificar tareas próximas a vencer
- */
 export const iniciarSchedulerTareas = () => {
   cron.schedule('0 * * * *', verificarTareasProximasAVencer);
   console.log(' Scheduler de tareas iniciado');

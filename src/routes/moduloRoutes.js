@@ -18,10 +18,7 @@ import {
 
 const router = express.Router();
 
-// Rutas protegidas
-// Crear/editar/eliminar/restaurar módulo: solo administrador o docente (igual que cursoRoutes/foroRoutes).
-// Antes solo llevaban authMiddleware, así que cualquier usuario autenticado (incluido un padre) podía
-// crear o borrar módulos de cualquier curso.
+// crear/editar/eliminar/restaurar: solo administrador o docente
 router.post('/', authMiddleware, requireRole(['administrador', 'docente']), createModuloValidator, createModulo);
 router.get('/curso/:cursoId', authMiddleware, cursoIdValidator, getModulosByCurso);
 router.get('/', authMiddleware, getModulos);

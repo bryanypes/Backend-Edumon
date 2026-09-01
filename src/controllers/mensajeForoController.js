@@ -65,7 +65,6 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
   return { archivos, errores };
 };
 
-// Crear mensaje
 export const crearMensaje = async (req, res) => {
   try {
     const { foroId, contenido, respuestaA } = req.body;
@@ -121,10 +120,7 @@ export const crearMensaje = async (req, res) => {
     await nuevoMensaje.save();
     await nuevoMensaje.populate('usuarioId', 'nombre apellido fotoPerfilUrl rol');
 
-    // Notificar: siempre en mensajes raíz; en respuestas, solo si quien
-    // responde es el docente (evita saturar a todo el curso con cada
-    // respuesta entre padres, pero un padre sí debe enterarse si el docente
-    // le responde).
+    // notificar siempre en mensajes raíz; en respuestas, solo si responde el docente
     const esRespuesta = Boolean(nuevoMensaje.respuestaA);
     const autorEsDocente = nuevoMensaje.usuarioId.rol === 'docente';
     if (!esRespuesta || autorEsDocente) {
@@ -144,7 +140,6 @@ export const crearMensaje = async (req, res) => {
   }
 };
 
-// Obtener mensajes de un foro
 export const obtenerMensajesPorForo = async (req, res) => {
   try {
     const { foroId } = req.params;
@@ -196,7 +191,6 @@ export const obtenerMensajesPorForo = async (req, res) => {
   }
 };
 
-// Toggle like
 export const toggleLikeMensaje = async (req, res) => {
   try {
     const { id } = req.params;
@@ -233,16 +227,7 @@ export const toggleLikeMensaje = async (req, res) => {
   }
 };
 
-/**
- * Eliminar mensaje
- *
- * Permisos:
- *  - El autor siempre puede eliminar su propio mensaje
- *  - Administrador puede eliminar cualquier mensaje
- *  - Docente puede eliminar mensajes de padres en foros de sus cursos
- *    (moderación por contenido ofensivo u inapropiado)
- *  - Docente NO puede eliminar mensajes de otros docentes ni administradores
- */
+// permisos: autor siempre, admin de la institución, docente solo mensajes de padres en sus cursos
 export const eliminarMensaje = async (req, res) => {
   try {
     const { id } = req.params;
@@ -268,10 +253,8 @@ export const eliminarMensaje = async (req, res) => {
     if (!puedeEliminar && req.user.rol === 'docente') {
       const autorMensaje = await User.findById(mensaje.usuarioId).select('rol');
 
-      // Solo puede eliminar mensajes de padres (no de otros docentes)
       if (autorMensaje?.rol === 'padre') {
         const foro = await Foro.findById(mensaje.foroId);
-        // El foro debe pertenecer a un curso del propio docente para poder moderar
         const cursoDelDocente = foro && await Curso.findOne({
           _id: foro.cursoId,
           docenteId: usuarioId
@@ -313,7 +296,6 @@ export const eliminarMensaje = async (req, res) => {
   }
 };
 
-// Actualizar mensaje
 export const actualizarMensaje = async (req, res) => {
   try {
     const { id } = req.params;

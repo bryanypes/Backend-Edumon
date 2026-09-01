@@ -21,9 +21,6 @@ import {
 
 const router = express.Router();
 
-// Rutas
-
-// Obtener mis notificaciones (con paginación y filtros)
 router.get(
   '/',
   authMiddleware,
@@ -31,14 +28,12 @@ router.get(
   getMisNotificaciones
 );
 
-// Obtener conteo de no leídas
 router.get(
   '/conteo-no-leidas',
   authMiddleware,
   getConteoNoLeidas
 );
 
-// Obtener notificación específica
 router.get(
   '/:id',
   authMiddleware,
@@ -46,9 +41,8 @@ router.get(
   getNotificacionById
 );
 
-// Crear notificación (uso interno/admin). El body permite fijar cualquier
-// usuarioId destino; sin este requireRole, cualquier usuario autenticado podía
-// crear notificaciones "del sistema" dirigidas a cualquier otro usuario.
+// uso interno/admin: el body fija el usuarioId destino, requireRole evita que
+// cualquiera cree notificaciones "del sistema" a nombre de otro usuario
 router.post(
   '/',
   authMiddleware,
@@ -57,7 +51,6 @@ router.post(
   createNotificacion
 );
 
-// Marcar una notificación como leída
 router.patch(
   '/:id/leer',
   authMiddleware,
@@ -65,7 +58,6 @@ router.patch(
   marcarComoLeida
 );
 
-// Marcar múltiples notificaciones como leídas
 router.patch(
   '/leer-multiples',
   authMiddleware,
@@ -73,14 +65,12 @@ router.patch(
   marcarVariasLeidas
 );
 
-// Marcar todas como leídas
 router.patch(
   '/leer-todas',
   authMiddleware,
   marcarTodasLeidas
 );
 
-// Eliminar notificación
 router.delete(
   '/:id',
   authMiddleware,
@@ -88,7 +78,6 @@ router.delete(
   deleteNotificacion
 );
 
-// Eliminar notificaciones leídas antiguas
 router.delete(
   '/limpiar/antiguas',
   authMiddleware,

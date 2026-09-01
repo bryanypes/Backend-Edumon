@@ -68,10 +68,7 @@ export const getMisPerfiles = async (req, res) => {
   }
 };
 
-// Reemplaza la cookie access_token por una que incluye perfilId/esTitular —
-// igual patrón de sesión que login/register/refresh (httpOnly, sin exponer el
-// JWT al JS del frontend). No toca el refresh token: la sesión del titular
-// sigue siendo la misma, solo cambia qué perfil está activo dentro de ella.
+// reemplaza la cookie access_token con perfilId/esTitular; no toca el refresh token
 export const seleccionarPerfil = async (req, res) => {
   try {
     const titularId = req.user.userId;

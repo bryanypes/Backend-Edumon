@@ -2,9 +2,6 @@ import admin from 'firebase-admin';
 import User from '../../models/User.js';
 import { NotificacionStrategy } from './NotificacionStrategy.js';
 
-/**
- * Estrategia concreta: Firebase Cloud Messaging (Push)
- */
 export class FCMStrategy extends NotificacionStrategy {
   nombre() { return 'push'; }
 

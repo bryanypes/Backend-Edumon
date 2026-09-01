@@ -2,14 +2,12 @@ import Tarea from '../models/Tarea.js';
 import Evento from '../models/Evento.js';
 import Curso from '../models/Curso.js';
 
-// Obtener todos los eventos del calendario de un curso
 export const obtenerCalendarioCurso = async (req, res) => {
   try {
     const { cursoId } = req.params;
-    const { mes, anio } = req.query; // Opcional: filtrar por mes/año
+    const { mes, anio } = req.query;
     const { userId, rol, institucionId } = req.user;
 
-    // Verificar que el curso existe
     const curso = await Curso.findById(cursoId).lean();
     if (!curso) {
       return res.status(404).json({
@@ -21,7 +19,6 @@ export const obtenerCalendarioCurso = async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este curso' });
     }
 
-    // Construir filtro de fechas si se proporciona mes/año
     let filtroFechas = {};
     if (mes && anio) {
       const inicioMes = new Date(anio, mes - 1, 1);
@@ -51,7 +48,6 @@ export const obtenerCalendarioCurso = async (req, res) => {
         .lean()
     ]);
 
-    // Formatear tareas para el calendario
     const tareasCalendario = tareas.map(tarea => ({
       id: tarea._id,
       tipo: 'tarea',
@@ -62,13 +58,12 @@ export const obtenerCalendarioCurso = async (req, res) => {
       fechaFin: tarea.fechaEntrega,
       estado: tarea.estado,
       modulo: tarea.moduloId?.titulo || 'Sin módulo',
-      moduloId: tarea.moduloId?._id || null, // Agregar el ID del módulo
+      moduloId: tarea.moduloId?._id || null,
       tipoEntrega: tarea.tipoEntrega,
       color: obtenerColorTarea(tarea.estado, tarea.fechaEntrega),
-      icono: 'assignment' // Para el frontend
+      icono: 'assignment'
     }));
 
-    // Formatear eventos para el calendario
     const eventosCalendario = eventos.map(evento => ({
       id: evento._id,
       tipo: 'evento',
@@ -85,11 +80,9 @@ export const obtenerCalendarioCurso = async (req, res) => {
       icono: obtenerIconoEvento(evento.categoria)
     }));
 
-    // Combinar y ordenar por fecha
     const itemsCalendario = [...tareasCalendario, ...eventosCalendario]
       .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-    // Agrupar por fecha para facilitar renderizado
     const calendarioAgrupado = agruparPorFecha(itemsCalendario);
 
     res.status(200).json({
@@ -121,7 +114,6 @@ export const obtenerCalendarioCurso = async (req, res) => {
   }
 };
 
-// Obtener eventos de un día específico
 export const obtenerEventosDia = async (req, res) => {
   try {
     const { cursoId } = req.params;
@@ -191,7 +183,6 @@ export const obtenerEventosDia = async (req, res) => {
   }
 };
 
-// Obtener próximos eventos (tareas y eventos)
 export const obtenerProximosEventos = async (req, res) => {
   try {
     const { cursoId } = req.params;
@@ -231,7 +222,6 @@ export const obtenerProximosEventos = async (req, res) => {
         .lean()
     ]);
 
-    // Combinar y ordenar
     const proximosEventos = [
       ...tareas.map(t => ({
         id: t._id,

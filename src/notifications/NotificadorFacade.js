@@ -6,15 +6,9 @@ import { EmailStrategy } from './strategies/EmailStrategy.js';
 import { WhatsAppStrategy } from './strategies/WhatsappStrategy.js';
 import { WebSocketStrategy } from './strategies/WebSocketStrategy.js';
 
-/**
- * PATRÓN FACADE
- * Oculta la complejidad del sistema de notificaciones.
- * El resto de la app solo interactúa con esta clase.
- * Internamente coordina: BD + 4 estrategias + bloque familiar.
- */
+// Facade: coordina BD + estrategias de envío + bloque familiar en un solo punto de entrada
 class NotificadorFacade {
   constructor() {
-    // Registrar estrategias disponibles (Pattern Strategy)
     this.estrategias = [
       new WebSocketStrategy(),
       new FCMStrategy(),
@@ -23,15 +17,11 @@ class NotificadorFacade {
     ];
   }
 
-  /**
-   * Notificar a un usuario individual
-   */
   async notificar(usuarioId, datos) {
     try {
       const usuario = await User.findById(usuarioId);
       if (!usuario || usuario.estado !== 'activo') return null;
 
-      // Guardar en BD
       const notificacion = new Notificacion({
         usuarioId,
         tipo: datos.tipo,
@@ -43,8 +33,7 @@ class NotificadorFacade {
       });
       await notificacion.save();
 
-      // Ejecutar todas las estrategias en paralelo (cada una atrapa sus propios errores
-      // y devuelve false, así que no hace falta esperarlas una por una)
+      // en paralelo: cada estrategia atrapa sus propios errores y devuelve false
       const resultados = await Promise.all(
         this.estrategias.map(async (estrategia) => ({
           canal: estrategia.nombre(),
@@ -64,16 +53,11 @@ class NotificadorFacade {
     }
   }
 
-  /**
-   * Notificar a todo el bloque familiar de un usuario
-   */
   async notificarFamilia(usuarioId, datos) {
     const PerfilFamiliar = (await import('../models/PerfilFamiliar.js')).default;
 
-    // 1. Notificar al titular con todos los canales
     await this.notificar(usuarioId, datos);
 
-    // 2. Buscar perfiles adicionales activos del titular
     const perfiles = await PerfilFamiliar.find({
       titularId: usuarioId,
       activo: true,
@@ -84,7 +68,7 @@ class NotificadorFacade {
 
     console.log(`[Facade] Enviando push a ${perfiles.length} perfil(es) adicional(es)`);
 
-    // 3. Solo push para perfiles adicionales (no guardan notificación en BD)
+    // perfiles adicionales solo reciben push, no se guardan en BD
     const { FCMStrategy } = await import('./strategies/FCMStrategy.js');
     const fcm = new FCMStrategy();
 
@@ -92,7 +76,6 @@ class NotificadorFacade {
       perfiles.map(perfil =>
         fcm.enviar(
           { _id: perfil._id, fcmToken: perfil.fcmToken },
-          // Construir objeto notificación mínimo para FCM
           {
             _id: `perfil-${perfil._id}`,
             tipo: datos.tipo,
@@ -103,18 +86,12 @@ class NotificadorFacade {
     );
   }
 
-  /**
-   * Notificar a múltiples usuarios
-   */
   async notificarMultiples(usuarioIds, datos) {
     await Promise.allSettled(
       usuarioIds.map(id => this.notificar(id, datos))
     );
   }
 
-  /**
-   * Notificar a múltiples usuarios expandiendo sus familias
-   */
   async notificarFamilias(usuarioIds, datos) {
     await Promise.allSettled(
       usuarioIds.map(id => this.notificarFamilia(id, datos))

@@ -55,7 +55,6 @@ export const createTareaValidator = [
     .optional()
     .isArray().withMessage('Los participantes seleccionados deben ser un array')
     .custom((value, { req }) => {
-      // Si es "seleccionados", debe tener al menos un participante
       if (req.body.asignacionTipo === 'seleccionados' && (!value || value.length === 0)) {
         throw new Error('Debe seleccionar al menos un participante');
       }

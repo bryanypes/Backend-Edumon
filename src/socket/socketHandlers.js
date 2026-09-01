@@ -1,16 +1,9 @@
 import Notificacion from '../models/Notificacion.js';
 import jwt from 'jsonwebtoken';
 
-// Almacenar conexiones de usuarios
 const usuariosConectados = new Map();
 
-/**
- * Configurar Socket.IO
- */
-// Extrae un valor de cookie del header crudo "Cookie" del handshake de
-// Socket.IO — a diferencia de Express, socket.io NO trae cookie-parser
-// integrado, así que socket.handshake.headers.cookie llega como el string
-// completo sin parsear ("access_token=xxx; otracosa=yyy").
+// socket.io no trae cookie-parser: el header llega como string crudo sin parsear
 const getCookieValue = (cookieHeader, name) => {
   if (!cookieHeader) return null;
   const match = cookieHeader
@@ -21,20 +14,10 @@ const getCookieValue = (cookieHeader, name) => {
 };
 
 export const setupSocketIO = (io) => {
-  // Middleware de autenticación para Socket.IO
   io.use(async (socket, next) => {
     try {
-      // El frontend web NO tiene ningún JWT en JS para mandar por
-      // handshake.auth.token — la sesión REST es 100% cookie httpOnly
-      // (ver apiClient.js del frontend), así que el token nunca existe en
-      // ningún estado de React/localStorage para poder mandarlo así. Por
-      // eso también se acepta la cookie "access_token" (la misma que ya
-      // usa authMiddleware.js para las peticiones REST) — el navegador la
-      // manda sola en el handshake porque la conexión de socket.io va al
-      // mismo origen que sirve el front (proxyeada por nginx), sin que el
-      // cliente tenga que hacer nada especial. auth.token/Authorization se
-      // mantienen para no romper ningún otro cliente (ej. Flutter) que sí
-      // maneje el token explícitamente.
+      // el frontend web solo tiene cookie httpOnly, sin JWT accesible en JS;
+      // auth.token/Authorization se mantienen para clientes como Flutter
       const token =
         socket.handshake.auth.token ||
         socket.handshake.headers.authorization?.split(' ')[1] ||
@@ -59,16 +42,13 @@ export const setupSocketIO = (io) => {
     const userId = socket.userId;
     console.log(`Usuario conectado: ${userId}`);
 
-    // Guardar conexión
     if (!usuariosConectados.has(userId)) {
       usuariosConectados.set(userId, new Set());
     }
     usuariosConectados.get(userId).add(socket.id);
 
-    // Unir a sala personal
     socket.join(`user:${userId}`);
 
-    // Enviar conteo de notificaciones no leídas al conectarse
     try {
       const noLeidas = await Notificacion.contarNoLeidas(userId);
       socket.emit('notificaciones:conteo', { noLeidas });
@@ -76,9 +56,6 @@ export const setupSocketIO = (io) => {
       console.error('Error al obtener conteo inicial:', error);
     }
 
-    // Eventos del cliente
-
-    // Cliente solicita notificaciones
     socket.on('notificaciones:solicitar', async (data) => {
       try {
         const { page = 1, limit = 20 } = data;
@@ -98,7 +75,6 @@ export const setupSocketIO = (io) => {
       }
     });
 
-    // Cliente marca notificación como leída
     socket.on('notificaciones:marcar-leida', async (data) => {
       try {
         const { notificacionId } = data;
@@ -120,7 +96,6 @@ export const setupSocketIO = (io) => {
       }
     });
 
-    // Cliente marca todas como leídas
     socket.on('notificaciones:marcar-todas-leidas', async () => {
       try {
         await Notificacion.marcarTodasLeidas(userId);
@@ -132,7 +107,6 @@ export const setupSocketIO = (io) => {
       }
     });
 
-    // Cliente elimina notificación
     socket.on('notificaciones:eliminar', async (data) => {
       try {
         const { notificacionId } = data;
@@ -167,9 +141,6 @@ export const setupSocketIO = (io) => {
   return io;
 };
 
-/**
- * Emitir notificación a un usuario específico
- */
 export const emitirNotificacion = async (notificacion) => {
   try {
     const io = global.io;
@@ -192,24 +163,15 @@ export const emitirNotificacion = async (notificacion) => {
   }
 };
 
-/**
- * Emitir a múltiples usuarios
- */
 export const emitirNotificacionMultiple = async (notificaciones) => {
   const promesas = notificaciones.map(notif => emitirNotificacion(notif));
   await Promise.allSettled(promesas);
 };
 
-/**
- * Obtener usuarios conectados
- */
 export const obtenerUsuariosConectados = () => {
   return Array.from(usuariosConectados.keys());
 };
 
-/**
- * Verificar si usuario está conectado
- */
 export const estaUsuarioConectado = (userId) => {
   return usuariosConectados.has(userId);
 };

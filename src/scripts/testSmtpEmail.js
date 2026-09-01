@@ -1,5 +1,5 @@
-// Envía un correo de prueba usando la integración real de Brevo (mailService.js)
-// para verificar que las credenciales BREVO_* del .env funcionan.
+// Envía un correo de prueba usando la integración real de SMTP (mailService.js)
+// para verificar que las credenciales SMTP_* del .env funcionan.
 //
 // Uso: npm run test:email -- correo-destino@ejemplo.com
 import dotenv from 'dotenv';

@@ -4,10 +4,7 @@ import notificador from '../notifications/NotificadorFacade.js';
 import Curso from '../models/Curso.js';
 import User from '../models/User.js';
 
-/**
- * Registra todos los observers del sistema.
- * Llamar una sola vez al iniciar el servidor.
- */
+// llamar una sola vez al iniciar el servidor
 export const registrarObservers = () => {
 
   // Observer: Tarea creada → notificar a padres + sus familias
@@ -103,10 +100,7 @@ export const registrarObservers = () => {
     );
   });
 
-  // Observer: Nuevo mensaje en foro → notificar a todos los participantes del
-  // curso menos a quien escribió. El controlador solo publica este evento en
-  // mensajes raíz, o en respuestas cuando el autor es el docente (ver
-  // mensajeForoController.crearMensaje).
+  // Observer: Nuevo mensaje en foro → notificar a todo el curso menos al autor
   eventBus.suscribir(EVENTOS.FORO_NUEVO_MENSAJE, async ({ mensaje, foro }) => {
     const curso = await Curso.findById(foro.cursoId).populate('participantes.usuarioId', '_id');
     if (!curso) return;

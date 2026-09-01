@@ -20,7 +20,6 @@ import { validationResult } from 'express-validator';
 
 const router = express.Router();
 
-// Middleware para manejar errores de validación
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -29,7 +28,6 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Middleware para subir archivos (imágenes, videos, PDFs)
 import multer from 'multer';
 
 const storage = multer.memoryStorage();
@@ -37,8 +35,8 @@ const storage = multer.memoryStorage();
 const uploadArchivosForoMiddleware = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB máximo
-    files: 5 // Máximo 5 archivos
+    fileSize: 10 * 1024 * 1024,
+    files: 5
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -61,9 +59,6 @@ const uploadArchivosForoMiddleware = multer({
   }
 });
 
-// Rutas de foros
-
-// Crear foro (solo docente y administrador)
 router.post(
   '/',
   authMiddleware,
@@ -77,12 +72,11 @@ router.post(
 router.get(
   '/:id/dashboard',
   authMiddleware,
-  obtenerForoPorIdValidator,   // reutiliza el mismo validator de ID
+  obtenerForoPorIdValidator,
   handleValidationErrors,
   getDashboardForo
 );
 
-// Obtener foros por curso
 router.get(
   '/curso/:cursoId',
   authMiddleware,
@@ -91,7 +85,6 @@ router.get(
   obtenerForosPorCurso
 );
 
-// Obtener foro por ID
 router.get(
   '/:id',
   authMiddleware,
@@ -100,7 +93,6 @@ router.get(
   obtenerForoPorId
 );
 
-// Actualizar foro
 router.put(
   '/:id',
   authMiddleware,
@@ -110,7 +102,6 @@ router.put(
   actualizarForo
 );
 
-// Cambiar estado del foro (abrir/cerrar)
 router.patch(
   '/:id/estado',
   authMiddleware,
@@ -120,7 +111,6 @@ router.patch(
   cambiarEstadoForo
 );
 
-// Eliminar foro
 router.delete(
   '/:id',
   authMiddleware,
