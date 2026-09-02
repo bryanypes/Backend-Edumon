@@ -32,7 +32,7 @@ cp .env.example .env
 |---|---|
 | `npm run dev` | Levanta el servidor en modo desarrollo (nodemon, recarga en caliente) |
 | `npm start` | Levanta el servidor en modo producción |
-| `npm run seed` | Crea una institución + un usuario `administrador` + un `superadmin` de ejemplo (ver credenciales impresas en consola) |
+| `npm run seed` | **Solo testeo.** Resetea (`dropDatabase`) la base de `MONGO_URI` y la repuebla con un set mínimo y determinista (~1 registro por colección + 2 docentes / 2 padres / 2 cursos para probar permisos). Cubre todas las colecciones: instituciones, usuarios, perfiles familiares, cursos, módulos, tareas, entregas, foros y mensajes, eventos, notificaciones y buzón. Cédulas/teléfonos/correos fijos entre corridas; clave única `Password123*`. Imprime las credenciales en consola. Bloqueado si `NODE_ENV=production` |
 | `npm test` | Corre toda la suite de pruebas (Vitest) |
 | `npm run test:watch` | Corre las pruebas en modo watch |
 | `npm run test:coverage` | Corre las pruebas con reporte de cobertura |

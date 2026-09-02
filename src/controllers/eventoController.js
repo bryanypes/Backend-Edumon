@@ -241,6 +241,32 @@ export const updateEvento = async (req, res) => {
     delete updateData.docenteId;
     delete updateData.fechaCreacion;
 
+    // Reasignar cursosIds exige revalidar dueño/institución del destino: si no, un docente
+    // colgaba su evento de un curso ajeno (mismo hueco que tenía updateTarea con cursoId).
+    if (updateData.cursosIds !== undefined) {
+      let nuevosCursosIds = updateData.cursosIds;
+      if (typeof nuevosCursosIds === 'string') {
+        try { nuevosCursosIds = JSON.parse(nuevosCursosIds); } catch {
+          return res.status(400).json({ message: "El formato de cursosIds es inválido" });
+        }
+      }
+      if (!Array.isArray(nuevosCursosIds) || nuevosCursosIds.length === 0) {
+        return res.status(400).json({ message: "cursosIds debe ser un array con al menos un ID de curso" });
+      }
+
+      const cursosDestino = await Curso.find({ _id: { $in: nuevosCursosIds } });
+      if (cursosDestino.length !== nuevosCursosIds.length) {
+        return res.status(404).json({ message: "Uno o más cursos no existen" });
+      }
+      if (rol === 'docente' && cursosDestino.some(c => c.docenteId.toString() !== userId)) {
+        return res.status(403).json({ message: "Solo puedes asignar tus propios cursos al evento" });
+      }
+      if (rol === 'administrador' && cursosDestino.some(c => c.institucionId.toString() !== institucionId)) {
+        return res.status(403).json({ message: "Solo puedes asignar cursos de tu institución al evento" });
+      }
+      updateData.cursosIds = nuevosCursosIds;
+    }
+
     // Actualizar imagen de portada / adjunto: operaciones independientes en paralelo
     const actualizaciones = [];
 

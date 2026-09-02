@@ -10,6 +10,38 @@ import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
+// acepta un ObjectId, un string o un doc poblado ({ _id })
+const idStr = (v) => (v && v._id ? v._id.toString() : v?.toString());
+
+// Lectura de un curso puntual: superadmin todo, admin su institución,
+// docente si lo dicta o participa, padre si participa.
+function puedeVerCurso(curso, user) {
+  switch (user.rol) {
+    case 'superadmin':
+      return true;
+    case 'administrador':
+      return idStr(curso.institucionId) === user.institucionId;
+    case 'docente':
+      return idStr(curso.docenteId) === user.userId
+        || (curso.participantes || []).some((p) => idStr(p.usuarioId) === user.userId);
+    case 'padre':
+      return (curso.participantes || []).some((p) => idStr(p.usuarioId) === user.userId);
+    default:
+      return false;
+  }
+}
+
+// Gestión de un curso (editar, archivar, participantes, carga masiva):
+// solo el docente dueño o un administrador de la MISMA institución.
+// Antes: a los administradores no se les acotaba por institución (cross-tenant)
+// y en agregarParticipante el rol 'padre' pasaba sin ninguna comprobación.
+function puedeGestionarCurso(curso, user) {
+  if (user.rol === 'superadmin') return true;
+  if (user.rol === 'administrador') return idStr(curso.institucionId) === user.institucionId;
+  if (user.rol === 'docente') return idStr(curso.docenteId) === user.userId;
+  return false;
+}
+
 function formatearDocente(docenteId) {
   if (!docenteId) return null;
   return {
@@ -310,6 +342,12 @@ export const getCursoById = async (req, res) => {
       return res.status(404).json({ message: "Curso no encontrado" });
     }
 
+    // sin esto cualquier usuario autenticado leía cualquier curso (y su lista de
+    // participantes con correos/teléfonos) aunque fuera de otra institución
+    if (!puedeVerCurso(curso, req.user)) {
+      return res.status(403).json({ message: "No tienes acceso a este curso" });
+    }
+
     res.json({
       curso: {
         ...curso.toObject(),
@@ -386,8 +424,7 @@ export const updateCurso = async (req, res) => {
       return res.status(404).json({ message: "Curso no encontrado" });
     }
 
-    if (usuarioLogueado.rol === 'docente' &&
-      curso.docenteId.toString() !== usuarioLogueado.userId) {
+    if (!puedeGestionarCurso(curso, usuarioLogueado)) {
       return res.status(403).json({ message: "No tienes permisos para actualizar este curso" });
     }
 
@@ -461,8 +498,7 @@ export const archivarCurso = async (req, res) => {
       return res.status(400).json({ message: "El curso ya está archivado" });
     }
 
-    if (usuarioLogueado.rol === 'docente' &&
-      curso.docenteId.toString() !== usuarioLogueado.userId) {
+    if (!puedeGestionarCurso(curso, usuarioLogueado)) {
       return res.status(403).json({ message: "No tienes permisos para archivar este curso" });
     }
 
@@ -570,8 +606,7 @@ export const agregarParticipante = async (req, res) => {
 
     if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
 
-    if (usuarioLogueado.rol === 'docente' &&
-      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+    if (!puedeGestionarCurso(curso, usuarioLogueado)) {
       return res.status(403).json({
         message: "No tienes permisos para agregar participantes a este curso"
       });
@@ -669,8 +704,7 @@ export const removerParticipante = async (req, res) => {
 
     if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
 
-    if (usuarioLogueado.rol === 'docente' &&
-      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+    if (!puedeGestionarCurso(curso, usuarioLogueado)) {
       return res.status(403).json({ message: "No tienes permisos para remover participantes de este curso" });
     }
 
@@ -715,8 +749,7 @@ export const registrarUsuariosMasivo = async (req, res) => {
 
     if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
 
-    if (usuarioLogueado.rol === 'docente' &&
-      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+    if (!puedeGestionarCurso(curso, usuarioLogueado)) {
       return res.status(403).json({ message: "No tienes permisos para agregar usuarios a este curso" });
     }
 
@@ -758,8 +791,7 @@ export const getParticipantesCurso = async (req, res) => {
 
     if (!curso) return res.status(404).json({ message: "Curso no encontrado" });
 
-    if (usuarioLogueado.rol === 'docente' &&
-      curso.docenteId._id.toString() !== usuarioLogueado.userId) {
+    if (!puedeGestionarCurso(curso, usuarioLogueado)) {
       return res.status(403).json({ message: "No tienes permisos para ver los participantes de este curso" });
     }
 

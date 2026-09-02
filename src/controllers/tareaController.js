@@ -1,5 +1,6 @@
 import Tarea from '../models/Tarea.js';
 import Curso from '../models/Curso.js';
+import Modulo from '../models/Modulo.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
@@ -27,6 +28,35 @@ function usuarioPerteneceACurso(curso, user) {
     default:
       return false;
   }
+}
+
+// Al reasignar curso/módulo en updateTarea hay que revalidar el destino: canModifyTarea
+// solo comprueba que seas el docente de la tarea, NO que tengas permiso sobre el curso
+// nuevo. Sin esto un docente movía su tarea a un curso ajeno (PUT cursoId) y pasaba a
+// poder ver y calificar todas sus entregas — canCalificarEntrega/getEntregasByTarea solo
+// miran tarea.docenteId.
+async function validarDestinoTarea(tareaActual, body, user) {
+  const cursoIdActual = tareaActual.cursoId.toString();
+  const cursoIdDestino = body.cursoId ?? cursoIdActual;
+  const moduloIdDestino = body.moduloId ?? tareaActual.moduloId.toString();
+
+  if (body.cursoId && body.cursoId !== cursoIdActual) {
+    const cursoDestino = await Curso.findById(body.cursoId).select('docenteId institucionId participantes');
+    if (!cursoDestino) return { status: 404, message: 'Curso de destino no encontrado' };
+    if (!usuarioPerteneceACurso(cursoDestino, user)) {
+      return { status: 403, message: 'No tienes permisos sobre el curso de destino' };
+    }
+  }
+
+  if (body.cursoId || body.moduloId) {
+    const modulo = await Modulo.findById(moduloIdDestino).select('cursoId');
+    if (!modulo) return { status: 404, message: 'Módulo no encontrado' };
+    if (modulo.cursoId.toString() !== cursoIdDestino) {
+      return { status: 400, message: 'El módulo no pertenece al curso indicado' };
+    }
+  }
+
+  return null;
 }
 
 // path/msg igual que express-validator: el frontend solo reconoce esas claves
@@ -73,6 +103,15 @@ export const createTarea = async (req, res) => {
       return res.status(403).json({
         message: "No tienes permisos sobre este curso"
       });
+    }
+
+    // el módulo debe pertenecer al curso indicado (evita tareas "huérfanas" apuntando a otro curso)
+    const moduloDelCurso = await Modulo.findById(req.body.moduloId).select('cursoId');
+    if (!moduloDelCurso) {
+      return res.status(404).json({ message: "Módulo no encontrado" });
+    }
+    if (moduloDelCurso.cursoId.toString() !== req.body.cursoId.toString()) {
+      return res.status(400).json({ message: "El módulo no pertenece al curso indicado" });
     }
 
     if (req.body.asignacionTipo === 'seleccionados' &&
@@ -330,6 +369,11 @@ export const updateTarea = async (req, res) => {
       return res.status(404).json({
         message: "Tarea no encontrada"
       });
+    }
+
+    const errorDestino = await validarDestinoTarea(tareaActual, req.body, req.user);
+    if (errorDestino) {
+      return res.status(errorDestino.status).json({ message: errorDestino.message });
     }
 
     const camposActualizables = [
