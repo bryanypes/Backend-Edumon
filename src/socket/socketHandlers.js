@@ -163,23 +163,3 @@ export const emitirNotificacion = async (notificacion) => {
   }
 };
 
-export const emitirNotificacionMultiple = async (notificaciones) => {
-  const promesas = notificaciones.map(notif => emitirNotificacion(notif));
-  await Promise.allSettled(promesas);
-};
-
-export const obtenerUsuariosConectados = () => {
-  return Array.from(usuariosConectados.keys());
-};
-
-export const estaUsuarioConectado = (userId) => {
-  return usuariosConectados.has(userId);
-};
-
-export default {
-  setupSocketIO,
-  emitirNotificacion,
-  emitirNotificacionMultiple,
-  obtenerUsuariosConectados,
-  estaUsuarioConectado
-};

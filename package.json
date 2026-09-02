@@ -10,9 +10,9 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
-    "test:email": "node src/scripts/testSmtpEmail.js",
-    "reset-db": "node reset.js",
-    "reset-db:confirm": "node reset.js --confirm",
+    "correos:prueba": "node src/scripts/enviarCorreosDePrueba.js",
+    "fotos:subir": "node src/scripts/subirFotosPredeterminadas.js",
+    "telefonos:normalizar": "node src/scripts/normalizarTelefonos.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

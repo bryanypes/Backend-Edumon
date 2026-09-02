@@ -94,7 +94,7 @@ describe('uploadArchivoCloudinary (adjuntos generales)', () => {
   });
 
   it('rechaza un tipo no soportado', async () => {
-    const { err } = await filtrar(uploadArchivoCloudinary, 'application/x-rar-compressed');
+    const { err } = await filtrar(uploadArchivoCloudinary, 'image/svg+xml');
     expect(err).toBeInstanceOf(Error);
   });
 });
