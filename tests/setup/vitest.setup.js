@@ -47,6 +47,15 @@ vi.mock('cloudinary', () => ({
       resources: cloudinaryResourcesMock,
       resource: cloudinaryResourceMock,
     },
+    // firmarUrlArchivo() usa cloudinary.url(); replicamos la forma de una URL
+    // firmada `authenticated` (con marcador de firma s--...--) para poder testear.
+    url: (publicId, opts = {}) => {
+      const rt = opts.resource_type || 'image';
+      const type = opts.type || 'upload';
+      const sig = opts.sign_url ? 's--testsig--/' : '';
+      const exp = opts.expires_at ? `?_a=exp_${opts.expires_at}` : '';
+      return `https://res.cloudinary.com/test-cloud/${rt}/${type}/${sig}v1/${publicId}${exp}`;
+    },
   },
 }));
 

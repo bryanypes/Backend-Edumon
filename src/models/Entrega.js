@@ -20,9 +20,33 @@ const entregaSchema = new mongoose.Schema({
     publicId: { type: String, required: true },
     nombreOriginal: { type: String, required: true },
     tipoArchivo: { type: String, required: true },
-    tamano: { type: Number, required: true }
+    tamano: { type: Number, required: true },
+    // subido como `authenticated`: la url solo sirve firmada y con caducidad
+    privado: { type: Boolean, default: false }
   }],
-  textoRespuesta: { 
+  // enlaces externos que el acudiente adjunta como respuesta (Drive, YouTube, etc.)
+  enlaces: {
+    type: [{
+      _id: false,
+      url: {
+        type: String,
+        required: true,
+        trim: true,
+        validate: {
+          validator: (v) => /^https?:\/\/.+/i.test(v),
+          message: 'El enlace debe ser una URL válida (http/https)'
+        }
+      },
+      titulo: { type: String, trim: true, maxlength: [200, 'El título del enlace no puede exceder 200 caracteres'] },
+      descripcion: { type: String, trim: true, maxlength: [500, 'La descripción del enlace no puede exceder 500 caracteres'] }
+    }],
+    default: [],
+    validate: {
+      validator: (v) => v.length <= 10,
+      message: 'No se pueden adjuntar más de 10 enlaces'
+    }
+  },
+  textoRespuesta: {
     type: String,
     trim: true,
     maxlength: [5000, 'El texto de respuesta no puede exceder 5000 caracteres']

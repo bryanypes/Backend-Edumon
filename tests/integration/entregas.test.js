@@ -100,6 +100,70 @@ describe('POST /api/entregas', () => {
     expect(res.status).toBe(201);
     expect(res.body.entrega.archivosAdjuntos).toHaveLength(1);
   });
+
+  it('los adjuntos se guardan como privados y se devuelven con URL firmada (no pública)', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.post('/api/entregas')
+      .field('tareaId', tarea._id.toString())
+      .field('padreId', padre._id.toString())
+      .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
+
+    expect(res.status).toBe(201);
+    const archivo = res.body.entrega.archivosAdjuntos[0];
+    expect(archivo.privado).toBe(true);
+    expect(archivo.url).toContain('/authenticated/');
+    expect(archivo.url).toContain('s--'); // marcador de firma
+
+    // en BD la url NO es la firmada (se firma en cada lectura)
+    const enBD = await Entrega.findById(res.body.entrega._id);
+    expect(enBD.archivosAdjuntos[0].privado).toBe(true);
+    expect(enBD.archivosAdjuntos[0].url).not.toContain('s--');
+  });
+
+  it('acepta enlaces externos como parte de la entrega', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.post('/api/entregas').send({
+      tareaId: tarea._id.toString(),
+      padreId: padre._id.toString(),
+      textoRespuesta: 'Dejo el trabajo en Drive',
+      enlaces: [{ url: 'https://drive.google.com/file/d/abc123', titulo: 'Trabajo final' }],
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.entrega.enlaces).toHaveLength(1);
+    expect(res.body.entrega.enlaces[0].url).toBe('https://drive.google.com/file/d/abc123');
+    expect(res.body.entrega.enlaces[0].titulo).toBe('Trabajo final');
+  });
+
+  it('rechaza un enlace que no es una URL http/https', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.post('/api/entregas').send({
+      tareaId: tarea._id.toString(),
+      padreId: padre._id.toString(),
+      enlaces: [{ url: 'javascript:alert(1)' }],
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('acepta un vídeo .mov (video/quicktime) en la entrega', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.post('/api/entregas')
+      .field('tareaId', tarea._id.toString())
+      .field('padreId', padre._id.toString())
+      .attach('archivos', Buffer.from('fake-mov'), { filename: 'clip.mov', contentType: 'video/quicktime' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.entrega.archivosAdjuntos).toHaveLength(1);
+  });
 });
 
 describe('IDOR corregido: /api/entregas/tarea/:tareaId y /api/entregas/padre/:padreId', () => {

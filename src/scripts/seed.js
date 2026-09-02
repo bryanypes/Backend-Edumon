@@ -13,8 +13,12 @@
  * Datos fijos entre corridas: cédulas, teléfonos, correos y nombres NO cambian.
  * Clave de todos los usuarios: Password123*
  *
+ * También borra de Cloudinary todo lo que sube la app (fotos, adjuntos, APKs…),
+ * salvo los avatares predeterminados. Con --no-cloudinary se omite ese paso.
+ *
  * Uso:
  *   node src/scripts/seed.js       (o  npm run seed)
+ *   node src/scripts/seed.js --no-cloudinary
  *
  * Nunca corre con NODE_ENV=production.
  */
@@ -41,6 +45,58 @@ dotenv.config();
 const PASSWORD = "Password123*"; // misma clave para todos los usuarios de prueba
 const dias = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 
+// carpetas de Cloudinary que usa la app (los avatares predeterminados se dejan)
+const CARPETAS_CLOUDINARY = [
+  "archivos-entregas",
+  "archivos-adjuntos-tareas",
+  "foros",
+  "mensajes-foro",
+  "eventos-portadas",
+  "eventos-adjuntos",
+  "fotos_cursos_portada",
+  "fotos-perfil-usuarios",
+  "apks",
+];
+
+async function limpiarCloudinary() {
+  if (process.argv.includes("--no-cloudinary")) {
+    console.log("☁️  Cloudinary: omitido (--no-cloudinary)\n");
+    return;
+  }
+  if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    console.log("☁️  Cloudinary: sin credenciales en el .env, se omite\n");
+    return;
+  }
+
+  const { default: cloudinary } = await import("../config/cloudinary.js");
+  console.log("☁️  Limpiando Cloudinary...");
+
+  let borrados = 0;
+  for (const carpeta of CARPETAS_CLOUDINARY) {
+    for (const resourceType of ["image", "video", "raw"]) {
+      for (const tipo of ["upload", "authenticated"]) {
+        try {
+          const r = await cloudinary.api.delete_resources_by_prefix(`${carpeta}/`, {
+            resource_type: resourceType,
+            type: tipo,
+          });
+          borrados += Object.keys(r.deleted || {}).length;
+        } catch (e) {
+          // 404 o carpeta vacía: normal, se ignora
+          if (e?.error?.http_code && e.error.http_code !== 404) {
+            console.warn(`   aviso (${carpeta}/${resourceType}/${tipo}): ${e.error.message}`);
+          }
+        }
+      }
+    }
+    try {
+      await cloudinary.api.delete_folder(carpeta);
+    } catch { /* la carpeta puede no existir */ }
+  }
+
+  console.log(`   ${borrados} recurso(s) borrado(s).\n`);
+}
+
 // ─────────────────────────────── seed ───────────────────────────────
 async function seed() {
   if (process.env.NODE_ENV === "production") {
@@ -59,6 +115,8 @@ async function seed() {
   console.log("🧹 Reseteando base de datos (dropDatabase)...");
   await mongoose.connection.dropDatabase();
   console.log("   listo.\n");
+
+  await limpiarCloudinary();
 
   // ── 1. Instituciones (2: una completa, otra solo para probar aislamiento) ──
   const instA = await Institucion.create({

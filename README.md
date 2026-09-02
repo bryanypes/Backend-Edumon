@@ -32,11 +32,13 @@ cp .env.example .env
 |---|---|
 | `npm run dev` | Levanta el servidor en modo desarrollo (nodemon, recarga en caliente) |
 | `npm start` | Levanta el servidor en modo producción |
-| `npm run seed` | **Solo testeo.** Resetea (`dropDatabase`) la base de `MONGO_URI` y la repuebla con un set mínimo y determinista (~1 registro por colección + 2 docentes / 2 padres / 2 cursos para probar permisos). Cubre todas las colecciones: instituciones, usuarios, perfiles familiares, cursos, módulos, tareas, entregas, foros y mensajes, eventos, notificaciones y buzón. Cédulas/teléfonos/correos fijos entre corridas; clave única `Password123*`. Imprime las credenciales en consola. Bloqueado si `NODE_ENV=production` |
+| `npm run seed` | **Solo testeo.** Resetea (`dropDatabase`) la base de `MONGO_URI` y borra de Cloudinary todo lo que sube la app (salvo los avatares predeterminados; con `-- --no-cloudinary` se omite). Repuebla con un set mínimo y determinista (~1 registro por colección + 2 docentes / 2 padres / 2 cursos para probar permisos): instituciones, usuarios, perfiles familiares, cursos, módulos, tareas, entregas, foros y mensajes, eventos, notificaciones y buzón. Cédulas/teléfonos/correos fijos entre corridas; clave única `Password123*`. Imprime las credenciales en consola. Bloqueado si `NODE_ENV=production` |
+| `npm run correos:prueba` | Envía por SMTP real un correo de cada tipo (recuperación de contraseña + una notificación por cada tipo) a `karen.mancilla.s@uniautonoma.edu.co`, o al correo que se pase como argumento. Sirve para revisar plantillas y credenciales SMTP. |
+| `npm run fotos:subir` | Sincroniza los avatares de `src/uploads/fotos-predeterminadas/` con la carpeta `fotos-perfil-predeterminadas/` de Cloudinary (sube los nuevos, borra los que ya no estén). Se corre una vez al preparar un entorno. |
+| `npm run telefonos:normalizar` | Migración: pasa los teléfonos antiguos de usuarios e instituciones al formato `+57XXXXXXXXXX`. Sin flags solo simula; con `-- --aplicar` escribe los cambios. |
 | `npm test` | Corre toda la suite de pruebas (Vitest) |
 | `npm run test:watch` | Corre las pruebas en modo watch |
 | `npm run test:coverage` | Corre las pruebas con reporte de cobertura |
-| `npm run reset-db -- --confirm` | **Destructivo.** Borra toda la base de datos de `MONGO_URI`. Bloqueado si `NODE_ENV=production`; requiere el flag `--confirm` |
 
 El servidor arranca por defecto en `http://localhost:4000` (configurable con `PORT`). La ruta `GET /` sirve como health check.
 
@@ -76,7 +78,7 @@ src/
 ├── events/          # bus de eventos interno
 ├── schedulers/       # tareas programadas (node-cron)
 ├── socket/          # handlers de Socket.IO
-├── scripts/         # seed y utilidades de mantenimiento
+├── scripts/         # seed, correos de prueba, subida de avatares, migración de teléfonos
 └── utils/
 ```
 
