@@ -1,5 +1,5 @@
 import express from 'express';
-import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import {
   crearPerfil,
   getMisPerfiles,
@@ -11,7 +11,8 @@ import {
 
 const router = express.Router();
 
-router.use(authMiddleware);
+// Los perfiles familiares (estilo Netflix) son exclusivos de los titulares padre/acudiente
+router.use(authMiddleware, requireRole(['padre']));
 
 router.get('/', getMisPerfiles);                    // Ver todos mis perfiles
 router.post('/', crearPerfil);                      // Crear perfil

@@ -27,8 +27,3 @@ export const normalizarTelefono = (telefono) => {
 
   return null;
 };
-
-export const esTelefonoValido = (telefono) => {
-  const normalizado = normalizarTelefono(telefono);
-  return normalizado !== null;
-};

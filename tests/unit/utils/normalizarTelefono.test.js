@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizarTelefono, esTelefonoValido } from '../../../src/utils/normalizarTelefono.js';
+import { normalizarTelefono } from '../../../src/utils/normalizarTelefono.js';
 
 describe('normalizarTelefono', () => {
   it('normaliza un número local de 10 dígitos que empieza en 3', () => {
@@ -38,17 +38,5 @@ describe('normalizarTelefono', () => {
     expect(normalizarTelefono('')).toBeNull();
     expect(normalizarTelefono(null)).toBeNull();
     expect(normalizarTelefono(undefined)).toBeNull();
-  });
-});
-
-describe('esTelefonoValido', () => {
-  it('true para un teléfono colombiano válido en cualquier formato soportado', () => {
-    expect(esTelefonoValido('3113014875')).toBe(true);
-    expect(esTelefonoValido('+573113014875')).toBe(true);
-  });
-
-  it('false para un teléfono inválido', () => {
-    expect(esTelefonoValido('123')).toBe(false);
-    expect(esTelefonoValido('abc')).toBe(false);
   });
 });

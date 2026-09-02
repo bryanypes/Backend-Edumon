@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import jwt from 'jsonwebtoken';
 import crearApp from '../../src/app.js';
 import PerfilFamiliar from '../../src/models/PerfilFamiliar.js';
-import { crearPadre, crearPerfilFamiliar } from '../helpers/factories.js';
+import { crearPadre, crearDocente, crearPerfilFamiliar } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 const decodificarAccessToken = (res) => {
@@ -99,6 +99,48 @@ describe('POST /api/perfiles/seleccionar — cambia de perfil activo', () => {
 
     const res = await agent.post('/api/perfiles/seleccionar').send({ perfilId: perfilDeB._id.toString() });
     expect(res.status).toBe(404);
+  });
+
+  it('el refresh del token CONSERVA el perfil familiar activo', async () => {
+    const padre = await crearPadre();
+    const perfil = await crearPerfilFamiliar({ titularId: padre._id, nombre: 'Hijo' });
+    const agent = await loginComo(app, padre);
+
+    await agent.post('/api/perfiles/seleccionar').send({ perfilId: perfil._id.toString() });
+
+    const res = await agent.post('/api/auth/refresh');
+    expect(res.status).toBe(200);
+
+    const payload = decodificarAccessToken(res);
+    expect(payload.perfilId).toBe(perfil._id.toString());
+    expect(payload.esTitular).toBe(false);
+  });
+
+  it('si el perfil activo fue eliminado, el refresh cae de vuelta al titular', async () => {
+    const padre = await crearPadre();
+    const perfil = await crearPerfilFamiliar({ titularId: padre._id, nombre: 'Hijo' });
+    const agent = await loginComo(app, padre);
+
+    await agent.post('/api/perfiles/seleccionar').send({ perfilId: perfil._id.toString() });
+    await agent.delete(`/api/perfiles/${perfil._id}`); // soft delete
+
+    const res = await agent.post('/api/auth/refresh');
+    const payload = decodificarAccessToken(res);
+    expect(payload.esTitular).toBe(true);
+    expect(payload.perfilId).toBeNull();
+  });
+});
+
+describe('Las rutas de perfiles son exclusivas de padres/acudientes', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('un docente recibe 403 al listar o crear perfiles', async () => {
+    const docente = await crearDocente();
+    const agent = await loginComo(app, docente);
+
+    expect((await agent.get('/api/perfiles')).status).toBe(403);
+    expect((await agent.post('/api/perfiles').send({ nombre: 'X' })).status).toBe(403);
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
-import { authMiddleware, requireRole, requireMismaInstitucion } from '../../../src/middlewares/authMiddleware.js';
+import { authMiddleware, requireRole } from '../../../src/middlewares/authMiddleware.js';
 import { generarAccessToken, extractAccessToken } from '../../../src/controllers/authController.js';
 import { crearPadre, crearDocente, crearAdministrador } from '../../helpers/factories.js';
 
@@ -162,38 +162,5 @@ describe('requireRole', () => {
 
     expect(next).toHaveBeenCalledOnce();
     expect(res.status).not.toHaveBeenCalled();
-  });
-});
-
-describe('requireMismaInstitucion', () => {
-  it('deja pasar siempre a un superadmin, tenga o no institucionId', () => {
-    const req = { user: { rol: 'superadmin', institucionId: null } };
-    const res = mockRes();
-    const next = vi.fn();
-
-    requireMismaInstitucion(req, res, next);
-
-    expect(next).toHaveBeenCalledOnce();
-  });
-
-  it('responde 403 si el usuario no tiene institución asignada', () => {
-    const req = { user: { rol: 'administrador', institucionId: null } };
-    const res = mockRes();
-    const next = vi.fn();
-
-    requireMismaInstitucion(req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('llama a next() si el usuario tiene institución asignada', () => {
-    const req = { user: { rol: 'administrador', institucionId: '507f1f77bcf86cd799439011' } };
-    const res = mockRes();
-    const next = vi.fn();
-
-    requireMismaInstitucion(req, res, next);
-
-    expect(next).toHaveBeenCalledOnce();
   });
 });

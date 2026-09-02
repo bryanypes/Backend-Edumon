@@ -3,19 +3,16 @@ import {
   subirImagenCloudinary,
   subirArchivoCloudinary,
   eliminarArchivoCloudinary,
-  obtenerInfoArchivo,
 } from '../../../src/utils/cloudinaryUpload.js';
 import {
   cloudinaryUploadMock,
   cloudinaryDestroyMock,
-  cloudinaryResourceMock,
 } from '../../setup/mocks.js';
 
 describe('cloudinaryUpload (SDK de Cloudinary mockeado)', () => {
   beforeEach(() => {
     cloudinaryUploadMock.mockClear();
     cloudinaryDestroyMock.mockClear();
-    cloudinaryResourceMock.mockClear();
   });
 
   it('subirImagenCloudinary sube el buffer como data URI y devuelve url + publicId', async () => {
@@ -61,10 +58,20 @@ describe('cloudinaryUpload (SDK de Cloudinary mockeado)', () => {
     expect(cloudinaryDestroyMock).not.toHaveBeenCalled();
   });
 
-  it('eliminarArchivoCloudinary llama a destroy con el resourceType e invalidate:true', async () => {
+  it('eliminarArchivoCloudinary llama a destroy con el resourceType, type e invalidate:true', async () => {
     await eliminarArchivoCloudinary('carpeta/archivo123', 'video');
     expect(cloudinaryDestroyMock).toHaveBeenCalledWith('carpeta/archivo123', {
       resource_type: 'video',
+      type: 'upload',
+      invalidate: true,
+    });
+  });
+
+  it('eliminarArchivoCloudinary reenvía el type (authenticated) cuando se indica', async () => {
+    await eliminarArchivoCloudinary('carpeta/privado123', 'raw', 'authenticated');
+    expect(cloudinaryDestroyMock).toHaveBeenCalledWith('carpeta/privado123', {
+      resource_type: 'raw',
+      type: 'authenticated',
       invalidate: true,
     });
   });
@@ -74,8 +81,4 @@ describe('cloudinaryUpload (SDK de Cloudinary mockeado)', () => {
     await expect(eliminarArchivoCloudinary('carpeta/x', 'image')).resolves.toBeUndefined();
   });
 
-  it('obtenerInfoArchivo devuelve null si Cloudinary falla', async () => {
-    cloudinaryResourceMock.mockRejectedValueOnce(new Error('no existe'));
-    expect(await obtenerInfoArchivo('carpeta/x', 'image')).toBeNull();
-  });
 });

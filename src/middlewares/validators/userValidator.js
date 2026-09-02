@@ -160,34 +160,6 @@ export const userIdValidator = [
     .withMessage('ID de usuario inválido'),
 ];
 
-export const changePasswordValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de usuario inválido'),
-
-  body('contraseñaActual')
-    .notEmpty()
-    .withMessage('La contraseña actual es requerida'),
-
-  body('nuevaContraseña')
-    .notEmpty()
-    .withMessage('La nueva contraseña es requerida')
-    .isLength({ min: 6, max: 128 })
-    .withMessage('La contraseña debe tener entre 6 y 128 caracteres')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
-
-  body('confirmarContraseña')
-    .notEmpty()
-    .withMessage('Debes confirmar la contraseña')
-    .custom((value, { req }) => {
-      if (value !== req.body.nuevaContraseña) {
-        throw new Error('Las contraseñas no coinciden');
-      }
-      return true;
-    }),
-];
-
 export const updateFcmTokenValidator = [
   body('fcmToken')
     .notEmpty()

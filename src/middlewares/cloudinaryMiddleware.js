@@ -50,6 +50,22 @@ export const uploadImagenYCSV = multer({
   }
 });
 
+// APK de Android: se valida por extensión (.apk); el navegador manda mimetypes
+// poco fiables para este tipo. Límite alto porque un APK pesa mucho.
+export const uploadApk = multer({
+  storage: storage,
+  limits: {
+    fileSize: 200 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith('.apk')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos .apk'), false);
+    }
+  }
+});
+
 export const uploadCSVCloudinary = multer({
   storage: storage,
   limits: {
@@ -64,6 +80,8 @@ export const uploadCSVCloudinary = multer({
   }
 });
 
+// adjuntos de entregas: mismo criterio que tareas/foros (imágenes, vídeo .mov
+// incluido, audio, PDF, Office, comprimidos)
 export const uploadArchivoCloudinary = multer({
   storage: storage,
   limits: {
@@ -71,23 +89,24 @@ export const uploadArchivoCloudinary = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp',
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'image/jpeg',
-      'image/png',
-      'image/jpg',
-      'video/mp4', 
-      'video/mpeg', 
-      'video/webm' 
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain', 'text/csv',
+      'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm', 'video/x-msvideo',
+      'audio/mpeg', 'audio/wav', 'audio/ogg',
+      'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Formato de archivo no permitido'), false);
+      cb(new Error(`Formato de archivo no permitido: ${file.mimetype}`), false);
     }
   }
 });

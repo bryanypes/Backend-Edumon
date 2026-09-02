@@ -77,6 +77,34 @@ export const extractAccessToken = (req) => {
   return null;
 };
 
+// sin esto, cada refresh devolvía la sesión al titular. Se lee el perfil del
+// access token viejo del request, validando firma y que el perfil siga activo
+const resolverPerfilActivo = async (req, userId) => {
+  const tokenViejo = extractAccessToken(req);
+  if (!tokenViejo) return { perfilId: null, esTitular: true };
+
+  let payload;
+  try {
+    payload = jwt.verify(tokenViejo, process.env.JWT_SECRET, { ignoreExpiration: true });
+  } catch {
+    return { perfilId: null, esTitular: true };
+  }
+
+  if (!payload?.perfilId || payload.esTitular !== false) {
+    return { perfilId: null, esTitular: true };
+  }
+
+  const perfil = await PerfilFamiliar.findOne({
+    _id: payload.perfilId,
+    titularId: userId,
+    activo: true,
+  }).select('_id').lean();
+
+  return perfil
+    ? { perfilId: perfil._id, esTitular: false }
+    : { perfilId: null, esTitular: true };
+};
+
 const publicUser = (user) => ({
   id:                 user._id,
   nombre:             user.nombre,
@@ -242,7 +270,9 @@ export const refresh = async (req, res) => {
       (t) => t.tokenHash !== hash && t.expiraEn > new Date(),
     );
 
-    const accessToken      = generarAccessToken(user);
+    // conserva el perfil familiar activo entre renovaciones
+    const contextoPerfil = await resolverPerfilActivo(req, user._id);
+    const accessToken      = generarAccessToken(user, contextoPerfil);
     const { raw, hash: newHash } = generarRefreshToken();
     const expiraEn         = new Date(Date.now() + REFRESH_TOKEN_TTL);
 

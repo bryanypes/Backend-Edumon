@@ -2,9 +2,37 @@ import Entrega from '../models/Entrega.js';
 import Tarea from '../models/Tarea.js';
 import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
-import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
+import { subirArchivoCloudinary, eliminarArchivoCloudinary, firmarUrlArchivo, resourceTypeDeMime } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { parseJSONArray } from '../utils/parseJSONArray.js';
+
+// la url guardada de un adjunto privado no sirve tal cual; se cambia por una
+// url firmada de 2h antes de responder (solo llega a quien pasó la autorización)
+const firmarAdjuntos = (entrega) => {
+  const obj = entrega?.toObject ? entrega.toObject() : entrega;
+  if (obj && Array.isArray(obj.archivosAdjuntos)) {
+    obj.archivosAdjuntos = obj.archivosAdjuntos.map((a) => {
+      if (!a?.privado) return a;
+      const firmada = firmarUrlArchivo(a.publicId, { resourceType: resourceTypeDeMime(a.tipoArchivo) });
+      return { ...a, url: firmada || a.url };
+    });
+  }
+  return obj;
+};
+
+const firmarLista = (entregas) => (entregas || []).map(firmarAdjuntos);
+
+// Normaliza los enlaces recibidos (JSON string de multipart o array de JSON).
+const sanitizarEnlaces = (raw) =>
+  parseJSONArray(raw)
+    .filter((e) => e && typeof e.url === 'string' && e.url.trim())
+    .slice(0, 10)
+    .map((e) => ({
+      url: e.url.trim(),
+      titulo: typeof e.titulo === 'string' ? e.titulo.trim().slice(0, 200) : undefined,
+      descripcion: typeof e.descripcion === 'string' ? e.descripcion.trim().slice(0, 500) : undefined,
+    }));
 
 export const createEntrega = async (req, res) => {
   try {
@@ -46,13 +74,14 @@ export const createEntrega = async (req, res) => {
           throw new Error(`No se pudo leer el archivo ${file.originalname}`);
         }
 
-        const archivoSubido = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-entregas', file.originalname);
+        const archivoSubido = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-entregas', file.originalname, { privado: true });
         return {
           url: archivoSubido.url,
           publicId: archivoSubido.publicId,
           nombreOriginal: file.originalname,
           tipoArchivo: file.mimetype,
-          tamano: file.size
+          tamano: file.size,
+          privado: true
         };
       }));
 
@@ -71,6 +100,7 @@ export const createEntrega = async (req, res) => {
       textoRespuesta: req.body.textoRespuesta,
       estado,
       archivosAdjuntos,
+      enlaces: sanitizarEnlaces(req.body.enlaces),
       ...(estado === 'enviada' || estado === 'tarde' ? { fechaEntrega: new Date() } : {})
     });
 
@@ -79,12 +109,12 @@ export const createEntrega = async (req, res) => {
       savedEntrega = await newEntrega.save();
     } catch (saveError) {
       // La entrega no se creó: limpiar los archivos que ya se subieron a Cloudinary
-      await Promise.all(archivosAdjuntos.map(a => {
-        let resourceType = 'raw';
-        if (a.tipoArchivo.startsWith('image/')) resourceType = 'image';
-        else if (a.tipoArchivo.startsWith('video/')) resourceType = 'video';
-        return eliminarArchivoCloudinary(a.publicId, resourceType);
-      }));
+      await Promise.all(archivosAdjuntos.map(a =>
+        eliminarArchivoCloudinary(a.publicId, resourceTypeDeMime(a.tipoArchivo), a.privado ? 'authenticated' : 'upload')
+      ));
+      if (saveError.name === 'ValidationError') {
+        return res.status(400).json({ message: "Errores de validación", errors: Object.values(saveError.errors).map(e => ({ path: e.path, msg: e.message })) });
+      }
       throw saveError;
     }
 
@@ -109,7 +139,7 @@ export const createEntrega = async (req, res) => {
 
       return res.status(201).json({
         message: "Entrega creada y enviada exitosamente",
-        entrega: entregaCompleta
+        entrega: firmarAdjuntos(entregaCompleta)
       });
     }
 
@@ -118,7 +148,7 @@ export const createEntrega = async (req, res) => {
       { path: 'padreId', select: 'nombre apellido correo' }
     ]);
 
-    res.status(201).json({ message: "Entrega creada exitosamente", entrega: savedEntrega });
+    res.status(201).json({ message: "Entrega creada exitosamente", entrega: firmarAdjuntos(savedEntrega) });
 
   } catch (error) {
     console.error('Error al crear entrega:', error);
@@ -146,7 +176,7 @@ export const getEntregasByPadreAndTarea = async (req, res) => {
       .populate('calificacion.docenteId', 'nombre apellido correo')
       .sort({ createdAt: -1 });
 
-    res.json({ entregas, total: entregas.length });
+    res.json({ entregas: firmarLista(entregas), total: entregas.length });
   } catch (error) {
     console.error('Error al obtener entregas del padre:', error);
     res.status(500).json({ message: "Error interno del servidor" });
@@ -167,6 +197,11 @@ export const updateEntrega = async (req, res) => {
     delete updateData.calificacion;
     delete updateData.tareaId;
     delete updateData.padreId;
+    delete updateData.archivos;
+
+    if (updateData.enlaces !== undefined) {
+      updateData.enlaces = sanitizarEnlaces(req.body.enlaces);
+    }
 
     const entrega = await Entrega.findById(id).populate('tareaId');
     if (!entrega) {
@@ -185,13 +220,14 @@ export const updateEntrega = async (req, res) => {
           throw new Error(`No se pudo leer el archivo ${file.originalname}`);
         }
 
-        const archivoSubido = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-entregas', file.originalname);
+        const archivoSubido = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'archivos-entregas', file.originalname, { privado: true });
         return {
           url: archivoSubido.url,
           publicId: archivoSubido.publicId,
           nombreOriginal: file.originalname,
           tipoArchivo: file.mimetype,
-          tamano: file.size
+          tamano: file.size,
+          privado: true
         };
       }));
       updateData.archivosAdjuntos = [...(entrega.archivosAdjuntos || []), ...nuevosSubidos];
@@ -207,16 +243,16 @@ export const updateEntrega = async (req, res) => {
         .populate('tareaId', 'titulo fechaEntrega')
         .populate('padreId', 'nombre apellido correo');
     } catch (updateError) {
-      await Promise.all(nuevosSubidos.map(a => {
-        let resourceType = 'raw';
-        if (a.tipoArchivo.startsWith('image/')) resourceType = 'image';
-        else if (a.tipoArchivo.startsWith('video/')) resourceType = 'video';
-        return eliminarArchivoCloudinary(a.publicId, resourceType);
-      }));
+      await Promise.all(nuevosSubidos.map(a =>
+        eliminarArchivoCloudinary(a.publicId, resourceTypeDeMime(a.tipoArchivo), 'authenticated')
+      ));
+      if (updateError.name === 'ValidationError') {
+        return res.status(400).json({ message: "Errores de validación", errors: Object.values(updateError.errors).map(e => ({ path: e.path, msg: e.message })) });
+      }
       throw updateError;
     }
 
-    res.json({ message: "Entrega actualizada exitosamente", entrega: updatedEntrega });
+    res.json({ message: "Entrega actualizada exitosamente", entrega: firmarAdjuntos(updatedEntrega) });
   } catch (error) {
     console.error('Error al actualizar entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });
@@ -264,7 +300,7 @@ export const enviarEntrega = async (req, res) => {
 
     res.json({
       message: `Entrega ${estado === 'tarde' ? 'enviada con retraso' : 'enviada exitosamente'}`,
-      entrega: entregaCompleta
+      entrega: firmarAdjuntos(entregaCompleta)
     });
   } catch (error) {
     console.error('Error al enviar entrega:', error);
@@ -291,10 +327,11 @@ export const deleteEntrega = async (req, res) => {
 
     if (entrega.archivosAdjuntos && entrega.archivosAdjuntos.length > 0) {
       for (const archivo of entrega.archivosAdjuntos) {
-        let resourceType = 'raw';
-        if (archivo.tipoArchivo.startsWith('image/')) resourceType = 'image';
-        else if (archivo.tipoArchivo.startsWith('video/')) resourceType = 'video';
-        await eliminarArchivoCloudinary(archivo.publicId, resourceType);
+        await eliminarArchivoCloudinary(
+          archivo.publicId,
+          resourceTypeDeMime(archivo.tipoArchivo),
+          archivo.privado ? 'authenticated' : 'upload'
+        );
       }
     }
 
@@ -325,15 +362,16 @@ export const eliminarArchivoEntrega = async (req, res) => {
     if (archivoIndex === -1) return res.status(404).json({ message: "Archivo no encontrado" });
 
     const archivo = entrega.archivosAdjuntos[archivoIndex];
-    let resourceType = 'raw';
-    if (archivo.tipoArchivo.startsWith('image/')) resourceType = 'image';
-    else if (archivo.tipoArchivo.startsWith('video/')) resourceType = 'video';
 
-    await eliminarArchivoCloudinary(archivo.publicId, resourceType);
+    await eliminarArchivoCloudinary(
+      archivo.publicId,
+      resourceTypeDeMime(archivo.tipoArchivo),
+      archivo.privado ? 'authenticated' : 'upload'
+    );
     entrega.archivosAdjuntos.splice(archivoIndex, 1);
     await entrega.save();
 
-    res.json({ message: "Archivo eliminado exitosamente", entrega });
+    res.json({ message: "Archivo eliminado exitosamente", entrega: firmarAdjuntos(entrega) });
   } catch (error) {
     console.error('Error al eliminar archivo:', error);
     res.status(500).json({ message: "Error interno del servidor" });
@@ -375,7 +413,7 @@ export const getAllEntregas = async (req, res) => {
     ]);
 
     res.json({
-      entregas,
+      entregas: firmarLista(entregas),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
@@ -435,7 +473,7 @@ export const getEntregasByTarea = async (req, res) => {
 
     res.json({
       tarea: { id: tarea._id, titulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega },
-      entregas,
+      entregas: firmarLista(entregas),
       estadisticas: stats,
       pagination: {
         currentPage: page,
@@ -485,7 +523,7 @@ export const getEntregasByPadre = async (req, res) => {
     ]);
 
     res.json({
-      entregas,
+      entregas: firmarLista(entregas),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
@@ -552,7 +590,7 @@ export const calificarEntrega = async (req, res) => {
 
     res.json({
       message: esActualizacion ? "Valoración actualizada exitosamente" : "Entrega valorada exitosamente",
-      entrega: updatedEntrega,
+      entrega: firmarAdjuntos(updatedEntrega),
       estrellas: updatedEntrega.estrellas,
       esActualizacion
     });
@@ -576,7 +614,7 @@ export const getEntregaById = async (req, res) => {
 
     if (!entrega) return res.status(404).json({ message: "Entrega no encontrada" });
 
-    res.json(entrega);
+    res.json(firmarAdjuntos(entrega));
   } catch (error) {
     console.error('Error al obtener entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });

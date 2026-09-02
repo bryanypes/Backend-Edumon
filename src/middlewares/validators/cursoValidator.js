@@ -126,12 +126,3 @@ export const cursoIdValidator = [
     .isMongoId()
     .withMessage('ID de curso inválido')
 ];
-
-export const csvFileValidator = [
-  body().custom((value, { req }) => {
-    if (!req.file && !req.files?.archivo) {
-      throw new Error('Se requiere un archivo CSV');
-    }
-    return true;
-  })
-];

@@ -24,6 +24,7 @@ import mensajeForoRoutes from './routes/mensajeForoRoutes.js';
 import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
 import buzonRoutes from './routes/buzonRoutes.js';
+import apkRoutes from './routes/apkRoutes.js';
 
 // Solo construye app + server + io. server.js conecta Mongo y arranca el
 // scheduler; los tests importan este archivo directo con su propia BD en memoria.
@@ -160,6 +161,13 @@ export const crearApp = () => {
   app.use('/api/auth/login',    limiterAuth);
   app.use('/api/auth/register', limiterAuth);
 
+  // recuperación de contraseña: el código es de 6 dígitos, sin este límite se
+  // podía probar por fuerza bruta dentro de la ventana de validez
+  app.use('/api/auth/forgot-password',       limiterAuth);
+  app.use('/api/auth/forgot-password-phone', limiterAuth);
+  app.use('/api/auth/reset-password',        limiterAuth);
+  app.use('/api/auth/reset-password-phone',  limiterAuth);
+
   // CORS
   const corsAbiertoTemporalmente = !isDev && frontendUrls.length === 0;
   if (corsAbiertoTemporalmente) {
@@ -212,6 +220,7 @@ export const crearApp = () => {
   app.use('/api/instituciones', institucionRoutes);
   app.use('/api/perfiles',      perfilFamiliarRoutes);
   app.use('/api/buzon',         buzonRoutes);
+  app.use('/api/apk',           apkRoutes);
 
   // Health check
   app.get('/', (req, res) => {

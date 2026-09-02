@@ -46,11 +46,3 @@ export const requireRole = (roles) => (req, res, next) => {
     return res.status(403).json({ message: 'No tienes permisos para esta acción' });
   next();
 };
-
-// Control de institución
-export const requireMismaInstitucion = (req, res, next) => {
-  if (req.user.rol === 'superadmin') return next();
-  if (!req.user.institucionId)
-    return res.status(403).json({ message: 'Sin institución asignada' });
-  next();
-};
