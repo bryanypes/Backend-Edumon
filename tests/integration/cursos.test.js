@@ -284,3 +284,106 @@ describe('POST /api/cursos/:id/usuarios-masivo — carga Excel en un curso exist
     expect(res.status).toBe(400);
   });
 });
+
+describe('GET /api/cursos/:id — control de acceso a un curso puntual', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('el docente dueño puede ver su curso', async () => {
+    const curso = await crearCurso();
+    const docente = await import('../../src/models/User.js').then((m) => m.default.findById(curso.docenteId));
+    const agent = await loginComo(app, docente);
+
+    const res = await agent.get(`/api/cursos/${curso._id}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('IDOR: un usuario ajeno al curso y a la institución recibe 403', async () => {
+    const curso = await crearCurso();
+    const intruso = await crearPadre(); // sin institución ni participación
+    const agent = await loginComo(app, intruso);
+
+    const res = await agent.get(`/api/cursos/${curso._id}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('CROSS-TENANT: un admin de otra institución no puede ver el curso', async () => {
+    const [instA, instB] = [await crearInstitucion(), await crearInstitucion()];
+    const curso = await crearCurso({ institucionId: instA._id });
+    const adminB = await crearAdministrador({ institucionId: instB._id });
+    const agent = await loginComo(app, adminB);
+
+    const res = await agent.get(`/api/cursos/${curso._id}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('un padre participante sí puede ver el curso', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.get(`/api/cursos/${curso._id}`);
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('CROSS-TENANT: un admin no puede gestionar cursos de otra institución', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  const setup = async () => {
+    const [instA, instB] = [await crearInstitucion(), await crearInstitucion()];
+    const curso = await crearCurso({ institucionId: instA._id });
+    const adminB = await crearAdministrador({ institucionId: instB._id });
+    const agent = await loginComo(app, adminB);
+    return { curso, agent };
+  };
+
+  it('PUT (editar) responde 403', async () => {
+    const { curso, agent } = await setup();
+    const res = await agent.put(`/api/cursos/${curso._id}`).field('nombre', 'Intruso');
+    expect(res.status).toBe(403);
+    expect((await Curso.findById(curso._id)).nombre).not.toBe('Intruso');
+  });
+
+  it('DELETE (archivar) responde 403', async () => {
+    const { curso, agent } = await setup();
+    const res = await agent.delete(`/api/cursos/${curso._id}`);
+    expect(res.status).toBe(403);
+    expect((await Curso.findById(curso._id)).estado).toBe('activo');
+  });
+
+  it('POST participantes responde 403', async () => {
+    const { curso, agent } = await setup();
+    const res = await agent.post(`/api/cursos/${curso._id}/participantes`).send({
+      nombre: 'X', apellido: 'Y', telefono: '3009998877', cedula: '55443322',
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('GET participantes responde 403', async () => {
+    const { curso, agent } = await setup();
+    const res = await agent.get(`/api/cursos/${curso._id}/participantes`);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('un padre no puede agregar participantes a un curso', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('aunque participe en el curso, POST participantes responde 403', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.post(`/api/cursos/${curso._id}/participantes`).send({
+      nombre: 'Colado', apellido: 'Test', telefono: '3009990000', cedula: '11220033',
+    });
+    expect(res.status).toBe(403);
+  });
+});

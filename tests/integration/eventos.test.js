@@ -147,6 +147,41 @@ describe('PUT/DELETE de eventos', () => {
     expect(res.status).toBe(200);
     expect(await Evento.findById(evento._id)).toBeNull();
   });
+
+  // Regresión: updateEvento solo verificaba el dueño del evento ACTUAL. Sin revalidar,
+  // el docente reasignaba cursosIds a un curso ajeno (PUT) y colgaba su evento de él.
+  it('un docente NO puede reasignar cursosIds a un curso que no le pertenece (PUT)', async () => {
+    const cursoPropio = await crearCurso();
+    const docente = await docenteDelCurso(cursoPropio);
+    const evento = await crearEvento({ cursosIds: [cursoPropio._id], docenteId: docente._id });
+
+    const cursoAjeno = await crearCurso();
+
+    const agent = await loginComo(app, docente);
+    const res = await agent.put(`/api/eventos/${evento._id}`).send({
+      cursosIds: [cursoAjeno._id.toString()],
+    });
+
+    expect(res.status).toBe(403);
+    const recargado = await Evento.findById(evento._id);
+    expect(recargado.cursosIds.map((c) => c.toString())).toEqual([cursoPropio._id.toString()]);
+  });
+
+  it('un docente SÍ puede reasignar el evento a otro curso suyo (PUT)', async () => {
+    const docente = await crearDocente();
+    const cursoA = await crearCurso({ docenteId: docente._id });
+    const cursoB = await crearCurso({ docenteId: docente._id });
+    const evento = await crearEvento({ cursosIds: [cursoA._id], docenteId: docente._id });
+
+    const agent = await loginComo(app, docente);
+    const res = await agent.put(`/api/eventos/${evento._id}`).send({
+      cursosIds: [cursoB._id.toString()],
+    });
+
+    expect(res.status).toBe(200);
+    const recargado = await Evento.findById(evento._id);
+    expect(recargado.cursosIds.map((c) => c.toString())).toEqual([cursoB._id.toString()]);
+  });
 });
 
 describe('GET /api/eventos/hoy', () => {

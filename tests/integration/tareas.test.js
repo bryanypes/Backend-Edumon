@@ -60,6 +60,20 @@ describe('POST /api/tareas', () => {
     expect(res.status).toBe(403);
   });
 
+  it('rechaza crear una tarea con un moduloId que pertenece a otro curso', async () => {
+    const curso = await crearCurso();
+    const docente = await docenteDelCurso(curso);
+    const otroCurso = await crearCurso();
+    const moduloDeOtroCurso = await crearModulo({ cursoId: otroCurso._id });
+    const agent = await loginComo(app, docente);
+
+    const res = await agent.post('/api/tareas').send({
+      titulo: 'Tarea con módulo ajeno', fechaEntrega: manana(), tipoEntrega: 'texto',
+      cursoId: curso._id.toString(), moduloId: moduloDeOtroCurso._id.toString(),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('rechaza una fecha de entrega en el pasado', async () => {
     const curso = await crearCurso();
     const modulo = await crearModulo({ cursoId: curso._id });
@@ -289,5 +303,62 @@ describe('PUT /api/tareas/:id', () => {
     const agent = await loginComo(app, docente);
     const res = await agent.put('/api/tareas/507f1f77bcf86cd799439011').send({ titulo: 'X' });
     expect(res.status).toBe(404);
+  });
+
+  // Regresión: canModifyTarea solo comprueba tarea.docenteId, no el curso destino.
+  // Sin revalidar, el docente movía su tarea a un curso ajeno (PUT cursoId) y pasaba
+  // a poder ver y calificar todas sus entregas.
+  it('un docente NO puede mover su tarea a un curso que no le pertenece (PUT cursoId)', async () => {
+    const cursoPropio = await crearCurso();
+    const docente = await docenteDelCurso(cursoPropio);
+    const moduloPropio = await crearModulo({ cursoId: cursoPropio._id });
+    const tarea = await crearTarea({ cursoId: cursoPropio._id, moduloId: moduloPropio._id, docenteId: docente._id });
+
+    const cursoAjeno = await crearCurso();
+    const moduloAjeno = await crearModulo({ cursoId: cursoAjeno._id });
+
+    const agent = await loginComo(app, docente);
+    const res = await agent.put(`/api/tareas/${tarea._id}`).send({
+      cursoId: cursoAjeno._id.toString(),
+      moduloId: moduloAjeno._id.toString(),
+    });
+
+    expect(res.status).toBe(403);
+    expect((await Tarea.findById(tarea._id)).cursoId.toString()).toBe(cursoPropio._id.toString());
+  });
+
+  it('un docente SÍ puede mover su tarea entre dos cursos suyos', async () => {
+    const docente = await crearDocente();
+    const cursoA = await crearCurso({ docenteId: docente._id });
+    const cursoB = await crearCurso({ docenteId: docente._id });
+    const moduloA = await crearModulo({ cursoId: cursoA._id });
+    const moduloB = await crearModulo({ cursoId: cursoB._id });
+    const tarea = await crearTarea({ cursoId: cursoA._id, moduloId: moduloA._id, docenteId: docente._id });
+
+    const agent = await loginComo(app, docente);
+    const res = await agent.put(`/api/tareas/${tarea._id}`).send({
+      cursoId: cursoB._id.toString(),
+      moduloId: moduloB._id.toString(),
+    });
+
+    expect(res.status).toBe(200);
+    expect((await Tarea.findById(tarea._id)).cursoId.toString()).toBe(cursoB._id.toString());
+  });
+
+  it('rechaza un moduloId que no pertenece al curso de la tarea (PUT)', async () => {
+    const curso = await crearCurso();
+    const docente = await docenteDelCurso(curso);
+    const moduloDelCurso = await crearModulo({ cursoId: curso._id });
+    const tarea = await crearTarea({ cursoId: curso._id, moduloId: moduloDelCurso._id, docenteId: docente._id });
+
+    const otroCurso = await crearCurso();
+    const moduloDeOtroCurso = await crearModulo({ cursoId: otroCurso._id });
+
+    const agent = await loginComo(app, docente);
+    const res = await agent.put(`/api/tareas/${tarea._id}`).send({
+      moduloId: moduloDeOtroCurso._id.toString(),
+    });
+
+    expect(res.status).toBe(400);
   });
 });

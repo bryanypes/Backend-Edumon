@@ -6,6 +6,18 @@ import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloud
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
+// Un administrador solo puede gestionar/ver usuarios de SU institución; el
+// superadmin no tiene restricción. Antes cualquier admin operaba sobre usuarios
+// de cualquier institución vía /users/:id.
+function adminPuedeGestionarUsuario(actor, objetivo) {
+  if (actor.rol === 'superadmin') return true;
+  if (actor.rol === 'administrador') {
+    return !!objetivo.institucionId &&
+      objetivo.institucionId.toString() === actor.institucionId;
+  }
+  return false;
+}
+
 // Crear usuario (desde panel de administración)
 export const createUser = async (req, res) => {
   try {
@@ -18,6 +30,18 @@ export const createUser = async (req, res) => {
     }
 
     const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
+
+    // Un administrador solo puede crear padres/docentes DE SU institución.
+    // Sin esto podía crear otros administradores (o el superadmin, si no existía)
+    // y colocar docentes en instituciones ajenas.
+    if (req.user.rol === 'administrador') {
+      if (!['padre', 'docente'].includes(rol)) {
+        return res.status(403).json({ message: "Un administrador solo puede crear usuarios con rol 'padre' o 'docente'" });
+      }
+      if (!req.user.institucionId) {
+        return res.status(400).json({ message: "No tienes institución asignada" });
+      }
+    }
 
     // findOne(undefined) matchea el primer doc de la colección, por eso solo
     // se busca si el campo realmente viene en el body
@@ -48,7 +72,8 @@ export const createUser = async (req, res) => {
 
     let institucionFinal = null;
     if (rol === 'docente' || rol === 'administrador') {
-      institucionFinal = institucionId;
+      // el admin no puede elegir institución: siempre la suya
+      institucionFinal = req.user.rol === 'administrador' ? req.user.institucionId : institucionId;
     }
 
     // contraseña inicial = cédula, salvo que se envíe una explícita (misma regla en todo el sistema)
@@ -92,6 +117,11 @@ export const getUsers = async (req, res) => {
     if (rol)    filter.rol    = rol;
     if (estado) filter.estado = estado;
 
+    // el admin solo ve usuarios de su institución; el superadmin ve todos
+    if (req.user.rol === 'administrador') {
+      filter.institucionId = req.user.institucionId;
+    }
+
     const users = await User.find(filter)
       .skip(skip)
       .limit(limit)
@@ -129,6 +159,10 @@ export const getUserById = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    if (!adminPuedeGestionarUsuario(req.user, user)) {
+      return res.status(403).json({ message: "No puedes ver usuarios de otra institución" });
     }
 
     res.json(user);
@@ -170,6 +204,14 @@ export const updateUser = async (req, res) => {
 
     if (!id) {
       return res.status(400).json({ message: 'ID de usuario requerido' });
+    }
+
+    const usuarioObjetivo = await User.findById(id);
+    if (!usuarioObjetivo) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    if (!adminPuedeGestionarUsuario(req.user, usuarioObjetivo)) {
+      return res.status(403).json({ message: "No puedes modificar usuarios de otra institución" });
     }
 
     // campos protegidos, nunca se actualizan por esta ruta
@@ -319,6 +361,10 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
+    if (!adminPuedeGestionarUsuario(req.user, userASuspender)) {
+      return res.status(403).json({ message: "No puedes suspender usuarios de otra institución" });
+    }
+
     // bloquear suspensión si el docente tiene cursos activos, para no dejarlos huérfanos
     if (userASuspender.rol === 'docente') {
       const cursosActivos = await Curso.find({ docenteId: id, estado: 'activo' })
@@ -365,6 +411,9 @@ export const reactivateUser = async (req, res) => {
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    if (!adminPuedeGestionarUsuario(req.user, user)) {
+      return res.status(403).json({ message: "No puedes reactivar usuarios de otra institución" });
     }
     if (user.estado === 'activo') {
       return res.status(400).json({ message: "El usuario ya está activo" });
@@ -603,7 +652,7 @@ export const getPadreInfo = async (req, res) => {
     const { padreId } = req.params;
 
     const padre = await User.findById(padreId).select(
-      'nombre apellido cedula correo telefono rol estado esTitular ' +
+      'nombre apellido cedula correo telefono rol estado esTitular institucionId ' +
       'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias modoOscuro'
     ).lean();
 
@@ -613,6 +662,23 @@ export const getPadreInfo = async (req, res) => {
 
     if (padre.rol !== 'padre') {
       return res.status(400).json({ message: "El usuario no tiene rol de padre/acudiente" });
+    }
+
+    // sin esto, cualquier usuario autenticado consultaba la cédula/correo/teléfono
+    // de cualquier padre por su id. Acceso: el propio padre, un docente que comparte
+    // curso con él, un admin de su institución, o el superadmin.
+    const { userId, rol, institucionId } = req.user;
+    let autorizado = rol === 'superadmin' || (rol === 'padre' && padreId === userId);
+
+    if (!autorizado && rol === 'docente') {
+      autorizado = await Curso.exists({ docenteId: userId, 'participantes.usuarioId': padreId });
+    }
+    if (!autorizado && rol === 'administrador') {
+      autorizado = (padre.institucionId?.toString() === institucionId)
+        || await Curso.exists({ institucionId, 'participantes.usuarioId': padreId });
+    }
+    if (!autorizado) {
+      return res.status(403).json({ message: "No tienes permiso para ver la información de este padre/acudiente" });
     }
 
     res.json({
