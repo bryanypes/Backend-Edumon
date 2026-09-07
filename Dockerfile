@@ -9,6 +9,12 @@ RUN npm ci --omit=dev
 
 COPY src/ ./src/
 
+# Almacenamiento local de archivos subidos. Debe montarse un volumen persistente
+# aquí (fotos, adjuntos, APK); si no, se pierde en cada redeploy.
+ENV UPLOAD_DIR=/data/uploads
+RUN mkdir -p /data/uploads && chown -R node:node /data
+VOLUME ["/data/uploads"]
+
 # La imagen oficial ya trae un usuario sin privilegios llamado "node"
 USER node
 

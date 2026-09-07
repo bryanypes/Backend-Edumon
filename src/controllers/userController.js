@@ -1,9 +1,10 @@
 import User from '../models/User.js';
 import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
-import cloudinary from '../config/cloudinary.js';
+import fs from 'node:fs/promises';
 import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
+import { AVATARES_DIR, AVATARES_PREFIX } from '../config/almacenamiento.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 
 // Un administrador solo puede gestionar/ver usuarios de SU institución; el
@@ -398,16 +399,15 @@ export const reactivateUser = async (req, res) => {
 
 export const getFotosPredeterminadas = async (req, res) => {
   try {
-    const result = await cloudinary.api.resources({
-      type: 'upload',
-      prefix: 'fotos-perfil-predeterminadas/',
-      max_results: 50
-    });
+    const EXT_VALIDAS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+    const archivos = (await fs.readdir(AVATARES_DIR))
+      .filter((a) => EXT_VALIDAS.includes(a.slice(a.lastIndexOf('.')).toLowerCase()))
+      .sort();
 
-    const fotos = result.resources.map(foto => ({
-      url: foto.secure_url,
-      publicId: foto.public_id,
-      nombre: foto.public_id.split('/').pop()
+    const fotos = archivos.map((nombre) => ({
+      url: `${AVATARES_PREFIX}/${nombre}`,
+      publicId: `avatares/${nombre}`,
+      nombre,
     }));
 
     res.json({
@@ -436,9 +436,9 @@ export const updateFotoPerfil = async (req, res) => {
     if (fotoPredeterminadaUrl) {
       nuevaFotoUrl = fotoPredeterminadaUrl;
     } else if (req.file) {
-      if (user.fotoPerfilUrl && !user.fotoPerfilUrl.includes('fotos-perfil-predeterminadas')) {
-        const publicIdAnterior = user.fotoPerfilUrl.split('/').slice(-2).join('/').split('.')[0];
-        await eliminarArchivoCloudinary(publicIdAnterior, 'image');
+      // solo se borra si era un archivo subido (/uploads/...), no un avatar predeterminado
+      if (user.fotoPerfilUrl && user.fotoPerfilUrl.startsWith('/uploads/')) {
+        await eliminarArchivoCloudinary(user.fotoPerfilUrl.replace('/uploads/', ''));
       }
 
       const fileBuffer = await getFileBuffer(req.file);

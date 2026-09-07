@@ -435,40 +435,6 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// FORGOT PASSWORD (teléfono)
-export const forgotPasswordPhone = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
-
-    const { telefono }          = req.body;
-    const RESPUESTA_GENERICA    = {
-      message: 'Si el número está registrado, recibirás un código de recuperación por WhatsApp.',
-    };
-
-    const telefonoNormalizado = normalizarTelefono(telefono);
-    if (!telefonoNormalizado) return res.status(200).json(RESPUESTA_GENERICA);
-
-    const user = await User.findOne({ telefono: telefonoNormalizado });
-    if (!user) return res.status(200).json(RESPUESTA_GENERICA);
-
-    const codigo     = Math.floor(100000 + Math.random() * 900000).toString();
-    const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
-
-    user.resetPasswordToken   = codigoHash;
-    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save();
-
-    await enviarSMSRecuperacion(telefonoNormalizado, user.nombre, codigo);
-
-    return res.status(200).json(RESPUESTA_GENERICA);
-  } catch (error) {
-    console.error('Error en forgotPasswordPhone:', error);
-    return res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
 // RESET PASSWORD (correo)
 export const resetPassword = async (req, res) => {
   try {
@@ -502,60 +468,3 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// RESET PASSWORD (teléfono)
-export const resetPasswordPhone = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
-
-    const { telefono, codigo, contraseñaNueva } = req.body;
-    if (!telefono || !codigo || !contraseñaNueva) {
-      return res.status(400).json({ message: 'Teléfono, código y contraseña nueva son obligatorios' });
-    }
-
-    const telefonoNormalizado = normalizarTelefono(telefono);
-    if (!telefonoNormalizado)
-      return res.status(400).json({ message: 'Código inválido o expirado.' });
-
-    const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
-
-    const user = await User.findOne({
-      telefono:             telefonoNormalizado,
-      resetPasswordToken:   codigoHash,
-      resetPasswordExpires: { $gt: new Date() },
-    });
-
-    if (!user) return res.status(400).json({ message: 'Código inválido o expirado.' });
-
-    user.contraseña           = contraseñaNueva;
-    user.resetPasswordToken   = null;
-    user.resetPasswordExpires = null;
-    await user.save();
-
-    return res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
-  } catch (error) {
-    console.error('Error en resetPasswordPhone:', error);
-    return res.status(500).json({ message: 'Error interno del servidor' });
-  }
-};
-
-// Utilidad interna: WhatsApp SMS
-async function enviarSMSRecuperacion(telefonoNormalizado, nombre, codigo) {
-  const twilio = (await import('twilio')).default;
-  const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-
-  const mensaje =
-    `🔐 Edumon\n\nHola ${nombre}, tu código de recuperación es:\n\n*${codigo}*\n\nExpira en 15 minutos. Si no lo solicitaste, ignora este mensaje.`;
-
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_WHATSAPP_NUMBER) {
-    console.warn('Configuración de Twilio incompleta; se omite el envío de SMS de recuperación.');
-    return;
-  }
-
-  await client.messages.create({
-    from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-    to:   `whatsapp:${telefonoNormalizado}`,
-    body: mensaje,
-  });
-}
