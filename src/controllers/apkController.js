@@ -1,13 +1,12 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import Apk from '../models/Apk.js';
-import cloudinary from '../config/cloudinary.js';
 import { eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { UPLOAD_DIR, PUBLIC_PREFIX, CARPETA_PUBLICA } from '../config/almacenamiento.js';
 
-// fl_attachment fuerza que el navegador descargue el archivo en vez de intentar abrirlo
-const urlDescarga = (url) =>
-  typeof url === 'string' && url.includes('/raw/upload/')
-    ? url.replace('/raw/upload/', '/raw/upload/fl_attachment/')
-    : url;
+// el handler estático ya fuerza la descarga (Content-Disposition) para los .apk
+const urlDescarga = (url) => url;
 
 const publico = (apk) => ({
   id: apk._id,
@@ -23,23 +22,13 @@ const publico = (apk) => ({
   fecha: apk.createdAt
 });
 
-// Sube el .apk a Cloudinary como raw. Timeout amplio: un APK pesa bastante más
-// que el resto de adjuntos del sistema.
-const subirApkACloudinary = async (fileBuffer) => {
-  const b64 = Buffer.from(fileBuffer).toString('base64');
-  const dataURI = `data:application/vnd.android.package-archive;base64,${b64}`;
-  const publicId = `apks/edumon_${Date.now()}.apk`;
-
-  const result = await cloudinary.uploader.upload(dataURI, {
-    resource_type: 'raw',
-    type: 'upload',
-    public_id: publicId,
-    use_filename: false,
-    unique_filename: false,
-    timeout: 120000
-  });
-
-  return { url: result.secure_url, publicId: result.public_id };
+// Guarda el .apk en el almacenamiento local. Devuelve { url, publicId }.
+const guardarApkLocal = async (fileBuffer) => {
+  const publicId = path.posix.join(CARPETA_PUBLICA, 'apks', `edumon_${Date.now()}.apk`);
+  const destino = path.join(UPLOAD_DIR, publicId);
+  await fs.mkdir(path.dirname(destino), { recursive: true });
+  await fs.writeFile(destino, Buffer.from(fileBuffer));
+  return { url: `${PUBLIC_PREFIX}/${publicId}`, publicId };
 };
 
 export const getApkActual = async (req, res) => {
@@ -83,10 +72,10 @@ export const subirApk = async (req, res) => {
 
     let subido;
     try {
-      subido = await subirApkACloudinary(fileBuffer);
+      subido = await guardarApkLocal(fileBuffer);
     } catch (error) {
-      console.error('Error al subir el APK a Cloudinary:', error.message);
-      return res.status(503).json({ message: 'No se pudo subir el archivo. Revisa la conexión e inténtalo de nuevo.' });
+      console.error('Error al guardar el APK:', error.message);
+      return res.status(503).json({ message: 'No se pudo guardar el archivo. Inténtalo de nuevo.' });
     }
 
     const nueva = new Apk({
@@ -113,8 +102,10 @@ export const subirApk = async (req, res) => {
       throw saveError;
     }
 
-    // solo una versión activa a la vez
-    await Apk.updateMany({ _id: { $ne: guardada._id }, activa: true }, { activa: false });
+    // se guarda solo la última versión: borrar de disco y de la BD las anteriores
+    const anteriores = await Apk.find({ _id: { $ne: guardada._id } });
+    await Promise.all(anteriores.map((a) => eliminarArchivoCloudinary(a.publicId)));
+    await Apk.deleteMany({ _id: { $ne: guardada._id } });
 
     res.status(201).json({ message: 'APK subido correctamente', apk: publico(guardada) });
   } catch (error) {
@@ -159,7 +150,7 @@ export const eliminarApk = async (req, res) => {
     const apk = await Apk.findById(id);
     if (!apk) return res.status(404).json({ message: 'Versión no encontrada' });
 
-    await eliminarArchivoCloudinary(apk.publicId, 'raw', 'upload');
+    await eliminarArchivoCloudinary(apk.publicId);
     await apk.deleteOne();
 
     // si se borró la activa, se promueve la más reciente que quede

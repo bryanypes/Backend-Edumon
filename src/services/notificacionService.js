@@ -1,7 +1,6 @@
 import { getTransportSMTP } from './smtpTransport.js';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
-import twilio from 'twilio';
 import admin from 'firebase-admin';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
 import dotenv from 'dotenv';
@@ -22,11 +21,6 @@ if (!admin.apps.length) {
     console.error('[Firebase] No se pudo inicializar, el push por FCM quedará deshabilitado:', error.message);
   }
 }
-
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
 
 // Docentes solo reciben correo para eventos que requieren su atención directa
 // (nueva entrega); padres y administradores lo reciben para todo.
@@ -100,15 +94,6 @@ export const crearYEnviarNotificacion = async (datos) => {
       }
     }
 
-    if (usuario.telefono && usuario.rol !== 'docente') {
-      try {
-        await enviarWhatsApp(usuario, notificacion);
-        notificacion.canalEnviado.whatsapp = true;
-      } catch (e) {
-        console.error('[WhatsApp Error]', e.message);
-      }
-    }
-
     await notificacion.save();
     return notificacion;
 
@@ -178,18 +163,6 @@ export const enviarFCM = async (fcmToken, { title, body, data = {} }) => {
   const response = await admin.messaging().send(message);
   console.log(`[FCM] Enviado exitosamente: ${response}`);
   return response;
-};
-
-export const enviarWhatsApp = async (usuario, notificacion) => {
-  if (!usuario.telefono) return;
-
-  const mensaje = `🔔 *${obtenerTitulo(notificacion.tipo)}*\n\n${notificacion.mensaje}\n\n_Notificación de Edumon_`;
-
-  await twilioClient.messages.create({
-    from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-    to: `whatsapp:${usuario.telefono}`,
-    body: mensaje
-  });
 };
 
 export const enviarEmail = async (usuario, notificacion) => {
@@ -332,7 +305,6 @@ export default {
   crearYEnviarNotificacion,
   notificarFamilia,
   enviarFCM,
-  enviarWhatsApp,
   enviarEmail,
   notificarTareaProximaVencer
 };

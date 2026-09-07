@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import path from 'node:path';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -9,6 +10,15 @@ import timeout from 'connect-timeout';
 import compression from 'compression';
 
 import { setupSocketIO } from './socket/socketHandlers.js';
+import { authMiddleware } from './middlewares/authMiddleware.js';
+import {
+  UPLOAD_DIR,
+  PUBLIC_PREFIX,
+  CARPETA_PUBLICA,
+  CARPETA_PRIVADA,
+  AVATARES_DIR,
+  AVATARES_PREFIX,
+} from './config/almacenamiento.js';
 
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -35,7 +45,7 @@ export const crearApp = () => {
 
   app.set('trust proxy', 1);
 
-  // 30s es corto para uploads grandes a Cloudinary en Render (cold start)
+  // margen amplio: la publicación del APK (hasta 200 MB) se procesa en memoria
   app.use(timeout('90s'));
   app.use(compression());
 
@@ -66,7 +76,7 @@ export const crearApp = () => {
           defaultSrc:     ["'self'"],
           scriptSrc:      ["'self'"],
           styleSrc:       ["'self'", "'unsafe-inline'"],
-          imgSrc:         ["'self'", 'data:', 'res.cloudinary.com'],
+          imgSrc:         ["'self'", 'data:', 'blob:'],
           connectSrc:     ["'self'", ...allowedOrigins],
           frameAncestors: ["'none'"],
           formAction:     ["'self'"],
@@ -164,9 +174,7 @@ export const crearApp = () => {
   // recuperación de contraseña: el código es de 6 dígitos, sin este límite se
   // podía probar por fuerza bruta dentro de la ventana de validez
   app.use('/api/auth/forgot-password',       limiterAuth);
-  app.use('/api/auth/forgot-password-phone', limiterAuth);
   app.use('/api/auth/reset-password',        limiterAuth);
-  app.use('/api/auth/reset-password-phone',  limiterAuth);
 
   // CORS
   const corsAbiertoTemporalmente = !isDev && frontendUrls.length === 0;
@@ -190,6 +198,33 @@ export const crearApp = () => {
   app.use(cookieParser());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  // Archivos subidos (almacenamiento local en disco / volumen persistente)
+  const setHeadersArchivo = (res, filePath) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    if (filePath.toLowerCase().endsWith('.apk')) {
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', 'attachment');
+    }
+  };
+  // privados (adjuntos de entregas): requieren sesión válida
+  app.use(
+    `${PUBLIC_PREFIX}/${CARPETA_PRIVADA}`,
+    authMiddleware,
+    express.static(path.join(UPLOAD_DIR, CARPETA_PRIVADA), {
+      index: false,
+      setHeaders: setHeadersArchivo,
+    }),
+  );
+  app.use(
+    `${PUBLIC_PREFIX}/${CARPETA_PUBLICA}`,
+    express.static(path.join(UPLOAD_DIR, CARPETA_PUBLICA), {
+      index: false,
+      setHeaders: setHeadersArchivo,
+    }),
+  );
+  // avatares predeterminados (empaquetados con la imagen, no en el volumen)
+  app.use(AVATARES_PREFIX, express.static(AVATARES_DIR, { index: false, maxAge: '7d' }));
 
   // Socket.IO
   const io = new Server(server, {

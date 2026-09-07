@@ -42,8 +42,8 @@ describe('POST /api/apk — subir APK', () => {
     expect(res.status).toBe(201);
     expect(res.body.apk.version).toBe('1.4.2');
     expect(res.body.apk.versionCode).toBe(142);
-    expect(res.body.apk.url).toBeTruthy();
-    expect(res.body.apk.urlDescarga).toContain('fl_attachment');
+    expect(res.body.apk.url).toMatch(/^\/uploads\/pub\/apks\//);
+    expect(res.body.apk.urlDescarga).toBe(res.body.apk.url);
     expect(res.body.apk.activa).toBe(true);
   });
 
@@ -82,7 +82,7 @@ describe('POST /api/apk — subir APK', () => {
     expect(res.status).toBe(400);
   });
 
-  it('subir una versión nueva desactiva la anterior (solo una activa)', async () => {
+  it('subir una versión nueva borra la anterior (solo se conserva la última)', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
 
@@ -91,9 +91,10 @@ describe('POST /api/apk — subir APK', () => {
     await agent.post('/api/apk').field('version', '2.0.0')
       .attach('apk', apkFalso(), { filename: 'v2.apk' });
 
-    const activas = await Apk.find({ activa: true });
-    expect(activas).toHaveLength(1);
-    expect(activas[0].version).toBe('2.0.0');
+    const todas = await Apk.find();
+    expect(todas).toHaveLength(1);
+    expect(todas[0].version).toBe('2.0.0');
+    expect(todas[0].activa).toBe(true);
 
     const actual = await request(app).get('/api/apk/actual');
     expect(actual.body.apk.version).toBe('2.0.0');

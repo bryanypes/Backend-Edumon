@@ -46,7 +46,7 @@ describe('POST /api/cursos', () => {
     expect(res.status).toBe(400);
   });
 
-  it('sube la foto de portada a Cloudinary cuando se adjunta una imagen', async () => {
+  it('guarda la foto de portada en el almacenamiento local cuando se adjunta una imagen', async () => {
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const docente = await crearDocente({ institucionId: institucion._id });
@@ -59,7 +59,7 @@ describe('POST /api/cursos', () => {
       .attach('fotoPortada', path.join(FIXTURES, 'mini.jpg'));
 
     expect(res.status).toBe(201);
-    expect(res.body.curso.fotoPortadaUrl).toMatch(/^https:\/\/res\.cloudinary\.com\//);
+    expect(res.body.curso.fotoPortadaUrl).toMatch(/^\/uploads\/pub\//);
   });
 
   it('carga participantes por Excel al crear el curso', async () => {

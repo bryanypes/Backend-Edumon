@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import path from 'node:path';
+import request from 'supertest';
 import crearApp from '../../src/app.js';
 import Entrega from '../../src/models/Entrega.js';
 import User from '../../src/models/User.js';
@@ -88,7 +89,7 @@ describe('POST /api/entregas', () => {
     expect(res.body.entrega.estado).toBe('tarde');
   });
 
-  it('adjunta archivos a Cloudinary al crear la entrega', async () => {
+  it('adjunta archivos al crear la entrega', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
@@ -101,7 +102,7 @@ describe('POST /api/entregas', () => {
     expect(res.body.entrega.archivosAdjuntos).toHaveLength(1);
   });
 
-  it('los adjuntos se guardan como privados y se devuelven con URL firmada (no pública)', async () => {
+  it('los adjuntos se guardan como privados bajo /uploads/priv (solo accesibles con sesión)', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
@@ -113,13 +114,28 @@ describe('POST /api/entregas', () => {
     expect(res.status).toBe(201);
     const archivo = res.body.entrega.archivosAdjuntos[0];
     expect(archivo.privado).toBe(true);
-    expect(archivo.url).toContain('/authenticated/');
-    expect(archivo.url).toContain('s--'); // marcador de firma
+    expect(archivo.url).toMatch(/^\/uploads\/priv\//);
 
-    // en BD la url NO es la firmada (se firma en cada lectura)
     const enBD = await Entrega.findById(res.body.entrega._id);
     expect(enBD.archivosAdjuntos[0].privado).toBe(true);
-    expect(enBD.archivosAdjuntos[0].url).not.toContain('s--');
+    expect(enBD.archivosAdjuntos[0].url).toMatch(/^\/uploads\/priv\//);
+  });
+
+  it('un archivo privado no se puede descargar sin sesión y sí con sesión', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const agent = await loginComo(app, padre);
+
+    const creada = await agent.post('/api/entregas')
+      .field('tareaId', tarea._id.toString())
+      .field('padreId', padre._id.toString())
+      .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
+    const ruta = creada.body.entrega.archivosAdjuntos[0].url;
+
+    const sinSesion = await request(app).get(ruta);
+    expect(sinSesion.status).toBe(401);
+
+    const conSesion = await agent.get(ruta);
+    expect(conSesion.status).toBe(200);
   });
 
   it('acepta enlaces externos como parte de la entrega', async () => {

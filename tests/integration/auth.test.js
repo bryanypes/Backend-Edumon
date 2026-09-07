@@ -4,7 +4,7 @@ import crearApp from '../../src/app.js';
 import User from '../../src/models/User.js';
 import { crearPadre, telefonoDePrueba, cedulaDePrueba, CONTRASEÑA_PRUEBA } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
-import { nodemailerSendMailMock, twilioCreateMock } from '../setup/mocks.js';
+import { nodemailerSendMailMock } from '../setup/mocks.js';
 
 describe('POST /api/auth/register', () => {
   let app;
@@ -322,48 +322,19 @@ describe('Recuperación de contraseña por correo', () => {
   });
 });
 
-describe('Recuperación de contraseña por WhatsApp', () => {
+describe('Recuperación de contraseña por teléfono (retirada)', () => {
   let app;
   beforeEach(() => {
     ({ app } = crearApp());
-    twilioCreateMock.mockClear();
   });
 
-  const extraerCodigo = () => {
-    const [payload] = twilioCreateMock.mock.calls.at(-1);
-    const match = payload.body.match(/\*(\d{6})\*/);
-    return match[1];
-  };
-
-  it('flujo completo: solicitar código por WhatsApp y restablecer la contraseña', async () => {
+  it('los endpoints por teléfono ya no existen (404)', async () => {
     const padre = await crearPadre();
-
-    const solicitud = await request(app).post('/api/auth/forgot-password-phone').send({ telefono: padre.telefono });
-    expect(solicitud.status).toBe(200);
-    expect(twilioCreateMock).toHaveBeenCalledTimes(1);
-
-    const codigo = extraerCodigo();
-
+    const forgot = await request(app).post('/api/auth/forgot-password-phone').send({ telefono: padre.telefono });
+    expect(forgot.status).toBe(404);
     const reset = await request(app).post('/api/auth/reset-password-phone').send({
-      telefono: padre.telefono,
-      codigo,
-      contraseñaNueva: 'ClaveWhats123',
+      telefono: padre.telefono, codigo: '111111', contraseñaNueva: 'ClaveX123',
     });
-    expect(reset.status).toBe(200);
-
-    const enBD = await User.findById(padre._id);
-    expect(await enBD.comparePassword('ClaveWhats123')).toBe(true);
-  });
-
-  it('responde 400 con un código de WhatsApp incorrecto', async () => {
-    const padre = await crearPadre();
-    await request(app).post('/api/auth/forgot-password-phone').send({ telefono: padre.telefono });
-
-    const res = await request(app).post('/api/auth/reset-password-phone').send({
-      telefono: padre.telefono,
-      codigo: '111111',
-      contraseñaNueva: 'ClaveWhats123',
-    });
-    expect(res.status).toBe(400);
+    expect(reset.status).toBe(404);
   });
 });

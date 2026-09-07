@@ -2,13 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import notificador from '../../../src/notifications/NotificadorFacade.js';
 import Notificacion from '../../../src/models/Notificacion.js';
 import { crearPadre, crearPerfilFamiliar } from '../../helpers/factories.js';
-import { fcmSendMock, nodemailerSendMailMock, twilioCreateMock } from '../../setup/mocks.js';
+import { fcmSendMock, nodemailerSendMailMock } from '../../setup/mocks.js';
 
 describe('NotificadorFacade — notificar (usuario individual)', () => {
   beforeEach(() => {
     fcmSendMock.mockClear();
     nodemailerSendMailMock.mockClear();
-    twilioCreateMock.mockClear();
   });
 
   it('guarda la notificación en BD y marca canalEnviado según lo que cada estrategia logró enviar', async () => {
@@ -25,7 +24,6 @@ describe('NotificadorFacade — notificar (usuario individual)', () => {
     expect(notificacion.canalEnviado.websocket).toBe(true);
     expect(notificacion.canalEnviado.push).toBe(true);
     expect(notificacion.canalEnviado.email).toBe(true);
-    expect(notificacion.canalEnviado.whatsapp).toBe(true);
 
     const enBD = await Notificacion.findById(notificacion._id);
     expect(enBD.mensaje).toBe('Nueva tarea de matemáticas');
