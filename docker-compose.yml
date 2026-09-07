@@ -5,6 +5,13 @@ services:
     init: true
     env_file:
       - .env
+    environment:
+      UPLOAD_DIR: /data/uploads
     ports:
       - "4000:4000"
+    volumes:
+      - uploads:/data/uploads
     restart: unless-stopped
+
+volumes:
+  uploads:

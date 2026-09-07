@@ -1,14 +1,12 @@
 import { vi, beforeAll, afterAll, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import {
-  cloudinaryUploadMock,
-  cloudinaryDestroyMock,
-  cloudinaryResourcesMock,
-  cloudinaryResourceMock,
   fcmSendMock,
   fcmSendMulticastMock,
-  twilioCreateMock,
   nodemailerSendMailMock,
 } from './mocks.js';
 
@@ -17,15 +15,9 @@ import {
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-do-not-use-in-production';
 process.env.FRONTEND_URL = '';
-process.env.CLOUDINARY_CLOUD_NAME = 'test-cloud';
-process.env.CLOUDINARY_API_KEY = 'test-cloud-key';
-process.env.CLOUDINARY_API_SECRET = 'test-cloud-secret';
 process.env.FIREBASE_PROJECT_ID = 'edumon-test';
 process.env.FIREBASE_CLIENT_EMAIL = 'test@edumon-test.iam.gserviceaccount.com';
 process.env.FIREBASE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n';
-process.env.TWILIO_ACCOUNT_SID = 'ACtestaccountsid0000000000000000';
-process.env.TWILIO_AUTH_TOKEN = 'test-twilio-auth-token';
-process.env.TWILIO_WHATSAPP_NUMBER = '+14155238886';
 process.env.SMTP_HOST = 'smtp.test.edumon.local';
 process.env.SMTP_PORT = '587';
 process.env.SMTP_SECURE = 'false';
@@ -34,31 +26,11 @@ process.env.SMTP_PASS = 'test-smtp-password';
 process.env.SMTP_FROM_NAME = 'Edumon Test';
 process.env.SMTP_FROM_EMAIL = 'no-reply@test.edumon.local';
 
+// almacenamiento local de archivos: carpeta temporal aislada por corrida
+process.env.UPLOAD_DIR = path.join(os.tmpdir(), `edumon-test-uploads-${process.pid}`);
+
 // ─── Mocks globales de SDKs externos ──────────────────────────────────────────
 // registrados aquí para que apliquen a todo el árbol de módulos sin mockear por archivo
-vi.mock('cloudinary', () => ({
-  v2: {
-    config: vi.fn(),
-    uploader: {
-      upload: cloudinaryUploadMock,
-      destroy: cloudinaryDestroyMock,
-    },
-    api: {
-      resources: cloudinaryResourcesMock,
-      resource: cloudinaryResourceMock,
-    },
-    // firmarUrlArchivo() usa cloudinary.url(); replicamos la forma de una URL
-    // firmada `authenticated` (con marcador de firma s--...--) para poder testear.
-    url: (publicId, opts = {}) => {
-      const rt = opts.resource_type || 'image';
-      const type = opts.type || 'upload';
-      const sig = opts.sign_url ? 's--testsig--/' : '';
-      const exp = opts.expires_at ? `?_a=exp_${opts.expires_at}` : '';
-      return `https://res.cloudinary.com/test-cloud/${rt}/${type}/${sig}v1/${publicId}${exp}`;
-    },
-  },
-}));
-
 vi.mock('firebase-admin', () => {
   const messaging = () => ({
     send: fcmSendMock,
@@ -71,13 +43,6 @@ vi.mock('firebase-admin', () => {
     messaging,
   };
   return { default: admin };
-});
-
-vi.mock('twilio', () => {
-  const twilioFactory = vi.fn(() => ({
-    messages: { create: twilioCreateMock },
-  }));
-  return { default: twilioFactory };
 });
 
 vi.mock('nodemailer', () => ({
@@ -96,7 +61,7 @@ beforeAll(async () => {
   await mongoose.connect(uri);
 
   // igual que server.js: registra los observers, si no los eventos de dominio no notifican nada en los tests.
-  // import dinámico a propósito: uno estático arrastraría nodemailer/cloudinary/firebase/twilio
+  // import dinámico a propósito: uno estático arrastraría nodemailer/firebase
   // antes de tiempo y rompería el hoisting de los vi.mock() de arriba (TDZ)
   const { registrarObservers } = await import('../../src/events/NotificacionObservers.js');
   registrarObservers();
@@ -119,4 +84,5 @@ afterEach(async () => {
 afterAll(async () => {
   await mongoose.disconnect();
   if (mongod) await mongod.stop();
+  fs.rmSync(process.env.UPLOAD_DIR, { recursive: true, force: true });
 });

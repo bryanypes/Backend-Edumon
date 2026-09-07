@@ -13,18 +13,20 @@
  * Datos fijos entre corridas: cédulas, teléfonos, correos y nombres NO cambian.
  * Clave de todos los usuarios: Password123*
  *
- * También borra de Cloudinary todo lo que sube la app (fotos, adjuntos, APKs…),
- * salvo los avatares predeterminados. Con --no-cloudinary se omite ese paso.
+ * También vacía el almacenamiento local de archivos subidos (UPLOAD_DIR),
+ * salvo los avatares predeterminados. Con --no-archivos se omite ese paso.
  *
  * Uso:
  *   node src/scripts/seed.js       (o  npm run seed)
- *   node src/scripts/seed.js --no-cloudinary
+ *   node src/scripts/seed.js --no-archivos
  *
  * Nunca corre con NODE_ENV=production.
  */
 
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 import Institucion from "../models/Institucion.js";
 import User from "../models/User.js";
@@ -39,62 +41,33 @@ import Evento from "../models/Evento.js";
 import Notificacion from "../models/Notificacion.js";
 import Buzon from "../models/Buzon.js";
 import { AVATAR_PREDETERMINADO } from "../utils/avatarPredeterminado.js";
+import { UPLOAD_DIR, CARPETA_PUBLICA, CARPETA_PRIVADA } from "../config/almacenamiento.js";
 
 dotenv.config();
 
 const PASSWORD = "Password123*"; // misma clave para todos los usuarios de prueba
 const dias = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 
-// carpetas de Cloudinary que usa la app (los avatares predeterminados se dejan)
-const CARPETAS_CLOUDINARY = [
-  "archivos-entregas",
-  "archivos-adjuntos-tareas",
-  "foros",
-  "mensajes-foro",
-  "eventos-portadas",
-  "eventos-adjuntos",
-  "fotos_cursos_portada",
-  "fotos-perfil-usuarios",
-  "apks",
-];
-
-async function limpiarCloudinary() {
-  if (process.argv.includes("--no-cloudinary")) {
-    console.log("☁️  Cloudinary: omitido (--no-cloudinary)\n");
+async function limpiarArchivos() {
+  if (process.argv.includes("--no-archivos")) {
+    console.log("📁 Archivos locales: omitido (--no-archivos)\n");
     return;
   }
-  if (!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    console.log("☁️  Cloudinary: sin credenciales en el .env, se omite\n");
-    return;
-  }
-
-  const { default: cloudinary } = await import("../config/cloudinary.js");
-  console.log("☁️  Limpiando Cloudinary...");
-
+  console.log("📁 Vaciando almacenamiento local de archivos...");
   let borrados = 0;
-  for (const carpeta of CARPETAS_CLOUDINARY) {
-    for (const resourceType of ["image", "video", "raw"]) {
-      for (const tipo of ["upload", "authenticated"]) {
-        try {
-          const r = await cloudinary.api.delete_resources_by_prefix(`${carpeta}/`, {
-            resource_type: resourceType,
-            type: tipo,
-          });
-          borrados += Object.keys(r.deleted || {}).length;
-        } catch (e) {
-          // 404 o carpeta vacía: normal, se ignora
-          if (e?.error?.http_code && e.error.http_code !== 404) {
-            console.warn(`   aviso (${carpeta}/${resourceType}/${tipo}): ${e.error.message}`);
-          }
-        }
-      }
-    }
+  for (const sub of [CARPETA_PUBLICA, CARPETA_PRIVADA]) {
+    const dir = path.join(UPLOAD_DIR, sub);
     try {
-      await cloudinary.api.delete_folder(carpeta);
-    } catch { /* la carpeta puede no existir */ }
+      const entradas = await fs.readdir(dir);
+      await Promise.all(entradas.map(async (e) => {
+        await fs.rm(path.join(dir, e), { recursive: true, force: true });
+        borrados += 1;
+      }));
+    } catch (e) {
+      if (e.code !== "ENOENT") console.warn(`   aviso (${sub}): ${e.message}`);
+    }
   }
-
-  console.log(`   ${borrados} recurso(s) borrado(s).\n`);
+  console.log(`   ${borrados} entrada(s) borrada(s).\n`);
 }
 
 // ─────────────────────────────── seed ───────────────────────────────
@@ -116,7 +89,7 @@ async function seed() {
   await mongoose.connection.dropDatabase();
   console.log("   listo.\n");
 
-  await limpiarCloudinary();
+  await limpiarArchivos();
 
   // ── 1. Instituciones (2: una completa, otra solo para probar aislamiento) ──
   const instA = await Institucion.create({

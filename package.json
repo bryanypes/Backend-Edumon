@@ -11,7 +11,6 @@
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
     "correos:prueba": "node src/scripts/enviarCorreosDePrueba.js",
-    "fotos:subir": "node src/scripts/subirFotosPredeterminadas.js",
     "telefonos:normalizar": "node src/scripts/normalizarTelefonos.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -30,7 +29,6 @@
   "description": "Backend (API REST) de Edumon, plataforma de gestion escolar para instituciones, docentes y padres/acudientes.",
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "cloudinary": "^2.7.0",
     "compression": "^1.8.1",
     "connect-timeout": "^1.9.1",
     "cookie-parser": "^1.4.7",
@@ -47,8 +45,8 @@
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^9.1.0",
-    "socket.io": "^4.8.1",
-    "twilio": "^5.10.3"
+    "sharp": "^0.34.5",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.11",

@@ -91,30 +91,3 @@ export const resetPasswordValidator = [
     .isLength({ min: 6, max: 128 }).withMessage('La contraseña debe tener entre 6 y 128 caracteres')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
 ];
-
-// Recuperación por TELÉFONO
-export const forgotPasswordPhoneValidator = [
-  body('telefono')
-    .notEmpty().withMessage('El teléfono es requerido')
-    .trim()
-    .customSanitizer(sanitizarTelefono)
-    .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
-];
-
-export const resetPasswordPhoneValidator = [
-  body('telefono')
-    .notEmpty().withMessage('El teléfono es requerido')
-    .trim()
-    .customSanitizer(sanitizarTelefono)
-    .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
-
-  body('codigo')
-    .notEmpty().withMessage('El código es requerido')
-    .isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos')
-    .isNumeric().withMessage('El código solo debe contener números'),
-
-  body('contraseñaNueva')
-    .notEmpty().withMessage('La nueva contraseña es requerida')
-    .isLength({ min: 6, max: 128 }).withMessage('La contraseña debe tener entre 6 y 128 caracteres')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
-];

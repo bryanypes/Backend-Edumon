@@ -3,7 +3,6 @@ import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import { FCMStrategy } from './strategies/FCMStrategy.js';
 import { EmailStrategy } from './strategies/EmailStrategy.js';
-import { WhatsAppStrategy } from './strategies/WhatsappStrategy.js';
 import { WebSocketStrategy } from './strategies/WebSocketStrategy.js';
 
 // Facade: coordina BD + estrategias de envío + bloque familiar en un solo punto de entrada
@@ -12,8 +11,7 @@ class NotificadorFacade {
     this.estrategias = [
       new WebSocketStrategy(),
       new FCMStrategy(),
-      new EmailStrategy(),
-      new WhatsAppStrategy()
+      new EmailStrategy()
     ];
   }
 

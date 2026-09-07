@@ -6,7 +6,7 @@ import {
 } from '../../../src/services/notificacionService.js';
 import Notificacion from '../../../src/models/Notificacion.js';
 import Entrega from '../../../src/models/Entrega.js';
-import { nodemailerSendMailMock, fcmSendMock, twilioCreateMock } from '../../setup/mocks.js';
+import { nodemailerSendMailMock, fcmSendMock } from '../../setup/mocks.js';
 import { crearPadre, crearDocente, crearTarea, crearCurso } from '../../helpers/factories.js';
 
 describe('enviarEmail', () => {
@@ -49,10 +49,9 @@ describe('crearYEnviarNotificacion', () => {
   beforeEach(() => {
     nodemailerSendMailMock.mockClear();
     fcmSendMock.mockClear();
-    twilioCreateMock.mockClear();
   });
 
-  it('guarda la notificación y marca websocket + email + whatsapp como enviados para un padre', async () => {
+  it('guarda la notificación y marca websocket + email como enviados para un padre', async () => {
     const padre = await crearPadre({ fcmToken: null });
 
     const notificacion = await crearYEnviarNotificacion({
@@ -65,13 +64,11 @@ describe('crearYEnviarNotificacion', () => {
     expect(guardada).not.toBeNull();
     expect(guardada.canalEnviado.websocket).toBe(true);
     expect(guardada.canalEnviado.email).toBe(true);
-    expect(guardada.canalEnviado.whatsapp).toBe(true);
     expect(guardada.canalEnviado.push).toBe(false);
     expect(nodemailerSendMailMock).toHaveBeenCalledTimes(1);
-    expect(twilioCreateMock).toHaveBeenCalledTimes(1);
   });
 
-  it('a un docente NO le envía email para tipo "tarea" (solo entrega/sistema) ni WhatsApp', async () => {
+  it('a un docente NO le envía email para tipo "tarea" (solo entrega/sistema)', async () => {
     const docente = await crearDocente();
 
     const notificacion = await crearYEnviarNotificacion({
@@ -82,9 +79,7 @@ describe('crearYEnviarNotificacion', () => {
 
     const guardada = await Notificacion.findById(notificacion._id);
     expect(guardada.canalEnviado.email).toBe(false);
-    expect(guardada.canalEnviado.whatsapp).toBe(false);
     expect(nodemailerSendMailMock).not.toHaveBeenCalled();
-    expect(twilioCreateMock).not.toHaveBeenCalled();
   });
 
   it('a un docente SÍ le envía email para tipo "entrega"', async () => {

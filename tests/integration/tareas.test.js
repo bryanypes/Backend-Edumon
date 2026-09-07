@@ -102,7 +102,7 @@ describe('POST /api/tareas', () => {
     expect(res.status).toBe(400);
   });
 
-  it('adjunta archivos a Cloudinary al crear la tarea', async () => {
+  it('adjunta archivos al crear la tarea', async () => {
     const curso = await crearCurso();
     const modulo = await crearModulo({ cursoId: curso._id });
     const docente = await docenteDelCurso(curso);
@@ -118,7 +118,7 @@ describe('POST /api/tareas', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.tarea.archivosAdjuntos).toHaveLength(1);
-    expect(res.body.tarea.archivosAdjuntos[0].url).toMatch(/^https:\/\/res\.cloudinary\.com\//);
+    expect(res.body.tarea.archivosAdjuntos[0].url).toMatch(/^\/uploads\/pub\//);
   });
 });
 
@@ -285,7 +285,7 @@ describe('PUT /api/tareas/:id', () => {
     expect(urls).toContain('http://nuevo.com');
   });
 
-  it('elimina de Cloudinary y del documento los archivos listados en archivosAEliminar', async () => {
+  it('elimina del disco y del documento los archivos listados en archivosAEliminar', async () => {
     const tarea = await crearTarea({
       archivosAdjuntos: [{ tipo: 'archivo', url: 'http://cloud/a.pdf', publicId: 'carpeta/a', nombre: 'a.pdf', formato: 'pdf' }],
     });

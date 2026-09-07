@@ -8,9 +8,7 @@ import {
   getProfile,
   changePassword,
   forgotPassword,
-  forgotPasswordPhone,
   resetPassword,
-  resetPasswordPhone,
 } from '../controllers/authController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import {
@@ -19,8 +17,6 @@ import {
   changePasswordValidator,
   forgotPasswordValidator,
   resetPasswordValidator,
-  forgotPasswordPhoneValidator,
-  resetPasswordPhoneValidator,
 } from '../middlewares/validators/authValidator.js';
 
 const router = express.Router();
@@ -29,11 +25,9 @@ const router = express.Router();
 router.post('/register',              registerValidator,              register);
 router.post('/login',                 loginValidator,                 login);
 
-// Recuperación de contraseña
+// Recuperación de contraseña (por correo; el registro exige correo a todos)
 router.post('/forgot-password',       forgotPasswordValidator,        forgotPassword);
 router.post('/reset-password',        resetPasswordValidator,         resetPassword);
-router.post('/forgot-password-phone', forgotPasswordPhoneValidator,   forgotPasswordPhone);
-router.post('/reset-password-phone',  resetPasswordPhoneValidator,    resetPasswordPhone);
 
 // Refresh de sesión (no requiere access token válido)
 // Usa únicamente la cookie refresh_token (path restringido a este endpoint)
