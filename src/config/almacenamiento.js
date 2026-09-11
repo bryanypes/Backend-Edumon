@@ -21,9 +21,24 @@ export const AVATARES_DIR = path.join(
 );
 export const AVATARES_PREFIX = '/static/avatares';
 
+// No debe ser fatal: esto corre al importar el módulo, antes de app.listen().
+// Si UPLOAD_DIR (el volumen montado) tiene permisos incorrectos, un mkdirSync
+// que lanza aquí tumba TODO el proceso antes de abrir el puerto — nginx ve
+// "connection refused" y responde 502 en cualquier ruta, no solo en subidas.
+// Con el try/catch, el servidor arranca igual; cada escritura real (en
+// cloudinaryUpload.js) reintenta el mkdir y devuelve un error 500/503 normal
+// solo en esa petición si el problema persiste.
 for (const dir of [
   path.join(UPLOAD_DIR, CARPETA_PUBLICA),
   path.join(UPLOAD_DIR, CARPETA_PRIVADA),
 ]) {
-  fs.mkdirSync(dir, { recursive: true });
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (error) {
+    console.error(
+      `[almacenamiento] No se pudo crear "${dir}": ${error.message}. ` +
+      'Verifica los permisos de UPLOAD_DIR (el volumen montado debe ser escribible por el usuario "node"). ' +
+      'El servidor sigue arrancando; las subidas de archivos fallarán hasta que se corrija.',
+    );
+  }
 }
