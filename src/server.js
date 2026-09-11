@@ -3,13 +3,18 @@ import crearApp from './app.js';
 import connectDB from './config/database.js';
 import { iniciarSchedulerTareas } from './schedulers/tareaScheduler.js';
 import { registrarObservers } from './events/NotificacionObservers.js';
+import { bootstrapAdmins } from './scripts/bootstrapAdmins.js';
 
 const { app, server } = crearApp();
 const isDev = process.env.NODE_ENV === 'development';
 
 registrarObservers();
 
-connectDB();
+connectDB().then(() =>
+  bootstrapAdmins().catch((error) =>
+    console.error('[bootstrap] Error inesperado creando administradores iniciales:', error.message),
+  ),
+);
 iniciarSchedulerTareas();
 
 const PORT = process.env.PORT || 4000;
