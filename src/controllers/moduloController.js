@@ -264,8 +264,9 @@ export const updateModulo = async (req, res) => {
       return res.status(permiso.status).json({ message: permiso.message });
     }
 
-    // No permitir reasignar el módulo a otro curso desde este endpoint
-    const { _id, fechaCreacion, cursoId, ...updateData } = req.body;
+    // No permitir reasignar el módulo a otro curso, ni cambiar "estado" (va
+    // por /:id/archivar y /:id/restaurar), desde este endpoint
+    const { _id, fechaCreacion, cursoId, estado, ...updateData } = req.body;
 
     const updatedModulo = await Modulo.findByIdAndUpdate(
       id,

@@ -34,10 +34,6 @@ export const updateEntregaValidator = [
   param('id')
     .isMongoId().withMessage('El ID de la entrega no es válido'),
 
-  body('archivos')
-    .optional()
-    .isArray().withMessage('Los archivos deben ser un array'),
-
   body('textoRespuesta')
     .optional()
     .trim()

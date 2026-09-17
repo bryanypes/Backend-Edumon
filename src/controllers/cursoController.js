@@ -198,10 +198,25 @@ export const createCurso = async (req, res) => {
 
     const { nombre, descripcion, docenteId, fotoPortadaUrl, color } = req.body;
 
+    const institucionId = req.user.institucionId;
+    if (!institucionId) {
+      return res.status(400).json({
+        message: "No tienes institución asignada. Contacta al administrador."
+      });
+    }
+
     const docente = await User.findById(docenteId);
     if (!docente || docente.rol !== 'docente') {
       return res.status(400).json({
         message: "El docenteId debe corresponder a un usuario con rol docente"
+      });
+    }
+    // sin esto, un admin (o el propio docente) podía asignar como dueño del
+    // curso a un docente de OTRA institución, dándole acceso completo
+    // (ver/editar/archivar/participantes) a un curso que no es de su colegio
+    if (docente.institucionId?.toString() !== institucionId) {
+      return res.status(400).json({
+        message: "El docenteId debe corresponder a un docente de tu institución"
       });
     }
 
@@ -231,13 +246,6 @@ export const createCurso = async (req, res) => {
         urlFoto = resultadoCloudinary.url;
         publicIdFoto = resultadoCloudinary.publicId;
       }
-    }
-
-    const institucionId = req.user.institucionId;
-    if (!institucionId) {
-      return res.status(400).json({
-        message: "No tienes institución asignada. Contacta al administrador."
-      });
     }
 
     const nuevoCurso = new Curso({
@@ -430,12 +438,15 @@ export const updateCurso = async (req, res) => {
 
     const updateData = { ...req.body };
 
-    // No permitir reasignar dueño/institución del curso desde este endpoint
+    // No permitir reasignar dueño/institución del curso, ni cambiar "estado"
+    // (va por archivar/restaurar, que revisan el estado actual antes de
+    // cambiarlo), desde este endpoint
     delete updateData.participantes;
     delete updateData.fechaCreacion;
     delete updateData.fotoPortadaPublicId;
     delete updateData.docenteId;
     delete updateData.institucionId;
+    delete updateData.estado;
 
     if (req.file) {
       if (curso.fotoPortadaPublicId) {

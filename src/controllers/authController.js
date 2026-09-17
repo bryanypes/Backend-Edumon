@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import PerfilFamiliar from '../models/PerfilFamiliar.js';
+import Institucion from '../models/Institucion.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { validationResult } from 'express-validator';
@@ -127,7 +128,7 @@ export const register = async (req, res) => {
     if (!errors.isEmpty())
       return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
-    const { nombre, apellido, cedula, correo, contraseña, rol, telefono, institucionId } = req.body;
+    const { nombre, apellido, cedula, correo, contraseña, telefono } = req.body;
 
     const telefonoNormalizado = normalizarTelefono(telefono);
     if (telefono && !telefonoNormalizado)
@@ -148,13 +149,13 @@ export const register = async (req, res) => {
       return res.status(409).json({ message: `Ya existe un usuario con este ${field}` });
     }
 
-    let institucionFinal = null;
-    if (rol === 'docente' || rol === 'administrador') institucionFinal = institucionId || null;
-
+    // rol fijo en 'padre': no se toma de req.body aunque el validator ya lo
+    // restrinja a 'padre' -- así una futura relajación del validator no vuelve
+    // a abrir la puerta a autoregistrarse como docente/administrador sin sesión.
     const newUser = new User({
-      nombre, apellido, cedula, correo, contraseña, rol,
+      nombre, apellido, cedula, correo, contraseña, rol: 'padre',
       telefono:     telefonoNormalizado,
-      institucionId: institucionFinal,
+      institucionId: null,
       fechaRegistro: new Date(),
       fotoPerfilUrl: AVATAR_PREDETERMINADO,
     });
@@ -204,6 +205,13 @@ export const login = async (req, res) => {
     if (!user) return res.status(401).json({ message: 'Credenciales inválidas' });
     if (user.estado !== 'activo')
       return res.status(401).json({ message: 'Usuario suspendido. Contacte al administrador.' });
+    // no se usa populate() para no cambiar la forma de user.institucionId
+    // (publicUser() lo devuelve tal cual al frontend, que espera un id plano)
+    if (user.institucionId) {
+      const institucion = await Institucion.findById(user.institucionId).select('activo').lean();
+      if (institucion && institucion.activo === false)
+        return res.status(401).json({ message: 'Tu institución fue desactivada. Contacta al administrador del sistema.' });
+    }
 
     const isPasswordValid = await user.comparePassword(contraseña);
     if (!isPasswordValid) return res.status(401).json({ message: 'Credenciales inválidas' });

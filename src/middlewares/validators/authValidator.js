@@ -30,20 +30,22 @@ export const registerValidator = [
     .isLength({ min: 6, max: 128 }).withMessage('La contraseña debe tener entre 6 y 128 caracteres')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('La contraseña debe contener al menos una minúscula, una mayúscula y un número'),
 
+  // el registro público (sin sesión) es solo para padres: docente/administrador
+  // los crea un admin/superadmin ya autenticado desde /usuarios (createUser en
+  // userController, que sí valida institución y permisos). Antes este endpoint
+  // aceptaba 'docente' y 'administrador' aquí mismo, sin ninguna sesión ni
+  // institución verificada -- cualquiera en internet podía autoregistrarse
+  // como administrador de cualquier institución con solo adivinar/probar su
+  // institucionId.
   body('rol')
     .notEmpty().withMessage('El rol es requerido')
-    .isIn(['padre', 'docente', 'administrador']).withMessage('El rol debe ser: padre, docente o administrador'),
+    .isIn(['padre']).withMessage('El registro público solo está disponible para el rol "padre"'),
 
   body('telefono')
     .notEmpty().withMessage('El teléfono es requerido')
     .trim()
     .customSanitizer(sanitizarTelefono)
     .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
-
-  body('institucionId')
-    .if(body('rol').isIn(['docente', 'administrador']))
-    .notEmpty().withMessage('La institución es requerida para docentes y administradores')
-    .isMongoId().withMessage('ID de institución inválido'),
 ];
 
 export const loginValidator = [
