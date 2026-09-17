@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import request from 'supertest';
 import crearApp from '../../src/app.js';
 import Institucion from '../../src/models/Institucion.js';
 import User from '../../src/models/User.js';
-import { crearAdministrador, crearSuperadmin, crearInstitucion, crearDocente, cedulaDePrueba, telefonoDePrueba } from '../helpers/factories.js';
+import { crearAdministrador, crearSuperadmin, crearInstitucion, crearDocente, cedulaDePrueba, telefonoDePrueba, CONTRASEÑA_PRUEBA } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 describe('POST /api/instituciones — solo superadmin', () => {
@@ -45,9 +46,46 @@ describe('POST /api/instituciones — solo superadmin', () => {
 
     const res = await agent.post('/api/instituciones').send({
       nombre: 'Otra', nit: institucionExistente.nit,
-      adminNombre: 'A', adminApellido: 'B', adminCedula: cedulaDePrueba(),
+      adminNombre: 'A', adminApellido: 'B', adminCedula: cedulaDePrueba(), adminTelefono: telefonoDePrueba(),
     });
     expect(res.status).toBe(400);
+  });
+
+  it('rechaza datos inválidos (teléfono del admin con formato incorrecto)', async () => {
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+
+    const res = await agent.post('/api/instituciones').send({
+      nombre: 'Colegio Nuevo', nit: `NIT-${Date.now()}`,
+      adminNombre: 'Carlos', adminApellido: 'Pérez', adminCedula: cedulaDePrueba(),
+      adminTelefono: '123',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('CRÍTICO: si falla la creación del admin (cédula duplicada), no queda una institución huérfana', async () => {
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+    const adminExistente = await crearAdministrador();
+
+    const nit = `NIT-${Date.now()}`;
+    const res = await agent.post('/api/instituciones').send({
+      nombre: 'Colegio Huérfano', nit,
+      adminNombre: 'Carlos', adminApellido: 'Pérez',
+      adminCedula: adminExistente.cedula, // cédula ya usada -> admin.save() falla
+      adminTelefono: telefonoDePrueba(),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await Institucion.findOne({ nit })).toBeNull();
+
+    // como no quedó nada huérfano, reintentar con el mismo NIT y otra cédula debe funcionar
+    const reintento = await agent.post('/api/instituciones').send({
+      nombre: 'Colegio Huérfano', nit,
+      adminNombre: 'Carlos', adminApellido: 'Pérez',
+      adminCedula: cedulaDePrueba(), adminTelefono: telefonoDePrueba(),
+    });
+    expect(reintento.status).toBe(201);
   });
 });
 
@@ -207,5 +245,30 @@ describe('PATCH /api/instituciones/:id/estado', () => {
 
     const res = await agent.patch(`/api/instituciones/${institucion._id}/estado`).send({ activo: 'si' });
     expect(res.status).toBe(400);
+  });
+
+  it('CRÍTICO: desactivar la institución corta el acceso real del administrador (no solo lo oculta del listado)', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const superadmin = await crearSuperadmin();
+    const agenteAdmin = await loginComo(app, admin);
+    const agenteSuperadmin = await loginComo(app, superadmin);
+
+    // el admin puede usar la API con normalidad antes de la desactivación
+    const antes = await agenteAdmin.get('/api/cursos');
+    expect(antes.status).toBe(200);
+
+    await agenteSuperadmin.patch(`/api/instituciones/${institucion._id}/estado`).send({ activo: false });
+
+    const despues = await agenteAdmin.get('/api/cursos');
+    expect(despues.status).toBe(401);
+  });
+
+  it('CRÍTICO: un docente/admin de una institución desactivada no puede iniciar sesión', async () => {
+    const institucion = await crearInstitucion({ activo: false });
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+
+    const res = await request(app).post('/api/auth/login').send({ telefono: admin.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    expect(res.status).toBe(401);
   });
 });

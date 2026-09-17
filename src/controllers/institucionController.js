@@ -1,5 +1,6 @@
 import Institucion from '../models/Institucion.js';
 import User from '../models/User.js';
+import { validationResult } from 'express-validator';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
@@ -132,6 +133,11 @@ export const preregistrarDocentesCSV = async (req, res) => {
 // Superadmin: crear institución + admin del colegio
 export const crearInstitucion = async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    }
+
     const {
       nombre, nit, direccion, telefono, correo,
       // Datos del admin del colegio
@@ -167,7 +173,18 @@ export const crearInstitucion = async (req, res) => {
       fotoPerfilUrl: AVATAR_PREDETERMINADO
     });
 
-    await admin.save();
+    try {
+      await admin.save();
+    } catch (adminError) {
+      // Mongo standalone (sin replica set) no soporta transacciones acá, así que
+      // se limpia a mano: sin esto, un admin.save() fallido (cédula/correo/
+      // teléfono duplicados) dejaba la institución ya creada, huérfana (sin
+      // adminId) y con su NIT/código ya tomados -- un reintento con el mismo
+      // NIT fallaba con "Ya existe una institución con ese NIT" aunque en la
+      // práctica no hubiera quedado ninguna institución utilizable.
+      await Institucion.deleteOne({ _id: institucion._id });
+      throw adminError;
+    }
 
     institucion.adminId = admin._id;
     await institucion.save();

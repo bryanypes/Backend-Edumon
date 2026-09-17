@@ -84,19 +84,85 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     expect(enBD.rol).toBe('padre');
   });
 
-  it('un administrador puede actualizar datos de un usuario de su institución, pero rol/estado/institucionId quedan protegidos por el controlador', async () => {
+  it('un administrador puede actualizar datos de un usuario de su institución', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+    const padre = await crearPadre();
+    await crearCurso({ institucionId: institucion._id, participantes: [{ usuarioId: padre._id, etiqueta: 'padre' }] });
+
+    const res = await agent.put(`/api/users/${padre._id}`).send({ nombre: 'Nombre Editado' });
+
+    expect(res.status).toBe(200);
+    const enBD = await User.findById(padre._id);
+    expect(enBD.nombre).toBe('Nombre Editado');
+  });
+
+  it('"estado" se rechaza explícitamente en PUT /api/users/:id (se maneja por /:id y /:id/reactivar)', async () => {
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
     const padre = await crearPadre({ institucionId: institucion._id });
 
-    const res = await agent.put(`/api/users/${padre._id}`).send({ nombre: 'Nombre Editado', rol: 'superadmin', estado: 'suspendido' });
+    const res = await agent.put(`/api/users/${padre._id}`).send({ estado: 'suspendido' });
+
+    expect(res.status).toBe(400);
+    const enBD = await User.findById(padre._id);
+    expect(enBD.estado).toBe('activo');
+  });
+
+  it('un administrador puede ascender a un padre de su institución a docente', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+    const padre = await crearPadre(); // un padre nunca tiene institucionId propio
+    await crearCurso({ institucionId: institucion._id, participantes: [{ usuarioId: padre._id, etiqueta: 'padre' }] });
+
+    const res = await agent.put(`/api/users/${padre._id}`).send({ rol: 'docente' });
 
     expect(res.status).toBe(200);
     const enBD = await User.findById(padre._id);
-    expect(enBD.nombre).toBe('Nombre Editado');
-    expect(enBD.rol).toBe('padre'); // el controlador descarta "rol" del body
-    expect(enBD.estado).toBe('activo'); // el controlador descarta "estado" del body
+    expect(enBD.rol).toBe('docente');
+    expect(enBD.institucionId.toString()).toBe(institucion._id.toString());
+  });
+
+  it('CRÍTICO: un administrador NO puede ascender a nadie a administrador/superadmin vía PUT /api/users/:id', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+    const padre = await crearPadre({ institucionId: institucion._id });
+
+    const res = await agent.put(`/api/users/${padre._id}`).send({ rol: 'administrador' });
+
+    expect(res.status).toBe(403);
+    const enBD = await User.findById(padre._id);
+    expect(enBD.rol).toBe('padre');
+  });
+
+  it('un superadmin sí puede ascender a un padre a administrador, indicando institucionId', async () => {
+    const institucion = await crearInstitucion();
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+    const padre = await crearPadre();
+
+    const res = await agent.put(`/api/users/${padre._id}`).send({ rol: 'administrador', institucionId: institucion._id.toString() });
+
+    expect(res.status).toBe(200);
+    const enBD = await User.findById(padre._id);
+    expect(enBD.rol).toBe('administrador');
+    expect(enBD.institucionId.toString()).toBe(institucion._id.toString());
+  });
+
+  it('un superadmin no puede ascender a un segundo usuario a superadmin', async () => {
+    const superadminExistente = await crearSuperadmin();
+    const agent = await loginComo(app, superadminExistente);
+    const padre = await crearPadre();
+
+    const res = await agent.put(`/api/users/${padre._id}`).send({ rol: 'superadmin' });
+
+    expect(res.status).toBe(409);
+    const enBD = await User.findById(padre._id);
+    expect(enBD.rol).toBe('padre');
   });
 
   it('CROSS-TENANT: un administrador NO puede actualizar un usuario de otra institución', async () => {
@@ -134,6 +200,22 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     expect(res.body.users.every((u) => u.institucionId === instA._id.toString())).toBe(true);
   });
 
+  it('GET /api/users?rol=padre también devuelve a los padres que participan en un curso de la institución (caso real: padre nunca tiene institucionId propio)', async () => {
+    const [instA, instB] = [await crearInstitucion(), await crearInstitucion()];
+    const admin = await crearAdministrador({ institucionId: instA._id });
+    const padreDeA = await crearPadre();
+    const padreDeB = await crearPadre();
+    await crearCurso({ institucionId: instA._id, participantes: [{ usuarioId: padreDeA._id, etiqueta: 'padre' }] });
+    await crearCurso({ institucionId: instB._id, participantes: [{ usuarioId: padreDeB._id, etiqueta: 'padre' }] });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.get('/api/users?rol=padre');
+    expect(res.status).toBe(200);
+    const ids = res.body.users.map((u) => u._id);
+    expect(ids).toContain(padreDeA._id.toString());
+    expect(ids).not.toContain(padreDeB._id.toString());
+  });
+
   it('un superadmin no puede crear un segundo superadmin (solo puede haber uno)', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
@@ -151,7 +233,8 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
-    const padre = await crearPadre({ institucionId: institucion._id });
+    const padre = await crearPadre();
+    await crearCurso({ institucionId: institucion._id, participantes: [{ usuarioId: padre._id, etiqueta: 'padre' }] });
 
     const res = await agent.delete(`/api/users/${padre._id}`);
     expect(res.status).toBe(200);
@@ -172,7 +255,8 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
-    const padre = await crearPadre({ institucionId: institucion._id, estado: 'suspendido' });
+    const padre = await crearPadre({ estado: 'suspendido' });
+    await crearCurso({ institucionId: institucion._id, participantes: [{ usuarioId: padre._id, etiqueta: 'padre' }] });
 
     const res = await agent.patch(`/api/users/${padre._id}/reactivar`);
     expect(res.status).toBe(200);
@@ -183,7 +267,8 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
-    const padre = await crearPadre({ institucionId: institucion._id, estado: 'activo' });
+    const padre = await crearPadre({ estado: 'activo' });
+    await crearCurso({ institucionId: institucion._id, participantes: [{ usuarioId: padre._id, etiqueta: 'padre' }] });
 
     const res = await agent.patch(`/api/users/${padre._id}/reactivar`);
     expect(res.status).toBe(400);

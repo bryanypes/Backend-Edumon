@@ -39,9 +39,13 @@ router.post('/',
   createCurso
 );
 
+// 'padre' no se incluye: getCursos filtra por req.user.institucionId, que un
+// padre nunca tiene (solo queda ligado a una institución vía los cursos en
+// los que participa) -- para un padre esto siempre devolvía una lista vacía,
+// nunca sus cursos reales. La app ya usa /mis-cursos para eso.
 router.get('/',
-  authMiddleware, 
-  requireRole(['administrador', 'docente', 'padre']), 
+  authMiddleware,
+  requireRole(['administrador', 'docente']),
   getCursos
 );
 
@@ -87,10 +91,11 @@ router.patch('/:id/restaurar',
   restaurarCurso
 );
 
+// 'padre' no se incluye: puedeGestionarCurso() nunca deja pasar ese rol aquí
 router.post('/:id/participantes',
-  authMiddleware, 
-  requireRole(['administrador', 'docente', 'padre']), 
-  participanteValidator, 
+  authMiddleware,
+  requireRole(['administrador', 'docente']),
+  participanteValidator,
   agregarParticipante
 );
 
