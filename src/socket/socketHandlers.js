@@ -1,4 +1,5 @@
 import Notificacion from '../models/Notificacion.js';
+import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 
 const usuariosConectados = new Map();
@@ -28,9 +29,20 @@ export const setupSocketIO = (io) => {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // authMiddleware (REST) revalida esto en cada request; acá solo se
+      // validaba la firma del JWT, así que un usuario recién suspendido podía
+      // abrir una conexión de socket nueva (con el mismo access_token, válido
+      // hasta 15 min) y seguir recibiendo/gestionando notificaciones en tiempo
+      // real aunque la API REST ya le respondiera 401 en todo lo demás.
+      const user = await User.findById(decoded.userId).select('estado');
+      if (!user || user.estado !== 'activo') {
+        return next(new Error('Usuario inactivo'));
+      }
+
       socket.userId = decoded.userId;
       socket.userRole = decoded.rol;
-      
+
       next();
     } catch (error) {
       console.error('Error de autenticación en Socket:', error);

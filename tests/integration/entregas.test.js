@@ -334,6 +334,42 @@ describe('Ciclo de vida de una entrega (borrador → enviada/tarde → calificad
     expect(res.status).toBe(400);
   });
 
+  it('CRÍTICO: no se puede falsificar archivosAdjuntos mandándolos por JSON en el body (sin subir ningún archivo real)', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const entrega = await crearEntrega({ tareaId: tarea._id, padreId: padre._id, estado: 'borrador' });
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.put(`/api/entregas/${entrega._id}`).send({
+      textoRespuesta: 'x',
+      archivosAdjuntos: [{
+        url: '/uploads/priv/archivos-entregas/de-otra-entrega.pdf',
+        publicId: 'priv/archivos-entregas/de-otra-entrega.pdf',
+        nombreOriginal: 'de-otra-entrega.pdf',
+        tipoArchivo: 'application/pdf',
+        tamano: 123,
+        privado: true,
+      }],
+    });
+
+    expect(res.status).toBe(200);
+    const enBD = await Entrega.findById(entrega._id);
+    expect(enBD.archivosAdjuntos).toHaveLength(0);
+  });
+
+  it('no se puede editar/enviar una entrega en borrador si el docente ya cerró la tarea', async () => {
+    const { padre, tarea } = await tareaConPadreParticipante();
+    const entrega = await crearEntrega({ tareaId: tarea._id, padreId: padre._id, estado: 'borrador' });
+    tarea.estado = 'cerrada';
+    await tarea.save();
+    const agent = await loginComo(app, padre);
+
+    const res = await agent.put(`/api/entregas/${entrega._id}`).send({ estado: 'enviada' });
+    expect(res.status).toBe(400);
+
+    const enBD = await Entrega.findById(entrega._id);
+    expect(enBD.estado).toBe('borrador');
+  });
+
   it('enviar una entrega en borrador la pasa a "enviada" (o "tarde" si venció)', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const entrega = await crearEntrega({ tareaId: tarea._id, padreId: padre._id, estado: 'borrador' });

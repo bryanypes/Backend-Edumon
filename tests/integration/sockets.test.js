@@ -86,6 +86,18 @@ describe('Autenticación del handshake de Socket.IO', () => {
     });
     expect(err.message).toMatch(/inválido/i);
   });
+
+  it('CRÍTICO: rechaza la conexión de un usuario suspendido, aunque su access_token todavía sea válido', async () => {
+    const padre = await crearPadre({ estado: 'suspendido' });
+    const token = generarAccessToken(padre);
+
+    const socket = conectar(token);
+    const err = await new Promise((resolve, reject) => {
+      socket.on('connect_error', (e) => resolve(e));
+      socket.on('connect', () => reject(new Error('no debería conectar')));
+    });
+    expect(err.message).toMatch(/inactivo/i);
+  });
 });
 
 describe('Eventos de notificaciones sobre el socket', () => {

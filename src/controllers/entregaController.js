@@ -198,6 +198,14 @@ export const updateEntrega = async (req, res) => {
     delete updateData.tareaId;
     delete updateData.padreId;
     delete updateData.archivos;
+    // "archivosAdjuntos" (el campo real del modelo) NUNCA se toma del body: antes
+    // se borraba "archivos" (que no existe en el schema -- no hacía nada) y
+    // dejaba pasar "archivosAdjuntos" tal cual, así que un padre podía mandar
+    // { archivosAdjuntos: [{ publicId: "priv/.../de-otra-entrega.pdf", ... }] }
+    // por JSON (sin adjuntar ningún archivo real) y la entrega quedaba con esa
+    // URL como si fuera suya. Los adjuntos reales solo se arman más abajo, a
+    // partir de req.files.
+    delete updateData.archivosAdjuntos;
 
     if (updateData.enlaces !== undefined) {
       updateData.enlaces = sanitizarEnlaces(req.body.enlaces);
@@ -210,6 +218,12 @@ export const updateEntrega = async (req, res) => {
 
     if (entrega.estado !== 'borrador') {
       return res.status(400).json({ message: "Solo se pueden actualizar entregas en borrador" });
+    }
+
+    // mismo guardado que createEntrega/enviarEntrega: si el docente ya cerró
+    // la tarea, no se puede seguir editando/enviando el borrador
+    if (entrega.tareaId.estado === 'cerrada') {
+      return res.status(400).json({ message: "La tarea ya está cerrada, no se puede modificar la entrega" });
     }
 
     let nuevosSubidos = [];

@@ -112,10 +112,18 @@ export const updateUserValidator = [
     .matches(/^\+57\d{10}$/)
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
+  // "estado" no se puede cambiar por esta ruta -- rechazado explícitamente
+  // (antes se aceptaba y validaba el formato, pero updateUser lo descartaba
+  // en silencio; un 200 sin avisar que no pasó nada). El cambio de estado
+  // va por DELETE /:id (suspender) y /:id/reactivar, que sí revisan cosas
+  // como cursos activos antes de suspender a un docente.
   body('estado')
-    .optional()
-    .isIn(['activo', 'suspendido'])
-    .withMessage('El estado debe ser: activo o suspendido'),
+    .custom((value) => {
+      if (value !== undefined) {
+        throw new Error('El estado se cambia con DELETE /:id (suspender) o PATCH /:id/reactivar, no desde aquí');
+      }
+      return true;
+    }),
 
   body('institucionId')
     .optional()

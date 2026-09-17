@@ -46,6 +46,23 @@ describe('POST /api/cursos', () => {
     expect(res.status).toBe(400);
   });
 
+  it('CRÍTICO: un admin no puede crear un curso asignando como dueño a un docente de OTRA institución', async () => {
+    const institucionPropia = await crearInstitucion();
+    const institucionAjena = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucionPropia._id });
+    const docenteAjeno = await crearDocente({ institucionId: institucionAjena._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.post('/api/cursos')
+      .field('nombre', 'Curso Intruso')
+      .field('descripcion', 'Descripción válida de curso')
+      .field('docenteId', docenteAjeno._id.toString());
+
+    expect(res.status).toBe(400);
+    const cursos = await Curso.find({ docenteId: docenteAjeno._id });
+    expect(cursos).toHaveLength(0);
+  });
+
   it('guarda la foto de portada en el almacenamiento local cuando se adjunta una imagen', async () => {
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });

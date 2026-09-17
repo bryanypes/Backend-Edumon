@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import crearApp from '../../src/app.js';
 import Notificacion from '../../src/models/Notificacion.js';
-import { crearPadre, crearAdministrador } from '../helpers/factories.js';
+import { crearPadre, crearAdministrador, crearDocente, crearInstitucion, crearCurso } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 const crearNotifPara = (usuarioId, overrides = {}) =>
@@ -66,13 +66,39 @@ describe('POST /api/notificaciones — solo admin/superadmin', () => {
     expect(res.status).toBe(403);
   });
 
-  it('un administrador sí puede crear notificaciones', async () => {
-    const admin = await crearAdministrador();
-    const destinatario = await crearPadre();
+  it('un administrador sí puede crear notificaciones para un docente de su institución', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const destinatario = await crearDocente({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
 
     const res = await agent.post('/api/notificaciones').send({ usuarioId: destinatario._id.toString(), tipo: 'sistema', mensaje: 'Aviso institucional' });
     expect(res.status).toBe(201);
+  });
+
+  it('un administrador sí puede crear notificaciones para un padre que participa en un curso de su institución', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const destinatario = await crearPadre();
+    await crearCurso({
+      institucionId: institucion._id,
+      participantes: [{ usuarioId: destinatario._id, etiqueta: 'padre' }],
+    });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.post('/api/notificaciones').send({ usuarioId: destinatario._id.toString(), tipo: 'sistema', mensaje: 'Aviso institucional' });
+    expect(res.status).toBe(201);
+  });
+
+  it('CRÍTICO: un administrador NO puede crear notificaciones para un usuario de otra institución', async () => {
+    const institucionPropia = await crearInstitucion();
+    const institucionAjena = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucionPropia._id });
+    const destinatarioAjeno = await crearDocente({ institucionId: institucionAjena._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.post('/api/notificaciones').send({ usuarioId: destinatarioAjeno._id.toString(), tipo: 'sistema', mensaje: 'Spoofing' });
+    expect(res.status).toBe(403);
   });
 });
 

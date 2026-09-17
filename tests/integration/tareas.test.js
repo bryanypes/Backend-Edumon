@@ -3,7 +3,7 @@ import path from 'node:path';
 import crearApp from '../../src/app.js';
 import Tarea from '../../src/models/Tarea.js';
 import User from '../../src/models/User.js';
-import { crearCurso, crearModulo, crearTarea, crearDocente, crearPadre, crearAdministrador } from '../helpers/factories.js';
+import { crearCurso, crearModulo, crearTarea, crearDocente, crearPadre, crearAdministrador, crearInstitucion } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 const FIXTURES = path.resolve(__dirname, '../fixtures');
@@ -205,6 +205,26 @@ describe('GET /api/tareas/:id — permisos de visualización', () => {
     const res = await agent.get('/api/tareas/507f1f77bcf86cd799439011');
     expect(res.status).toBe(404);
   });
+
+  it('un administrador de la institución puede ver el detalle de una tarea aunque no sea el docente asignado', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const curso = await crearCurso({ institucionId: institucion._id });
+    const tarea = await crearTarea({ cursoId: curso._id, docenteId: curso.docenteId });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.get(`/api/tareas/${tarea._id}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('un administrador de OTRA institución no puede ver el detalle de la tarea', async () => {
+    const admin = await crearAdministrador();
+    const tarea = await crearTarea();
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.get(`/api/tareas/${tarea._id}`);
+    expect(res.status).toBe(403);
+  });
 });
 
 describe('PATCH /api/tareas/:id/close y DELETE', () => {
@@ -257,6 +277,21 @@ describe('PUT /api/tareas/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.tarea.titulo).toBe('Título actualizado');
     expect((await Tarea.findById(tarea._id)).criterios).toBe('Ortografía y coherencia');
+  });
+
+  it('CRÍTICO: al editar, participantesSeleccionados también valida que pertenezcan al curso (igual que al crear)', async () => {
+    const tarea = await crearTarea();
+    const docente = await User.findById(tarea.docenteId);
+    const padreAjeno = await crearPadre();
+    const agent = await loginComo(app, docente);
+
+    const res = await agent.put(`/api/tareas/${tarea._id}`).send({
+      asignacionTipo: 'seleccionados', participantesSeleccionados: [padreAjeno._id.toString()],
+    });
+
+    expect(res.status).toBe(400);
+    const enBD = await Tarea.findById(tarea._id);
+    expect(enBD.participantesSeleccionados).toHaveLength(0);
   });
 
   it('un docente que no es el asignado no puede editar la tarea', async () => {

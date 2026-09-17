@@ -451,7 +451,27 @@ export const updateTarea = async (req, res) => {
     if (req.body.asignacionTipo === 'todos') {
       updateData.participantesSeleccionados = [];
     } else if (Object.prototype.hasOwnProperty.call(req.body, 'participantesSeleccionados')) {
-      updateData.participantesSeleccionados = parseJSONArray(req.body.participantesSeleccionados);
+      const nuevosParticipantes = parseJSONArray(req.body.participantesSeleccionados);
+
+      // mismo chequeo que createTarea: sin esto, un docente podía mandar
+      // cualquier userId (de otra institución incluso) en participantesSeleccionados
+      // y esa persona pasaba a poder ver/entregar una tarea que no le corresponde
+      if (nuevosParticipantes.length > 0) {
+        const cursoIdDestino = req.body.cursoId ?? tareaActual.cursoId.toString();
+        const cursoParaValidar = await Curso.findById(cursoIdDestino).select('participantes');
+        const participantesInvalidos = cursoParaValidar
+          ? nuevosParticipantes.filter((participanteId) => !cursoParaValidar.esParticipante(participanteId))
+          : nuevosParticipantes;
+
+        if (participantesInvalidos.length > 0) {
+          return res.status(400).json({
+            message: "Algunos participantes seleccionados no pertenecen al curso",
+            participantesInvalidos
+          });
+        }
+      }
+
+      updateData.participantesSeleccionados = nuevosParticipantes;
     }
 
     let updatedTarea;

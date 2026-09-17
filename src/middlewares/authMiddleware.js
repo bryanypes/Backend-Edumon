@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Institucion from '../models/Institucion.js';
 import { extractAccessToken } from '../controllers/authController.js';
 
 export const authMiddleware = async (req, res, next) => {
@@ -15,6 +16,16 @@ export const authMiddleware = async (req, res, next) => {
     const user = await User.findById(decoded.userId);
     if (!user || user.estado !== 'activo') {
       return res.status(401).json({ message: 'Token inválido o usuario inactivo' });
+    }
+    // el campo "activo" de Institucion existía (cambiarEstadoInstitucion lo
+    // actualiza) pero nada lo leía nunca -- un docente/administrador de una
+    // institución desactivada (ej. colegio que canceló el servicio) seguía
+    // teniendo acceso normal a toda la API indefinidamente.
+    if (user.institucionId) {
+      const institucion = await Institucion.findById(user.institucionId).select('activo').lean();
+      if (institucion && institucion.activo === false) {
+        return res.status(401).json({ message: 'Tu institución fue desactivada. Contacta al administrador del sistema.' });
+      }
     }
 
     req.user = {

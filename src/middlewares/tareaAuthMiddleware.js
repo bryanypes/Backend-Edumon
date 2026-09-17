@@ -1,13 +1,14 @@
 import Tarea from '../models/Tarea.js';
 
-// acceso: docente asignado, o participante del curso/seleccionados según asignacionTipo
+// acceso: docente asignado, admin/superadmin de la institución, o participante
+// del curso/seleccionados según asignacionTipo
 export const canViewTarea = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
 
     const tarea = await Tarea.findById(id)
-      .populate('cursoId', 'participantes')
+      .populate('cursoId', 'participantes institucionId')
       .populate('docenteId', '_id')
       .lean();
 
@@ -18,6 +19,16 @@ export const canViewTarea = async (req, res, next) => {
     }
 
     if (tarea.docenteId._id.toString() === userId) {
+      return next();
+    }
+
+    // getTareas ya lista las tareas de la institución a un admin -- sin esto,
+    // al abrir el detalle de una que no le hubiera tocado personalmente
+    // (GET /api/tareas/:id) le daba 403, inconsistente con su propia lista.
+    if (req.user.rol === 'superadmin') {
+      return next();
+    }
+    if (req.user.rol === 'administrador' && tarea.cursoId.institucionId?.toString() === req.user.institucionId) {
       return next();
     }
 
@@ -61,13 +72,16 @@ export const canViewTarea = async (req, res, next) => {
   }
 };
 
-// solo el docente asignado puede modificar/eliminar
+// el docente asignado, o un admin/superadmin de la institución, puede modificar/eliminar
 export const canModifyTarea = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const tarea = await Tarea.findById(id).select('docenteId').lean();
+    const tarea = await Tarea.findById(id)
+      .select('docenteId cursoId')
+      .populate('cursoId', 'institucionId')
+      .lean();
 
     if (!tarea) {
       return res.status(404).json({
@@ -75,13 +89,19 @@ export const canModifyTarea = async (req, res, next) => {
       });
     }
 
-    if (tarea.docenteId.toString() !== userId) {
-      return res.status(403).json({
-        message: "Solo el docente asignado puede modificar esta tarea"
-      });
+    if (tarea.docenteId.toString() === userId) {
+      return next();
+    }
+    if (req.user.rol === 'superadmin') {
+      return next();
+    }
+    if (req.user.rol === 'administrador' && tarea.cursoId.institucionId?.toString() === req.user.institucionId) {
+      return next();
     }
 
-    next();
+    return res.status(403).json({
+      message: "No tienes permiso para modificar esta tarea"
+    });
   } catch (error) {
     console.error('Error en canModifyTarea:', error);
     return res.status(500).json({

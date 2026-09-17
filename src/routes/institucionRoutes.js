@@ -10,13 +10,14 @@ import {
 } from '../controllers/institucionController.js';
 import { uploadCSVCloudinary } from '../middlewares/cloudinaryMiddleware.js';
 import { preregistrarDocentesCSV } from '../controllers/institucionController.js';
+import { crearInstitucionValidator } from '../middlewares/validators/institucionValidator.js';
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
 // Solo superadmin
-router.post('/', requireRole(['superadmin']), crearInstitucion);
+router.post('/', requireRole(['superadmin']), crearInstitucionValidator, crearInstitucion);
 router.get('/', requireRole(['superadmin']), getInstituciones);
 router.put('/:id', requireRole(['superadmin']), updateInstitucion);
 router.patch('/:id/estado', requireRole(['superadmin']), cambiarEstadoInstitucion);

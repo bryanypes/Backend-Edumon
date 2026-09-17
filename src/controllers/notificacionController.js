@@ -1,4 +1,6 @@
 import Notificacion from '../models/Notificacion.js';
+import User from '../models/User.js';
+import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
 
@@ -7,6 +9,26 @@ export const createNotificacion = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
+    }
+
+    // un administrador solo puede notificar a alguien de su propia institución;
+    // sin esto, cualquier admin podía mandar "notificaciones de sistema" a
+    // cualquier usuarioId de OTRA institución con solo adivinar/probar el id.
+    // Un padre no tiene institucionId propio (solo queda ligado vía los cursos
+    // en los que participa), por eso ese caso se valida distinto.
+    if (req.user.rol === 'administrador') {
+      const destinatario = await User.findById(req.body.usuarioId).select('rol institucionId');
+      if (!destinatario) {
+        return res.status(404).json({ message: 'El usuario destinatario no existe' });
+      }
+
+      const perteneceAInstitucion = destinatario.rol === 'padre'
+        ? await Curso.exists({ institucionId: req.user.institucionId, 'participantes.usuarioId': destinatario._id })
+        : destinatario.institucionId?.toString() === req.user.institucionId;
+
+      if (!perteneceAInstitucion) {
+        return res.status(403).json({ message: 'Solo puedes notificar a usuarios de tu institución' });
+      }
     }
 
     const notificacion = new Notificacion(req.body);

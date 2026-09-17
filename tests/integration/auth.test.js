@@ -54,9 +54,15 @@ describe('POST /api/auth/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rechaza institucionId ausente cuando el rol es docente', async () => {
-    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'docente' });
-    expect(res.status).toBe(400);
+  it('CRÍTICO: el registro público rechaza cualquier rol distinto de "padre" (sin sesión no se puede crear un docente/administrador)', async () => {
+    const comoDocente = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'docente' });
+    expect(comoDocente.status).toBe(400);
+
+    const comoAdmin = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'administrador' });
+    expect(comoAdmin.status).toBe(400);
+
+    const comoSuperadmin = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'superadmin' });
+    expect(comoSuperadmin.status).toBe(400);
   });
 
   it('responde 409 si la cédula ya está registrada', async () => {

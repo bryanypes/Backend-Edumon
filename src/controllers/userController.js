@@ -10,13 +10,23 @@ import { getFileBuffer } from '../utils/fileUploadHelper.js';
 // Un administrador solo puede gestionar/ver usuarios de SU institución; el
 // superadmin no tiene restricción. Antes cualquier admin operaba sobre usuarios
 // de cualquier institución vía /users/:id.
-function adminPuedeGestionarUsuario(actor, objetivo) {
+// Un padre no tiene institucionId propio (ver comentario en getUsers), así
+// que para ese caso se revisa si participa en algún curso de la institución
+// del admin -- si no, un admin veía padres en la lista de getUsers pero
+// recibía 403 al intentar abrir/editar/suspender cualquiera de ellos.
+async function adminPuedeGestionarUsuario(actor, objetivo) {
   if (actor.rol === 'superadmin') return true;
-  if (actor.rol === 'administrador') {
-    return !!objetivo.institucionId &&
-      objetivo.institucionId.toString() === actor.institucionId;
+  if (actor.rol !== 'administrador') return false;
+
+  if (objetivo.rol === 'padre') {
+    return await Curso.exists({
+      institucionId: actor.institucionId,
+      'participantes.usuarioId': objetivo._id,
+    });
   }
-  return false;
+
+  return !!objetivo.institucionId &&
+    objetivo.institucionId.toString() === actor.institucionId;
 }
 
 // Crear usuario (desde panel de administración)
@@ -118,9 +128,19 @@ export const getUsers = async (req, res) => {
     if (rol)    filter.rol    = rol;
     if (estado) filter.estado = estado;
 
-    // el admin solo ve usuarios de su institución; el superadmin ve todos
+    // el admin solo ve usuarios de su institución; el superadmin ve todos.
+    // Un padre NUNCA tiene institucionId propio (solo queda ligado vía los
+    // cursos en los que participa) -- filtrar solo por institucionId dejaba
+    // esta lista sin padres siempre, para cualquier admin. Se agregan por
+    // separado, vía los cursos de la institución.
     if (req.user.rol === 'administrador') {
-      filter.institucionId = req.user.institucionId;
+      const padresIds = await Curso.find({ institucionId: req.user.institucionId })
+        .distinct('participantes.usuarioId');
+
+      filter.$or = [
+        { institucionId: req.user.institucionId },
+        { _id: { $in: padresIds }, rol: 'padre' },
+      ];
     }
 
     const users = await User.find(filter)
@@ -162,7 +182,7 @@ export const getUserById = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    if (!adminPuedeGestionarUsuario(req.user, user)) {
+    if (!(await adminPuedeGestionarUsuario(req.user, user))) {
       return res.status(403).json({ message: "No puedes ver usuarios de otra institución" });
     }
 
@@ -211,7 +231,7 @@ export const updateUser = async (req, res) => {
     if (!usuarioObjetivo) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    if (!adminPuedeGestionarUsuario(req.user, usuarioObjetivo)) {
+    if (!(await adminPuedeGestionarUsuario(req.user, usuarioObjetivo))) {
       return res.status(403).json({ message: "No puedes modificar usuarios de otra institución" });
     }
 
@@ -220,10 +240,42 @@ export const updateUser = async (req, res) => {
     delete updateData._id;
     delete updateData.fechaRegistro;
     delete updateData.modoOscuro; // se maneja por su propia ruta
-    delete updateData.rol;
-    delete updateData.estado;
-    delete updateData.institucionId;
+    delete updateData.estado;     // se maneja por DELETE /:id (suspender) y /:id/reactivar, que sí validan cursos activos etc.
     delete updateData.esTitular;
+
+    // Cambiar rol/institución: antes se borraban sin más (updateUser nunca
+    // los tocaba), así que un superadmin no tenía forma de ascender a un padre
+    // a administrador -- el PUT respondía 200 "actualizado" pero el rol
+    // quedaba igual, sin ningún aviso. Misma regla que createUser: un
+    // administrador solo puede asignar 'padre'/'docente' dentro de su propia
+    // institución; solo superadmin puede asignar 'administrador'/'superadmin',
+    // y sigue existiendo un único superadmin en el sistema.
+    if (updateData.rol !== undefined || updateData.institucionId !== undefined) {
+      const nuevoRol = updateData.rol ?? usuarioObjetivo.rol;
+
+      if (req.user.rol === 'administrador' && !['padre', 'docente'].includes(nuevoRol)) {
+        return res.status(403).json({ message: "Un administrador solo puede asignar el rol 'padre' o 'docente'" });
+      }
+
+      if (nuevoRol === 'superadmin') {
+        const superadminExistente = await User.findOne({ rol: 'superadmin', _id: { $ne: id } });
+        if (superadminExistente) {
+          return res.status(409).json({ message: "Ya existe un superadmin en el sistema. Solo puede haber uno." });
+        }
+      }
+
+      updateData.rol = nuevoRol;
+      if (nuevoRol === 'docente' || nuevoRol === 'administrador') {
+        updateData.institucionId = req.user.rol === 'administrador'
+          ? req.user.institucionId
+          : (updateData.institucionId ?? usuarioObjetivo.institucionId);
+        if (!updateData.institucionId) {
+          return res.status(400).json({ message: "La institución es requerida para docentes y administradores" });
+        }
+      } else {
+        updateData.institucionId = null;
+      }
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
@@ -326,7 +378,7 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    if (!adminPuedeGestionarUsuario(req.user, userASuspender)) {
+    if (!(await adminPuedeGestionarUsuario(req.user, userASuspender))) {
       return res.status(403).json({ message: "No puedes suspender usuarios de otra institución" });
     }
 
@@ -377,7 +429,7 @@ export const reactivateUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    if (!adminPuedeGestionarUsuario(req.user, user)) {
+    if (!(await adminPuedeGestionarUsuario(req.user, user))) {
       return res.status(403).json({ message: "No puedes reactivar usuarios de otra institución" });
     }
     if (user.estado === 'activo') {
