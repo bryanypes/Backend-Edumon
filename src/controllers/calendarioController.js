@@ -1,6 +1,7 @@
 import Tarea from '../models/Tarea.js';
 import Evento from '../models/Evento.js';
 import Curso from '../models/Curso.js';
+import { rangoDiaBogotaDesdeISO, rangoMesBogota } from '../utils/fechaColombia.js';
 
 export const obtenerCalendarioCurso = async (req, res) => {
   try {
@@ -21,11 +22,10 @@ export const obtenerCalendarioCurso = async (req, res) => {
 
     let filtroFechas = {};
     if (mes && anio) {
-      const inicioMes = new Date(anio, mes - 1, 1);
-      const finMes = new Date(anio, mes, 0, 23, 59, 59);
+      const { inicio: inicioMes, fin: finMes } = rangoMesBogota(Number(anio), Number(mes));
       filtroFechas = {
         $gte: inicioMes,
-        $lte: finMes
+        $lt:  finMes
       };
     }
 
@@ -134,16 +134,12 @@ export const obtenerEventosDia = async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este curso' });
     }
 
-    const inicioDia = new Date(fecha);
-    inicioDia.setHours(0, 0, 0, 0);
-    
-    const finDia = new Date(fecha);
-    finDia.setHours(23, 59, 59, 999);
+    const { inicio: inicioDia, fin: finDia } = rangoDiaBogotaDesdeISO(fecha);
 
     const [tareas, eventos] = await Promise.all([
       Tarea.find({
         cursoId,
-        fechaEntrega: { $gte: inicioDia, $lte: finDia }
+        fechaEntrega: { $gte: inicioDia, $lt: finDia }
       })
         .populate('moduloId', 'titulo')
         .populate('docenteId', 'nombre apellido')
@@ -151,7 +147,7 @@ export const obtenerEventosDia = async (req, res) => {
 
       Evento.find({
         cursosIds: cursoId,
-        fechaInicio: { $lte: finDia },
+        fechaInicio: { $lt: finDia },
         fechaFin: { $gte: inicioDia }
       })
         .populate('docenteId', 'nombre apellido')
