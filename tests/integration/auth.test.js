@@ -134,6 +134,20 @@ describe('POST /api/auth/login', () => {
     expect(ultima.body.retryAfter).toBeGreaterThan(0);
     expect(ultima.headers['retry-after']).toBeDefined();
   });
+
+  it('el rate limit de login es por teléfono, no compartido entre padres distintos (misma IP de pruebas)', async () => {
+    const padreA = await crearPadre();
+    const padreB = await crearPadre();
+
+    for (let i = 0; i < 10; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await request(app).post('/api/auth/login').send({ telefono: padreA.telefono, contraseña: 'incorrecta' });
+    }
+
+    // padreB no debería verse afectado por los intentos fallidos de padreA
+    const res = await request(app).post('/api/auth/login').send({ telefono: padreB.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    expect(res.status).toBe(200);
+  });
 });
 
 describe('GET /api/auth/profile y sesión', () => {
@@ -319,6 +333,19 @@ describe('Recuperación de contraseña por correo', () => {
 
     const segundo = await request(app).post('/api/auth/reset-password').send({ correo: padre.correo, codigo, contraseñaNueva: 'ClaveDos123' });
     expect(segundo.status).toBe(400);
+  });
+
+  it('el rate limit de recuperación cuenta igual sin importar mayúsculas/minúsculas en el correo', async () => {
+    const padre = await crearPadre();
+    let ultima;
+    for (let i = 0; i < 11; i += 1) {
+      // alterna mayúsculas/minúsculas: no debería alcanzar para evadir el límite
+      // eslint-disable-next-line no-await-in-loop
+      ultima = await request(app).post('/api/auth/forgot-password').send({
+        correo: i % 2 === 0 ? padre.correo.toUpperCase() : padre.correo,
+      });
+    }
+    expect(ultima.status).toBe(429);
   });
 });
 

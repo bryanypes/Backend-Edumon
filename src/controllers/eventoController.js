@@ -5,6 +5,7 @@ import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { rangoDiaBogota } from '../utils/fechaColombia.js';
 
 // docente y padre ya se acotan a sus propios cursos/eventos en este archivo; a
 // administrador nunca se le restringía a su propia institución, por lo que podía
@@ -405,10 +406,7 @@ export const getEventosHoy = async (req, res) => {
   try {
     const { userId, rol, institucionId } = req.user;
 
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const mañana = new Date(hoy);
-    mañana.setDate(mañana.getDate() + 1);
+    const { inicio: hoy, fin: mañana } = rangoDiaBogota();
 
     const filter = { fechaInicio: { $gte: hoy, $lt: mañana } };
 

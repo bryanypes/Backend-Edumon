@@ -8,9 +8,12 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import timeout from 'connect-timeout';
 import compression from 'compression';
+import multer from 'multer';
 
 import { setupSocketIO } from './socket/socketHandlers.js';
 import { authMiddleware } from './middlewares/authMiddleware.js';
+import { verificarAccesoArchivoPrivado } from './middlewares/archivoPrivadoMiddleware.js';
+import { normalizarTelefono } from './utils/normalizarTelefono.js';
 import {
   UPLOAD_DIR,
   PUBLIC_PREFIX,
@@ -99,6 +102,15 @@ export const crearApp = () => {
     next();
   });
 
+  // Body parsers + Cookie parser: deben ir antes del sanitizador y de los
+  // rate limiters de abajo (limiterAuth lee req.body.telefono) -- si no,
+  // req.body llega undefined a ambos y el límite de login cae siempre al
+  // fallback por IP, compartiendo el contador entre todos los padres detrás
+  // de la misma IP/proxy en vez de limitar por número de teléfono.
+  app.use(cookieParser());
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
   app.use((req, res, next) => {
     const sanitize = (obj) => {
       if (!obj || typeof obj !== 'object') return;
@@ -148,33 +160,50 @@ export const crearApp = () => {
 
   app.use('/api/', makeRateLimitHandler('Demasiadas solicitudes, intenta más tarde'));
 
-  // Limita por teléfono en vez de IP: en wifi compartida de colegio, un
-  // límite por IP bloqueaba a todos los padres por los intentos de uno solo
-  const limiterAuth = rateLimit({
-    windowMs:        15 * 60 * 1000,
-    max:             10,
-    standardHeaders: true,
-    legacyHeaders:   false,
-    keyGenerator: (req) => (req.body?.telefono ? `tel:${req.body.telefono}` : ipKeyGenerator(req.ip)),
-    handler: (req, res) => {
-      const retryAfter = Math.ceil(
-        (req.rateLimit.resetTime - Date.now()) / 1000,
-      );
-      res.set('Retry-After', retryAfter);
-      res.status(429).json({
-        message:    'Demasiados intentos de autenticación',
-        retryAfter,
-      });
-    },
-  });
+  // Limita por teléfono/correo en vez de IP: en wifi compartida de colegio, un
+  // límite por IP bloqueaba a todos los padres por los intentos de uno solo.
+  // El fallback por IP usa ipKeyGenerator(req.ip, false) -- sin eso, el /56
+  // por defecto agrupa a todos los celulares de un mismo operador móvil en
+  // una sola IPv6 "subred", bloqueando a padres que ni se conocen entre sí.
+  // normaliza el valor ANTES de armar la clave: el limiter corre antes que
+  // los validators de la ruta (que son los que normalmente sanean telefono/
+  // correo), así que sin esto "3001112233" y "+573001112233", o un correo en
+  // mayúsculas, cuentan como cuentas distintas y duplican/multiplican el
+  // cupo real de intentos permitidos
+  const makeAuthLimiter = (campo, normalizar) =>
+    rateLimit({
+      windowMs:        15 * 60 * 1000,
+      max:             10,
+      standardHeaders: true,
+      legacyHeaders:   false,
+      keyGenerator: (req) => {
+        const crudo = req.body?.[campo];
+        const valor = typeof crudo === 'string' ? normalizar(crudo) : null;
+        return valor ? `${campo}:${valor}` : ipKeyGenerator(req.ip, false);
+      },
+      handler: (req, res) => {
+        const retryAfter = Math.ceil(
+          (req.rateLimit.resetTime - Date.now()) / 1000,
+        );
+        res.set('Retry-After', retryAfter);
+        res.status(429).json({
+          message:    'Demasiados intentos de autenticación',
+          retryAfter,
+        });
+      },
+    });
 
+  const limiterAuth = makeAuthLimiter('telefono', (v) => normalizarTelefono(v) ?? v);
   app.use('/api/auth/login',    limiterAuth);
   app.use('/api/auth/register', limiterAuth);
 
   // recuperación de contraseña: el código es de 6 dígitos, sin este límite se
-  // podía probar por fuerza bruta dentro de la ventana de validez
-  app.use('/api/auth/forgot-password',       limiterAuth);
-  app.use('/api/auth/reset-password',        limiterAuth);
+  // podía probar por fuerza bruta dentro de la ventana de validez. Va por
+  // 'correo' (no 'telefono', que estos dos endpoints no reciben) y con su
+  // propio contador, separado del de login/registro.
+  const limiterRecuperacion = makeAuthLimiter('correo', (v) => v.trim().toLowerCase());
+  app.use('/api/auth/forgot-password',       limiterRecuperacion);
+  app.use('/api/auth/reset-password',        limiterRecuperacion);
 
   // CORS
   const corsAbiertoTemporalmente = !isDev && frontendUrls.length === 0;
@@ -194,11 +223,6 @@ export const crearApp = () => {
     }),
   );
 
-  // Body parsers + Cookie parser
-  app.use(cookieParser());
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
   // Archivos subidos (almacenamiento local en disco / volumen persistente)
   const setHeadersArchivo = (res, filePath) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -207,13 +231,20 @@ export const crearApp = () => {
       res.setHeader('Content-Disposition', 'attachment');
     }
   };
-  // privados (adjuntos de entregas): requieren sesión válida
+  // privados (adjuntos de entregas): sesión válida + dueño/docente/admin de la
+  // institución (verificarAccesoArchivoPrivado) -- "private" en el Cache-Control
+  // para que un proxy/caché compartido no le sirva el archivo a otro usuario
+  // sin pasar de nuevo por ese chequeo.
   app.use(
     `${PUBLIC_PREFIX}/${CARPETA_PRIVADA}`,
     authMiddleware,
+    verificarAccesoArchivoPrivado,
     express.static(path.join(UPLOAD_DIR, CARPETA_PRIVADA), {
       index: false,
-      setHeaders: setHeadersArchivo,
+      setHeaders: (res, filePath) => {
+        setHeadersArchivo(res, filePath);
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+      },
     }),
   );
   app.use(
@@ -273,6 +304,21 @@ export const crearApp = () => {
 
   // Error handler global
   app.use((err, req, res, next) => {
+    // Fallback para rutas de subida de archivos que no capturan MulterError
+    // por su cuenta (tareaRoutes y apkRoutes sí lo hacen): sin esto, un
+    // adjunto muy grande (foto de celular en una entrega/foro/evento, por
+    // ejemplo) termina en un 500 con el mensaje crudo de multer en inglés.
+    if (err instanceof multer.MulterError) {
+      const mensajes = {
+        LIMIT_FILE_SIZE:  'El archivo es demasiado grande para subir. Intenta con uno más liviano.',
+        LIMIT_FILE_COUNT: 'Adjuntaste demasiados archivos a la vez.',
+        LIMIT_UNEXPECTED_FILE: 'No se pudo subir el archivo: el tipo o el campo no es el esperado.',
+      };
+      return res.status(400).json({
+        message: mensajes[err.code] || 'No se pudo subir el archivo. Verifica el formato e inténtalo de nuevo.',
+      });
+    }
+
     console.error(err.stack);
     res.status(err.status || 500).json({
       message: err.message || 'Error interno del servidor',

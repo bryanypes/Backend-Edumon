@@ -138,6 +138,27 @@ describe('POST /api/entregas', () => {
     expect(conSesion.status).toBe(200);
   });
 
+  it('un archivo privado no lo puede descargar otro padre ajeno a la entrega, pero sí el docente de la tarea', async () => {
+    const { padre, tarea, curso } = await tareaConPadreParticipante();
+    const agent = await loginComo(app, padre);
+
+    const creada = await agent.post('/api/entregas')
+      .field('tareaId', tarea._id.toString())
+      .field('padreId', padre._id.toString())
+      .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
+    const ruta = creada.body.entrega.archivosAdjuntos[0].url;
+
+    const otroPadre = await crearPadre();
+    const agentOtroPadre = await loginComo(app, otroPadre);
+    const comoOtroPadre = await agentOtroPadre.get(ruta);
+    expect(comoOtroPadre.status).toBe(403);
+
+    const docente = await User.findById(curso.docenteId);
+    const agentDocente = await loginComo(app, docente);
+    const comoDocente = await agentDocente.get(ruta);
+    expect(comoDocente.status).toBe(200);
+  });
+
   it('acepta enlaces externos como parte de la entrega', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
