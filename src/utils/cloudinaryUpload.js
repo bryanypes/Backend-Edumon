@@ -22,6 +22,8 @@ const EXT_POR_MIME = {
   'image/gif': '.gif',
   'image/webp': '.webp',
   'image/svg+xml': '.svg',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
   'application/pdf': '.pdf',
   'video/mp4': '.mp4',
 };

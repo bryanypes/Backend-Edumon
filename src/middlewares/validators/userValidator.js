@@ -11,8 +11,8 @@ export const createUserValidator = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('El nombre debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
-    .withMessage('El nombre solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
+    .withMessage('El nombre solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('apellido')
     .notEmpty()
@@ -20,8 +20,8 @@ export const createUserValidator = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('El apellido debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
-    .withMessage('El apellido solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
+    .withMessage('El apellido solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('cedula')
     .notEmpty()
@@ -77,16 +77,16 @@ export const updateUserValidator = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('El nombre debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
-    .withMessage('El nombre solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
+    .withMessage('El nombre solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('apellido')
     .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('El apellido debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
-    .withMessage('El apellido solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
+    .withMessage('El apellido solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('cedula')
     .optional()
@@ -137,16 +137,16 @@ export const updateOwnProfileValidator = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('El nombre debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
-    .withMessage('El nombre solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
+    .withMessage('El nombre solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('apellido')
     .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('El apellido debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
-    .withMessage('El apellido solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
+    .withMessage('El apellido solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('correo')
     .optional()

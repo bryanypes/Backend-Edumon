@@ -20,7 +20,8 @@ import Institucion from '../models/Institucion.js';
 import User from '../models/User.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 
-function leerAdminsDesdeEnv() {
+// exportada para reusarla en resetBootstrapPasswords.js (mismo formato de .env)
+export function leerAdminsDesdeEnv() {
   const admins = [];
   for (let i = 1; process.env[`BOOTSTRAP_ADMIN_${i}_TELEFONO`] !== undefined; i++) {
     const valor = (sufijo) => process.env[`BOOTSTRAP_ADMIN_${i}_${sufijo}`]?.trim() || undefined;
