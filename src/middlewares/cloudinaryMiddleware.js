@@ -3,6 +3,16 @@ import multer from 'multer';
 
 const storage = multer.memoryStorage();
 
+// Un fileFilter que llama cb(new Error(...)) sin más termina en el manejador
+// global de app.js como 500 "Error interno del servidor" -- confuso para un
+// padre que solo adjuntó una foto en un formato no soportado. status:400 hace
+// que ese mismo Error caiga en la rama normal de "petición inválida".
+const crearErrorDeArchivo = (mensaje) => {
+  const error = new Error(mensaje);
+  error.status = 400;
+  return error;
+};
+
 // imágenes: cursos, perfiles
 export const uploadImagenCloudinary = multer({
   storage: storage,
@@ -10,12 +20,13 @@ export const uploadImagenCloudinary = multer({
     fileSize: 5 * 1024 * 1024, // 5MB máximo
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
-    
+    // heic/heif: formato por defecto de la cámara en iPhones (muy comunes acá)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP)'), false);
+      cb(crearErrorDeArchivo('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC)'), false);
     }
   }
 });
@@ -40,12 +51,12 @@ export const uploadImagenYCSV = multer({
     fileSize: 5 * 1024 * 1024, // 5MB máximo
   },
   fileFilter: (req, file, cb) => {
-    const allowedImages = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+    const allowedImages = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
 
     if (allowedImages.includes(file.mimetype) || esExcel(file)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP) o archivos Excel (.xlsx, .xlsm)'), false);
+      cb(crearErrorDeArchivo('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC) o archivos Excel (.xlsx, .xlsm)'), false);
     }
   }
 });
@@ -61,7 +72,7 @@ export const uploadApk = multer({
     if (file.originalname.toLowerCase().endsWith('.apk')) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten archivos .apk'), false);
+      cb(crearErrorDeArchivo('Solo se permiten archivos .apk'), false);
     }
   }
 });
@@ -75,7 +86,7 @@ export const uploadCSVCloudinary = multer({
     if (esExcel(file)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xlsm)'), false);
+      cb(crearErrorDeArchivo('Solo se permiten archivos Excel (.xlsx, .xlsm)'), false);
     }
   }
 });
@@ -89,7 +100,7 @@ export const uploadArchivoCloudinary = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp',
+      'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -106,7 +117,7 @@ export const uploadArchivoCloudinary = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Formato de archivo no permitido: ${file.mimetype}`), false);
+      cb(crearErrorDeArchivo(`Formato de archivo no permitido: ${file.mimetype}`), false);
     }
   }
 });

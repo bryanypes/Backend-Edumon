@@ -43,16 +43,20 @@ const uploadArchivosMensajeMiddleware = multer({
       'image/jpg',
       'image/gif',
       'image/webp',
+      'image/heic',
+      'image/heif',
       'video/mp4',
       'video/mpeg',
       'video/quicktime',
       'application/pdf'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP), videos (MP4, MPEG, MOV) y archivos PDF'), false);
+      const error = new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC), videos (MP4, MPEG, MOV) y archivos PDF');
+      error.status = 400;
+      cb(error, false);
     }
   }
 });

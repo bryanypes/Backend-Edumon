@@ -8,12 +8,12 @@ export const registerValidator = [
   body('nombre')
     .notEmpty().withMessage('El nombre es requerido')
     .isLength({ min: 2, max: 50 }).withMessage('El nombre debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/).withMessage('El nombre solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/).withMessage('El nombre solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('apellido')
     .notEmpty().withMessage('El apellido es requerido')
     .isLength({ min: 2, max: 50 }).withMessage('El apellido debe tener entre 2 y 50 caracteres')
-    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/).withMessage('El apellido solo puede contener letras y espacios'),
+    .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/).withMessage('El apellido solo puede contener letras, espacios, guiones y apóstrofes'),
 
   body('cedula')
     .notEmpty().withMessage('La cédula es requerida')
