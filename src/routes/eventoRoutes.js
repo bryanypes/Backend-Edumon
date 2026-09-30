@@ -25,15 +25,21 @@ const uploadEventoArchivos = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const imageTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif'];
+    const imageTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
     const allTypes = [...imageTypes, 'application/pdf', 'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
+    // status:400 en los dos -- si no, un formato de archivo inválido (error de
+    // usuario, no del servidor) cae en el manejador global como 500
     if (file.fieldname === 'imagenPortada' && !imageTypes.includes(file.mimetype)) {
-      return cb(new Error('La imagen de portada debe ser JPEG, PNG, WEBP o GIF'), false);
+      const error = new Error('La imagen de portada debe ser JPEG, PNG, WEBP, GIF o HEIC');
+      error.status = 400;
+      return cb(error, false);
     }
     if (file.fieldname === 'adjunto' && !allTypes.includes(file.mimetype)) {
-      return cb(new Error('El adjunto debe ser una imagen o PDF/Word'), false);
+      const error = new Error('El adjunto debe ser una imagen o PDF/Word');
+      error.status = 400;
+      return cb(error, false);
     }
     cb(null, true);
   }
