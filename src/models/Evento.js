@@ -107,7 +107,7 @@ eventoSchema.virtual('participantes', {
 eventoSchema.virtual('categoriaLabel').get(function() {
   const labels = {
     escuela_padres: 'Escuela de Padres',
-    tarea: 'Tarea',
+    tarea: 'Reto',
     institucional: 'Institucional'
   };
   return labels[this.categoria] || this.categoria;

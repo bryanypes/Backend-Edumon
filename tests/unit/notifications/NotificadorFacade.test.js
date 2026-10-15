@@ -52,6 +52,20 @@ describe('NotificadorFacade — notificar (usuario individual)', () => {
     const notificacion = await notificador.notificar(usuario._id, { tipo: 'sistema', mensaje: 'hola' });
     expect(notificacion.prioridad).toBe('critica');
   });
+
+  it('tipo "entrega" (docente recibe una por cada estudiante) no envía correo, solo websocket/push', async () => {
+    const docente = await crearPadre({ fcmToken: 'token-docente' });
+
+    const notificacion = await notificador.notificar(docente._id, {
+      tipo: 'entrega',
+      mensaje: 'Un padre entregó la tarea',
+    });
+
+    expect(notificacion.canalEnviado.websocket).toBe(true);
+    expect(notificacion.canalEnviado.push).toBe(true);
+    expect(notificacion.canalEnviado.email).toBe(false);
+    expect(nodemailerSendMailMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('NotificadorFacade — notificarFamilia', () => {

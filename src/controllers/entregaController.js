@@ -49,15 +49,15 @@ export const createEntrega = async (req, res) => {
     ]);
 
     if (existingEntrega) {
-      return res.status(409).json({ message: "Ya existe una entrega para esta tarea" });
+      return res.status(409).json({ message: "Ya existe una entrega para este reto" });
     }
 
     if (!tarea) {
-      return res.status(404).json({ message: "Tarea no encontrada" });
+      return res.status(404).json({ message: "Reto no encontrado" });
     }
 
     if (tarea.estado === 'cerrada') {
-      return res.status(400).json({ message: "La tarea está cerrada y no acepta entregas" });
+      return res.status(400).json({ message: "El reto está cerrado y no acepta entregas" });
     }
 
     let estado = req.body.estado || 'borrador';
@@ -128,7 +128,7 @@ export const createEntrega = async (req, res) => {
         .populate({ path: 'padreId', select: 'nombre apellido correo telefono rol' });
 
       if (!entregaCompleta.tareaId?.docenteId) {
-        return res.status(400).json({ message: "Error: La tarea no tiene docente asignado" });
+        return res.status(400).json({ message: "Error: El reto no tiene docente asignado" });
       }
 
       eventBus.publicar(EVENTOS.ENTREGA_CREADA, {
@@ -155,7 +155,7 @@ export const createEntrega = async (req, res) => {
     // Índice único (tareaId, padreId): puede dispararse si dos solicitudes concurrentes
     // pasaron la verificación de duplicado antes de que la primera terminara de guardar
     if (error.code === 11000) {
-      return res.status(409).json({ message: "Ya existe una entrega para esta tarea" });
+      return res.status(409).json({ message: "Ya existe una entrega para este reto" });
     }
     res.status(500).json({
       message: "Error interno del servidor",
@@ -223,7 +223,7 @@ export const updateEntrega = async (req, res) => {
     // mismo guardado que createEntrega/enviarEntrega: si el docente ya cerró
     // la tarea, no se puede seguir editando/enviando el borrador
     if (entrega.tareaId.estado === 'cerrada') {
-      return res.status(400).json({ message: "La tarea ya está cerrada, no se puede modificar la entrega" });
+      return res.status(400).json({ message: "El reto ya está cerrado, no se puede modificar la entrega" });
     }
 
     let nuevosSubidos = [];
@@ -286,7 +286,7 @@ export const enviarEntrega = async (req, res) => {
     }
 
     if (entrega.tareaId.estado === 'cerrada') {
-      return res.status(400).json({ message: "La tarea está cerrada y no acepta entregas" });
+      return res.status(400).json({ message: "El reto está cerrado y no acepta entregas" });
     }
 
     const estado = new Date() > entrega.tareaId.fechaEntrega ? 'tarde' : 'enviada';
@@ -303,7 +303,7 @@ export const enviarEntrega = async (req, res) => {
       .populate({ path: 'padreId', select: 'nombre apellido correo telefono' });
 
     if (!entregaCompleta.tareaId.docenteId) {
-      return res.status(400).json({ message: "Error: La tarea no tiene docente asignado" });
+      return res.status(400).json({ message: "Error: El reto no tiene docente asignado" });
     }
 
     eventBus.publicar(EVENTOS.ENTREGA_CREADA, {
@@ -451,17 +451,17 @@ export const getEntregasByTarea = async (req, res) => {
     const { estado } = req.query;
 
     const tarea = await Tarea.findById(tareaId);
-    if (!tarea) return res.status(404).json({ message: "Tarea no encontrada" });
+    if (!tarea) return res.status(404).json({ message: "Reto no encontrado" });
 
     // el rol no basta: verificar que sea dueño de la tarea / de su institución
     const { userId, rol, institucionId } = req.user;
     if (rol === 'docente' && tarea.docenteId.toString() !== userId) {
-      return res.status(403).json({ message: "No tienes permisos para ver las entregas de esta tarea" });
+      return res.status(403).json({ message: "No tienes permisos para ver las entregas de este reto" });
     }
     if (rol === 'administrador') {
       const curso = await Curso.findById(tarea.cursoId).select('institucionId');
       if (!curso || curso.institucionId.toString() !== institucionId) {
-        return res.status(403).json({ message: "No tienes permisos para ver las entregas de esta tarea" });
+        return res.status(403).json({ message: "No tienes permisos para ver las entregas de este reto" });
       }
     }
 

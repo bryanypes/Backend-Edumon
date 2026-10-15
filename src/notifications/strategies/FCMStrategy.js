@@ -9,7 +9,7 @@ export class FCMStrategy extends NotificacionStrategy {
     if (!usuario.fcmToken) return false;
 
     const titulos = {
-      tarea: '📝 Nueva Tarea',
+      tarea: '📝 Nuevo Reto',
       entrega: '📤 Nueva Entrega',
       calificacion: '⭐ Calificación',
       foro: '💬 Foro',

@@ -165,7 +165,7 @@ async function seed() {
   //  curso2: docenteB · participantes = docenteB + padreB   (padreA NO está → probar 403)
   const curso1 = await Curso.create({
     nombre: "Matemáticas 5°",
-    descripcion: "Curso de Matemáticas de 5° grado: contenidos, tareas y foro de acompañamiento a familias.",
+    descripcion: "Curso de Matemáticas de 5° grado: contenidos, retos y foro de acompañamiento a familias.",
     color: "#3B82F6",
     docenteId: docenteA._id,
     institucionId: instA._id,
@@ -296,7 +296,7 @@ async function seed() {
 
   // ── 10. Eventos (1 por curso; dueño = docente del curso, fecha futura) ──
   const evento1 = await Evento.create({
-    titulo: "Escuela de Padres: acompañamiento en tareas",
+    titulo: "Escuela de Padres: acompañamiento en retos",
     descripcion: "Encuentro para las familias de Matemáticas 5°. Se solicita puntualidad y confirmación de asistencia.",
     fechaInicio: dias(7),
     fechaFin: new Date(dias(7).getTime() + 2 * 60 * 60 * 1000),
@@ -320,7 +320,7 @@ async function seed() {
 
   // ── 11. Notificaciones (una por cada tipo del enum) ───────────
   await Notificacion.insertMany([
-    { usuarioId: padreA._id, tipo: "tarea", mensaje: "Nueva tarea en Matemáticas 5°: Taller de fracciones.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
+    { usuarioId: padreA._id, tipo: "tarea", mensaje: "Nuevo reto en Matemáticas 5°: Taller de fracciones.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
     { usuarioId: docenteA._id, tipo: "entrega", mensaje: "Sofía Ramírez realizó una entrega en Taller de fracciones.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
     { usuarioId: padreA._id, tipo: "calificacion", mensaje: "Tu entrega de Taller de fracciones fue calificada con 5 estrellas.", referenciaModelo: "Tarea", referenciaId: tarea1._id, leido: true, prioridad: "alta", canalEnviado: { websocket: true, email: true } },
     { usuarioId: padreB._id, tipo: "foro", mensaje: "Nuevo mensaje en el foro 'Dudas de la Unidad 1'.", referenciaModelo: "Foro", referenciaId: foro1._id, prioridad: "baja", canalEnviado: { websocket: true } },

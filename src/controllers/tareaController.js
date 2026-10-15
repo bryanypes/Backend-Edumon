@@ -206,7 +206,7 @@ export const createTarea = async (req, res) => {
     eventBus.publicar(EVENTOS.TAREA_CREADA, savedTarea);
 
     res.status(201).json({
-      message: "Tarea creada exitosamente",
+      message: "Reto creado exitosamente",
       tarea: savedTarea
     });
   } catch (error) {
@@ -338,7 +338,7 @@ export const getTareaById = async (req, res) => {
 
     if (!tarea) {
       return res.status(404).json({
-        message: "Tarea no encontrada"
+        message: "Reto no encontrado"
       });
     }
 
@@ -367,7 +367,7 @@ export const updateTarea = async (req, res) => {
     const tareaActual = await Tarea.findById(id);
     if (!tareaActual) {
       return res.status(404).json({
-        message: "Tarea no encontrada"
+        message: "Reto no encontrado"
       });
     }
 
@@ -500,8 +500,16 @@ export const updateTarea = async (req, res) => {
       throw updateError;
     }
 
+    // solo avisa si cambió algo que de verdad le importa a la familia (fecha,
+    // instrucciones, criterios...) -- si no, un ajuste menor (ej. corregir un
+    // typo) les manda un aviso sin necesidad, y nadie leía los demás después
+    const CAMPOS_QUE_AVISAN = ['titulo', 'descripcion', 'fechaEntrega', 'criterios', 'tipoEntrega'];
+    if (CAMPOS_QUE_AVISAN.some((campo) => Object.prototype.hasOwnProperty.call(updateData, campo))) {
+      eventBus.publicar(EVENTOS.TAREA_ACTUALIZADA, updatedTarea);
+    }
+
     res.json({
-      message: "Tarea actualizada exitosamente",
+      message: "Reto actualizado exitosamente",
       tarea: updatedTarea
     });
   } catch (error) {
@@ -536,14 +544,14 @@ export const closeTarea = async (req, res) => {
 
     if (!updatedTarea) {
       return res.status(404).json({
-        message: "Tarea no encontrada"
+        message: "Reto no encontrado"
       });
     }
 
     eventBus.publicar(EVENTOS.TAREA_CERRADA, updatedTarea);
 
     res.json({
-      message: "Tarea cerrada exitosamente",
+      message: "Reto cerrado exitosamente",
       tarea: updatedTarea
     });
   } catch (error) {
@@ -570,7 +578,7 @@ export const deleteTarea = async (req, res) => {
     const tarea = await Tarea.findById(id);
     if (!tarea) {
       return res.status(404).json({
-        message: "Tarea no encontrada"
+        message: "Reto no encontrado"
       });
     }
 
@@ -589,7 +597,7 @@ export const deleteTarea = async (req, res) => {
     );
 
     res.json({
-      message: "Tarea eliminada exitosamente",
+      message: "Reto eliminado exitosamente",
       tarea: updatedTarea
     });
   } catch (error) {

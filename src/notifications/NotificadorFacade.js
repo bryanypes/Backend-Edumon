@@ -5,6 +5,11 @@ import { FCMStrategy } from './strategies/FCMStrategy.js';
 import { EmailStrategy } from './strategies/EmailStrategy.js';
 import { WebSocketStrategy } from './strategies/WebSocketStrategy.js';
 
+// tipos que no justifican un correo: pasan algo rutinario y frecuente (ej. una
+// entrega por cada estudiante) -- llegan igual por websocket/push, solo se
+// recorta el canal que de verdad le llena el celular/bandeja al docente
+const TIPOS_SIN_CORREO = ['entrega'];
+
 // Facade: coordina BD + estrategias de envío + bloque familiar en un solo punto de entrada
 class NotificadorFacade {
   constructor() {
@@ -31,9 +36,14 @@ class NotificadorFacade {
       });
       await notificacion.save();
 
+      const sinCorreo = TIPOS_SIN_CORREO.includes(datos.tipo);
+      const estrategiasAUsar = sinCorreo
+        ? this.estrategias.filter((estrategia) => estrategia.nombre() !== 'email')
+        : this.estrategias;
+
       // en paralelo: cada estrategia atrapa sus propios errores y devuelve false
       const resultados = await Promise.all(
-        this.estrategias.map(async (estrategia) => ({
+        estrategiasAUsar.map(async (estrategia) => ({
           canal: estrategia.nombre(),
           enviado: await estrategia.enviar(usuario, notificacion)
         }))
@@ -41,6 +51,7 @@ class NotificadorFacade {
       resultados.forEach(({ canal, enviado }) => {
         notificacion.canalEnviado[canal] = enviado;
       });
+      if (sinCorreo) notificacion.canalEnviado.email = false;
 
       await notificacion.save();
       return notificacion;
