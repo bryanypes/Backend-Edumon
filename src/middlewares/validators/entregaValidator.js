@@ -2,8 +2,8 @@ import { body, param } from 'express-validator';
 
 export const createEntregaValidator = [
   body('tareaId')
-    .notEmpty().withMessage('El ID de la tarea es obligatorio')
-    .isMongoId().withMessage('El ID de la tarea no es válido'),
+    .notEmpty().withMessage('El ID del reto es obligatorio')
+    .isMongoId().withMessage('El ID del reto no es válido'),
 
   body('padreId')
     .notEmpty().withMessage('El ID del padre es obligatorio')
@@ -52,7 +52,7 @@ export const updateEntregaValidator = [
 
   body('tareaId')
     .custom((value) => {
-      if (value !== undefined) throw new Error('No puedes cambiar la tarea de una entrega');
+      if (value !== undefined) throw new Error('No puedes cambiar el reto de una entrega');
       return true;
     })
 ];

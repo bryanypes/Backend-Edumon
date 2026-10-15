@@ -10,7 +10,7 @@ export class EmailStrategy extends NotificacionStrategy {
     if (!process.env.SMTP_HOST) return false;
 
     const titulos = {
-      tarea: '📝 Nueva Tarea',
+      tarea: '📝 Nuevo Reto',
       entrega: '📤 Nueva Entrega',
       calificacion: '⭐ Calificación',
       foro: '💬 Foro',

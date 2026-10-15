@@ -26,7 +26,7 @@ export const canCreateEntrega = async (req, res, next) => {
       .lean();
 
     if (!tarea) {
-      return res.status(404).json({ message: "Tarea no encontrada" });
+      return res.status(404).json({ message: "Reto no encontrado" });
     }
 
     if (tarea.asignacionTipo === "seleccionados") {
@@ -35,7 +35,7 @@ export const canCreateEntrega = async (req, res, next) => {
 
       if (!permitido) {
         return res.status(403).json({
-          message: "No estás autorizado para entregar esta tarea (no estás seleccionado)"
+          message: "No estás autorizado para entregar este reto (no estás seleccionado)"
         });
       }
     }
@@ -168,7 +168,7 @@ export const canCalificarEntrega = async (req, res, next) => {
 
     if (entrega.tareaId.docenteId.toString() !== userId) {
       return res.status(403).json({
-        message: "Solo el docente asignado a la tarea puede calificar entregas"
+        message: "Solo el docente asignado al reto puede calificar entregas"
       });
     }
 

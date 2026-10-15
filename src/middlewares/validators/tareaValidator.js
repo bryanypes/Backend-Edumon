@@ -68,7 +68,7 @@ export const createTareaValidator = [
 
 export const updateTareaValidator = [
   param('id')
-    .isMongoId().withMessage('El ID de la tarea no es válido'),
+    .isMongoId().withMessage('El ID del reto no es válido'),
   
   body('titulo')
     .optional()
@@ -124,5 +124,5 @@ export const updateTareaValidator = [
 
 export const tareaIdValidator = [
   param('id')
-    .isMongoId().withMessage('El ID de la tarea no es válido')
+    .isMongoId().withMessage('El ID del reto no es válido')
 ];

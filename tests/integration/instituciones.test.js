@@ -3,7 +3,20 @@ import request from 'supertest';
 import crearApp from '../../src/app.js';
 import Institucion from '../../src/models/Institucion.js';
 import User from '../../src/models/User.js';
-import { crearAdministrador, crearSuperadmin, crearInstitucion, crearDocente, cedulaDePrueba, telefonoDePrueba, CONTRASEÑA_PRUEBA } from '../helpers/factories.js';
+import Curso from '../../src/models/Curso.js';
+import Modulo from '../../src/models/Modulo.js';
+import Tarea from '../../src/models/Tarea.js';
+import Entrega from '../../src/models/Entrega.js';
+import Foro from '../../src/models/Foro.js';
+import MensajeForo from '../../src/models/MensajeForo.js';
+import Evento from '../../src/models/Evento.js';
+import Notificacion from '../../src/models/Notificacion.js';
+import PerfilFamiliar from '../../src/models/PerfilFamiliar.js';
+import {
+  crearAdministrador, crearSuperadmin, crearInstitucion, crearDocente, crearPadre,
+  crearCurso, crearModulo, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento,
+  crearPerfilFamiliar, cedulaDePrueba, telefonoDePrueba, CONTRASEÑA_PRUEBA,
+} from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 describe('POST /api/instituciones — solo superadmin', () => {
@@ -270,5 +283,122 @@ describe('PATCH /api/instituciones/:id/estado', () => {
 
     const res = await request(app).post('/api/auth/login').send({ telefono: admin.telefono, contraseña: CONTRASEÑA_PRUEBA });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('DELETE /api/instituciones/:id — soft delete (no borra nada), solo superadmin', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('un administrador no puede "eliminar" instituciones', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.delete(`/api/instituciones/${institucion._id}`);
+    expect(res.status).toBe(403);
+    expect((await Institucion.findById(institucion._id)).activo).toBe(true);
+  });
+
+  it('responde 404 si la institución no existe', async () => {
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+    const res = await agent.delete('/api/instituciones/507f1f77bcf86cd799439011');
+    expect(res.status).toBe(404);
+  });
+
+  it('responde 400 con un ID inválido', async () => {
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+    const res = await agent.delete('/api/instituciones/no-es-un-id');
+    expect(res.status).toBe(400);
+  });
+
+  it('CRÍTICO: no borra nada, pero deja inutilizable todo lo de la institución, conservando a un padre que tiene curso en OTRA institución', async () => {
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+
+    // --- institución A: la que se va a "eliminar" ---
+    const institucionA = await crearInstitucion();
+    const docenteA = await crearDocente({ institucionId: institucionA._id });
+    const adminA = await crearAdministrador({ institucionId: institucionA._id });
+    const padreCompartido = await crearPadre(); // va a quedar en instituciónA Y institución B
+    const padreSoloDeA = await crearPadre();    // solo tiene curso en institución A
+
+    const cursoA = await crearCurso({
+      institucionId: institucionA._id,
+      docenteId: docenteA._id,
+      participantes: [
+        { usuarioId: docenteA._id, etiqueta: 'docente' },
+        { usuarioId: padreCompartido._id, etiqueta: 'padre' },
+        { usuarioId: padreSoloDeA._id, etiqueta: 'padre' },
+      ],
+    });
+    const moduloA = await crearModulo({ cursoId: cursoA._id });
+    const tareaA = await crearTarea({ cursoId: cursoA._id, moduloId: moduloA._id, docenteId: docenteA._id });
+    const entregaA = await crearEntrega({ tareaId: tareaA._id, padreId: padreSoloDeA._id });
+    const foroA = await crearForo({ cursoId: cursoA._id, docenteId: docenteA._id });
+    const mensajeA = await crearMensajeForo({ foroId: foroA._id, usuarioId: docenteA._id });
+    const eventoA = await crearEvento({ cursosIds: [cursoA._id], docenteId: docenteA._id });
+    const perfilSoloDeA = await crearPerfilFamiliar({ titularId: padreSoloDeA._id });
+
+    // --- institución B: NO se debe tocar nada de aquí ---
+    const institucionB = await crearInstitucion();
+    const cursoB = await crearCurso({
+      institucionId: institucionB._id,
+      participantes: [{ usuarioId: padreCompartido._id, etiqueta: 'padre' }],
+    });
+
+    const res = await agent.delete(`/api/instituciones/${institucionA._id}`);
+    expect(res.status).toBe(200);
+
+    // nada se borró: todo sigue existiendo en la base de datos
+    expect(await Institucion.findById(institucionA._id)).not.toBeNull();
+    expect(await Curso.findById(cursoA._id)).not.toBeNull();
+    expect(await Modulo.findById(moduloA._id)).not.toBeNull();
+    expect(await Tarea.findById(tareaA._id)).not.toBeNull();
+    expect(await Entrega.findById(entregaA._id)).not.toBeNull();
+    expect(await Foro.findById(foroA._id)).not.toBeNull();
+    expect(await MensajeForo.findById(mensajeA._id)).not.toBeNull();
+    expect(await Evento.findById(eventoA._id)).not.toBeNull();
+    expect(await PerfilFamiliar.findById(perfilSoloDeA._id)).not.toBeNull();
+
+    // pero queda inutilizable
+    expect((await Institucion.findById(institucionA._id)).activo).toBe(false);
+    expect((await Curso.findById(cursoA._id)).estado).toBe('archivado');
+    expect((await User.findById(docenteA._id)).estado).toBe('suspendido');
+    expect((await User.findById(adminA._id)).estado).toBe('suspendido');
+
+    // padre que SOLO estaba en la institución A: también queda suspendido
+    expect((await User.findById(padreSoloDeA._id)).estado).toBe('suspendido');
+
+    // padre compartido: sigue activo porque todavía tiene curso en la institución B
+    expect((await User.findById(padreCompartido._id)).estado).toBe('activo');
+
+    // institución B y su curso: intactos y usables
+    expect((await Institucion.findById(institucionB._id)).activo).toBe(true);
+    expect((await Curso.findById(cursoB._id)).estado).toBe('activo');
+  });
+
+  it('CRÍTICO: tras "eliminarla", nadie de la institución puede iniciar sesión', async () => {
+    const superadmin = await crearSuperadmin();
+    const agent = await loginComo(app, superadmin);
+
+    const institucion = await crearInstitucion();
+    const docente = await crearDocente({ institucionId: institucion._id });
+    const padre = await crearPadre();
+    await crearCurso({
+      institucionId: institucion._id,
+      docenteId: docente._id,
+      participantes: [{ usuarioId: padre._id, etiqueta: 'padre' }],
+    });
+
+    await agent.delete(`/api/instituciones/${institucion._id}`);
+
+    const loginDocente = await request(app).post('/api/auth/login').send({ telefono: docente.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    expect(loginDocente.status).toBe(401);
+
+    const loginPadre = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    expect(loginPadre.status).toBe(401);
   });
 });

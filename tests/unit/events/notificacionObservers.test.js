@@ -16,7 +16,7 @@ vi.mock('../../../src/notifications/NotificadorFacade.js', () => ({
 // registrarObservers() ya corre en el beforeAll global de vitest.setup.js, enlazada
 // al mock de arriba — no volver a registrar aquí o cada suscripción queda duplicada
 const { eventBus, EVENTOS } = await import('../../../src/events/EventBus.js');
-const { crearCurso, crearPadre, crearDocente, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo } = await import('../../helpers/factories.js');
+const { crearCurso, crearPadre, crearDocente, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento } = await import('../../helpers/factories.js');
 
 beforeEach(() => {
   notificarMock.mockClear();
@@ -67,7 +67,27 @@ describe('NotificacionObservers — TAREA_CREADA / TAREA_CERRADA', () => {
     await esperarLlamada(notificarFamiliasMock);
 
     expect(notificarFamiliasMock).toHaveBeenCalledTimes(1);
-    expect(notificarFamiliasMock.mock.calls[0][1].mensaje).toMatch(/cerrada/);
+    expect(notificarFamiliasMock.mock.calls[0][1].mensaje).toMatch(/cerrado/);
+  });
+});
+
+describe('NotificacionObservers — TAREA_ACTUALIZADA', () => {
+  it('notifica a las familias cuando se actualiza la fecha de entrega de una tarea', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+
+    const tarea = await crearTarea({ cursoId: curso._id, docenteId: curso.docenteId, asignacionTipo: 'todos' });
+
+    eventBus.publicar(EVENTOS.TAREA_ACTUALIZADA, tarea);
+    await esperarLlamada(notificarFamiliasMock);
+
+    expect(notificarFamiliasMock).toHaveBeenCalledTimes(1);
+    const [idsNotificados, datos] = notificarFamiliasMock.mock.calls[0];
+    expect(idsNotificados.map(String)).toContain(padre._id.toString());
+    expect(datos.tipo).toBe('tarea');
+    expect(datos.mensaje).toContain('actualizado');
   });
 });
 
@@ -182,6 +202,56 @@ describe('NotificacionObservers — FORO_NUEVO_MENSAJE', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(notificarFamiliasMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('NotificacionObservers — EVENTO_CREADO / EVENTO_ACTUALIZADO / EVENTO_CANCELADO', () => {
+  it('notifica a los padres del curso cuando se crea un evento', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+
+    const evento = await crearEvento({ cursosIds: [curso._id], docenteId: curso.docenteId });
+
+    eventBus.publicar(EVENTOS.EVENTO_CREADO, evento);
+    await esperarLlamada(notificarFamiliasMock);
+
+    expect(notificarFamiliasMock).toHaveBeenCalledTimes(1);
+    const [idsNotificados, datos] = notificarFamiliasMock.mock.calls[0];
+    expect(idsNotificados).toContain(padre._id.toString());
+    expect(datos.tipo).toBe('evento');
+    expect(datos.mensaje).toContain(evento.titulo);
+  });
+
+  it('notifica a los padres cuando se actualiza un evento', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+
+    const evento = await crearEvento({ cursosIds: [curso._id], docenteId: curso.docenteId });
+
+    eventBus.publicar(EVENTOS.EVENTO_ACTUALIZADO, evento);
+    await esperarLlamada(notificarFamiliasMock);
+
+    expect(notificarFamiliasMock).toHaveBeenCalledTimes(1);
+    expect(notificarFamiliasMock.mock.calls[0][1].mensaje).toMatch(/actualizado/);
+  });
+
+  it('notifica a los padres cuando se cancela un evento', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+
+    const evento = await crearEvento({ cursosIds: [curso._id], docenteId: curso.docenteId });
+
+    eventBus.publicar(EVENTOS.EVENTO_CANCELADO, evento);
+    await esperarLlamada(notificarFamiliasMock);
+
+    expect(notificarFamiliasMock).toHaveBeenCalledTimes(1);
+    expect(notificarFamiliasMock.mock.calls[0][1].mensaje).toMatch(/cancelado/);
   });
 });
 
