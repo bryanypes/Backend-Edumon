@@ -37,12 +37,15 @@ export const eventBus = new EventBus();
 // Eventos disponibles en el sistema
 export const EVENTOS = {
   TAREA_CREADA: 'tarea.creada',
+  TAREA_ACTUALIZADA: 'tarea.actualizada',
   TAREA_CERRADA: 'tarea.cerrada',
   TAREA_PROXIMA_VENCER: 'tarea.proxima_vencer',
   ENTREGA_CREADA: 'entrega.creada',
   ENTREGA_CALIFICADA: 'entrega.calificada',
   FORO_NUEVO_MENSAJE: 'foro.nuevo_mensaje',
   EVENTO_CREADO: 'evento.creado',
+  EVENTO_ACTUALIZADO: 'evento.actualizado',
+  EVENTO_CANCELADO: 'evento.cancelado',
   USUARIO_BIENVENIDA: 'usuario.bienvenida',
   USUARIO_AGREGADO_CURSO: 'usuario.agregado_curso',
   BUZON_MENSAJE_RECIBIDO: 'buzon.mensaje_recibido',

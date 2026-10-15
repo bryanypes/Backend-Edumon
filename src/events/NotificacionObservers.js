@@ -19,7 +19,28 @@ export const registrarObservers = () => {
       destinatarios.map(u => u._id),
       {
         tipo: 'tarea',
-        mensaje: `Nueva tarea: "${tarea.titulo}". Entrega: ${fechaFormateada}`,
+        mensaje: `Nuevo reto: "${tarea.titulo}". Entrega: ${fechaFormateada}`,
+        prioridad: 'critica',
+        referenciaId: tarea._id,
+        referenciaModelo: 'Tarea',
+        metadata: { tareaTitulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega }
+      }
+    );
+  });
+
+  // Observer: Tarea actualizada (cambió fecha/instrucciones/criterios)
+  eventBus.suscribir(EVENTOS.TAREA_ACTUALIZADA, async (tarea) => {
+    const destinatarios = await resolverDestinatariosTarea(tarea);
+    const fechaFormateada = new Date(tarea.fechaEntrega).toLocaleDateString('es-CO', {
+      day: '2-digit', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    await notificador.notificarFamilias(
+      destinatarios.map(u => u._id),
+      {
+        tipo: 'tarea',
+        mensaje: `El reto "${tarea.titulo}" fue actualizado. Nueva fecha de entrega: ${fechaFormateada}`,
         prioridad: 'critica',
         referenciaId: tarea._id,
         referenciaModelo: 'Tarea',
@@ -35,7 +56,7 @@ export const registrarObservers = () => {
       destinatarios.map(u => u._id),
       {
         tipo: 'tarea',
-        mensaje: `La tarea "${tarea.titulo}" fue cerrada. Ya no se aceptan entregas.`,
+        mensaje: `El reto "${tarea.titulo}" fue cerrado. Ya no se aceptan entregas.`,
         prioridad: 'critica',
         referenciaId: tarea._id,
         referenciaModelo: 'Tarea',
@@ -70,28 +91,55 @@ export const registrarObservers = () => {
 
   // Observer: Evento creado → notificar a padres de los cursos
   eventBus.suscribir(EVENTOS.EVENTO_CREADO, async (evento) => {
-    const cursos = await Curso.find({
-      _id: { $in: evento.cursosIds.map(c => c._id || c) }
-    }).populate('participantes.usuarioId', '_id');
-
-    const padresIds = new Set();
-    cursos.forEach(curso => {
-      curso.participantes.forEach(p => {
-        if (p.etiqueta === 'padre' && p.usuarioId) {
-          padresIds.add(p.usuarioId._id.toString());
-        }
-      });
-    });
+    const padresIds = await resolverPadresDeEvento(evento);
 
     const fecha = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
       day: '2-digit', month: 'long', year: 'numeric'
     });
 
     await notificador.notificarFamilias(
-      Array.from(padresIds),
+      padresIds,
       {
         tipo: 'evento',
         mensaje: `Nuevo evento: "${evento.titulo}" — ${fecha} a las ${evento.hora}`,
+        prioridad: 'critica',
+        referenciaId: evento._id,
+        referenciaModelo: 'Evento',
+        metadata: { eventoTitulo: evento.titulo }
+      }
+    );
+  });
+
+  // Observer: Evento actualizado (cambió fecha/hora/lugar/descripción)
+  eventBus.suscribir(EVENTOS.EVENTO_ACTUALIZADO, async (evento) => {
+    const padresIds = await resolverPadresDeEvento(evento);
+
+    const fecha = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
+
+    await notificador.notificarFamilias(
+      padresIds,
+      {
+        tipo: 'evento',
+        mensaje: `El evento "${evento.titulo}" fue actualizado — ${fecha} a las ${evento.hora}`,
+        prioridad: 'critica',
+        referenciaId: evento._id,
+        referenciaModelo: 'Evento',
+        metadata: { eventoTitulo: evento.titulo }
+      }
+    );
+  });
+
+  // Observer: Evento cancelado
+  eventBus.suscribir(EVENTOS.EVENTO_CANCELADO, async (evento) => {
+    const padresIds = await resolverPadresDeEvento(evento);
+
+    await notificador.notificarFamilias(
+      padresIds,
+      {
+        tipo: 'evento',
+        mensaje: `El evento "${evento.titulo}" fue cancelado`,
         prioridad: 'critica',
         referenciaId: evento._id,
         referenciaModelo: 'Evento',
@@ -169,6 +217,24 @@ export const registrarObservers = () => {
   console.log('[Observer] Todos los observers registrados');
 
 };
+
+// Función auxiliar compartida
+async function resolverPadresDeEvento(evento) {
+  const cursos = await Curso.find({
+    _id: { $in: evento.cursosIds.map(c => c._id || c) }
+  }).populate('participantes.usuarioId', '_id');
+
+  const padresIds = new Set();
+  cursos.forEach(curso => {
+    curso.participantes.forEach(p => {
+      if (p.etiqueta === 'padre' && p.usuarioId) {
+        padresIds.add(p.usuarioId._id.toString());
+      }
+    });
+  });
+
+  return Array.from(padresIds);
+}
 
 // Función auxiliar compartida
 async function resolverDestinatariosTarea(tarea) {

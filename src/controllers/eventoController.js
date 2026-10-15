@@ -307,6 +307,13 @@ export const updateEvento = async (req, res) => {
       .populate('docenteId', 'nombre apellido correo')
       .populate('cursosIds', 'nombre codigoCurso');
 
+    // mismo criterio que updateTarea: solo avisa si cambió algo relevante para
+    // la familia (fecha/hora/lugar/descripción), no por ediciones cosméticas
+    const CAMPOS_QUE_AVISAN = ['titulo', 'descripcion', 'fechaInicio', 'fechaFin', 'hora', 'lugar'];
+    if (CAMPOS_QUE_AVISAN.some((campo) => Object.prototype.hasOwnProperty.call(updateData, campo))) {
+      eventBus.publicar(EVENTOS.EVENTO_ACTUALIZADO, eventoActualizado);
+    }
+
     res.json({ message: "Evento actualizado exitosamente", evento: eventoActualizado });
   } catch (error) {
     console.error('Error al actualizar evento:', error);
@@ -393,6 +400,8 @@ export const cancelarEvento = async (req, res) => {
     const eventoCancelado = await Evento.findByIdAndUpdate(id, { estado: 'cancelado' }, { new: true })
       .populate('docenteId', 'nombre apellido correo')
       .populate('cursosIds', 'nombre codigoCurso');
+
+    eventBus.publicar(EVENTOS.EVENTO_CANCELADO, eventoCancelado);
 
     res.json({ message: "Evento cancelado exitosamente", evento: eventoCancelado });
   } catch (error) {

@@ -14,7 +14,7 @@ export const canViewTarea = async (req, res, next) => {
 
     if (!tarea) {
       return res.status(404).json({
-        message: "Tarea no encontrada"
+        message: "Reto no encontrado"
       });
     }
 
@@ -39,7 +39,7 @@ export const canViewTarea = async (req, res, next) => {
 
       if (!isSelected) {
         return res.status(403).json({
-          message: "No tienes permiso para ver esta tarea. Esta tarea está asignada a participantes específicos."
+          message: "No tienes permiso para ver este reto. Este reto está asignado a participantes específicos."
         });
       }
       
@@ -53,7 +53,7 @@ export const canViewTarea = async (req, res, next) => {
 
       if (!isParticipante) {
         return res.status(403).json({
-          message: "No tienes permiso para ver esta tarea. No eres participante del curso."
+          message: "No tienes permiso para ver este reto. No eres participante del curso."
         });
       }
       
@@ -61,7 +61,7 @@ export const canViewTarea = async (req, res, next) => {
     }
 
     return res.status(403).json({
-      message: "No tienes permiso para ver esta tarea"
+      message: "No tienes permiso para ver este reto"
     });
 
   } catch (error) {
@@ -85,7 +85,7 @@ export const canModifyTarea = async (req, res, next) => {
 
     if (!tarea) {
       return res.status(404).json({
-        message: "Tarea no encontrada"
+        message: "Reto no encontrado"
       });
     }
 
@@ -100,7 +100,7 @@ export const canModifyTarea = async (req, res, next) => {
     }
 
     return res.status(403).json({
-      message: "No tienes permiso para modificar esta tarea"
+      message: "No tienes permiso para modificar este reto"
     });
   } catch (error) {
     console.error('Error en canModifyTarea:', error);
@@ -126,7 +126,7 @@ export const filterTareasForUser = async (req, res, next) => {
   } catch (error) {
     console.error('Error en filterTareasForUser:', error);
     return res.status(500).json({
-      message: "Error al filtrar tareas"
+      message: "Error al filtrar retos"
     });
   }
 };

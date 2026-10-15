@@ -18,7 +18,7 @@ const DESTINO = process.argv[2] || 'karen.mancilla.s@uniautonoma.edu.co';
 const usuario = { nombre: 'Karen', correo: DESTINO };
 
 const notificaciones = [
-  { tipo: 'tarea',        mensaje: 'Nueva tarea: "Taller de fracciones". Entrega: 15 de septiembre de 2026, 11:59 PM' },
+  { tipo: 'tarea',        mensaje: 'Nuevo reto: "Taller de fracciones". Entrega: 15 de septiembre de 2026, 11:59 PM' },
   { tipo: 'entrega',      mensaje: 'Sofía Ramírez entregó "Taller de fracciones". Ya puedes calificarla.' },
   { tipo: 'calificacion', mensaje: '"Taller de fracciones" fue calificada por el docente Andrés Gómez. Valoración: 5/5' },
   { tipo: 'foro',         mensaje: 'El docente Andrés Gómez publicó en el foro "Dudas de la Unidad 1"' },

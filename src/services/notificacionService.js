@@ -222,7 +222,7 @@ export const notificarTareaProximaVencer = async (tarea) => {
 
     const datos = {
       tipo: 'tarea',
-      mensaje: `Recordatorio: "${tarea.titulo}" vence en 24 horas`,
+      mensaje: `Recordatorio: el reto "${tarea.titulo}" vence en 24 horas`,
       prioridad: 'critica',
       referenciaId: tarea._id,
       referenciaModelo: 'Tarea',
@@ -241,7 +241,7 @@ export const notificarTareaProximaVencer = async (tarea) => {
 
 function obtenerTitulo(tipo) {
   const titulos = {
-    tarea: '📝 Nueva Tarea',
+    tarea: '📝 Nuevo Reto',
     entrega: '📤 Nueva Entrega',
     calificacion: '⭐ Valoración recibida',
     foro: '💬 Nuevo Mensaje en Foro',

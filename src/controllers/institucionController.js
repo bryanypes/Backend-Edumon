@@ -1,5 +1,6 @@
 import Institucion from '../models/Institucion.js';
 import User from '../models/User.js';
+import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
@@ -345,5 +346,84 @@ export const cambiarEstadoInstitucion = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+  }
+};
+
+// Solo superadmin. NO es un borrado real (soft delete): la institución y sus
+// datos se conservan tal cual en la base de datos, pero queda inutilizable
+// -- institucion.activo=false (ya bloqueaba login/sesión de docentes y
+// administradores, ver authMiddleware.js/authController.js), sus cursos
+// pasan a "archivado", y además se suspende a sus docentes/administradores Y
+// a los padres que queden sin ningún curso en otra institución (misma regla
+// de "¿le queda algo en otro lado?" que se pensó para el borrado real). Se
+// puede revertir a mano: reactivar la institución y reactivar cada usuario.
+//
+// Los padres son un caso especial: no tienen institucionId propio, solo quedan
+// ligados vía los cursos en los que participan (ver comentario en getUsers,
+// userController.js).
+export const deleteInstitucion = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const institucion = await Institucion.findById(id);
+    if (!institucion) {
+      return res.status(404).json({ message: 'Institución no encontrada' });
+    }
+
+    const cursos = await Curso.find({ institucionId: id }).select('_id participantes');
+    const cursoIds = cursos.map((c) => c._id);
+
+    const padresDeEstaInstitucion = new Set();
+    for (const curso of cursos) {
+      for (const participante of curso.participantes) {
+        if (participante.etiqueta === 'padre') {
+          padresDeEstaInstitucion.add(participante.usuarioId.toString());
+        }
+      }
+    }
+
+    institucion.activo = false;
+    await institucion.save();
+
+    await Curso.updateMany({ institucionId: id }, { estado: 'archivado' });
+
+    const { modifiedCount: docentesYAdminsSuspendidos } = await User.updateMany(
+      { institucionId: id, estado: 'activo' },
+      { estado: 'suspendido' },
+    );
+
+    let padresSuspendidos = 0;
+    for (const padreId of padresDeEstaInstitucion) {
+      const siguePerteneciendoAOtroCurso = await Curso.exists({
+        _id: { $nin: cursoIds },
+        'participantes.usuarioId': padreId,
+      });
+      if (siguePerteneciendoAOtroCurso) continue;
+
+      const { modifiedCount } = await User.updateOne(
+        { _id: padreId, estado: 'activo' },
+        { estado: 'suspendido' },
+      );
+      padresSuspendidos += modifiedCount;
+    }
+
+    res.json({
+      message: 'Institución eliminada: los datos se conservaron, pero ya nadie de ahí puede usar la aplicación',
+      resumen: {
+        cursosArchivados: cursoIds.length,
+        docentesYAdminsSuspendidos,
+        padresSuspendidos,
+      },
+    });
+  } catch (error) {
+    console.error('Error al eliminar institución:', error);
+    res.status(500).json({
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };

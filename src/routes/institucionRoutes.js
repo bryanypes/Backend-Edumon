@@ -6,8 +6,10 @@ import {
   getMiInstitucion,
   preregistrarDocente,
   updateInstitucion,
-  cambiarEstadoInstitucion
+  cambiarEstadoInstitucion,
+  deleteInstitucion
 } from '../controllers/institucionController.js';
+import { param } from 'express-validator';
 import { uploadCSVCloudinary } from '../middlewares/cloudinaryMiddleware.js';
 import { preregistrarDocentesCSV } from '../controllers/institucionController.js';
 import { crearInstitucionValidator } from '../middlewares/validators/institucionValidator.js';
@@ -21,6 +23,15 @@ router.post('/', requireRole(['superadmin']), crearInstitucionValidator, crearIn
 router.get('/', requireRole(['superadmin']), getInstituciones);
 router.put('/:id', requireRole(['superadmin']), updateInstitucion);
 router.patch('/:id/estado', requireRole(['superadmin']), cambiarEstadoInstitucion);
+// irreversible: borra la institución y TODO lo que depende de ella (cursos,
+// tareas, entregas, eventos, foros, docentes/admins, y los padres que se
+// queden sin ningún otro curso). Ver el comentario en el controlador.
+router.delete(
+  '/:id',
+  requireRole(['superadmin']),
+  [param('id').isMongoId().withMessage('ID de institución inválido')],
+  deleteInstitucion,
+);
 
 // Admin del colegio
 router.get('/mi-institucion', requireRole(['administrador', 'superadmin']), getMiInstitucion);
