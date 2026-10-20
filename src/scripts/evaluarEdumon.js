@@ -15,6 +15,7 @@ import { iaDisponible, modeloPrincipal as modelo } from '../services/ia/proveedo
 import { evaluarConjunto } from '../services/ia/evaluacion.js';
 import { CASOS_EVALUACION } from '../data/casosEvaluacionEdumon.js';
 import { CASOS_HOLDOUT } from '../../tests/ia/holdout/casosHoldout.js';
+import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { guardarResultado } from '../services/ia/metricasIA.js';
@@ -40,11 +41,15 @@ const pausaMs = conLLM ? Number(process.env.EVAL_PAUSA_MS) || 21000 : 0;
 
 const CONJUNTOS = {
   original: { nombre: 'Original (193)', casos: CASOS_EVALUACION, compatDudosos: true },
-  holdout: { nombre: 'Holdout (nuevo)', casos: CASOS_HOLDOUT, compatDudosos: false },
+  holdout: { nombre: 'Holdout v1 (desarrollo)', casos: CASOS_HOLDOUT, compatDudosos: false },
+  // escrito por personas que no vieron las reglas: la única métrica final
+  ciego: { nombre: 'Ciego', casos: null, compatDudosos: false },
 };
-const elegidos = conjunto === 'todos' ? ['original', 'holdout'] : [conjunto];
+const RUTA_CIEGO = new URL('../../tests/ia/ciego/casos.json', import.meta.url);
+if (existsSync(RUTA_CIEGO)) CONJUNTOS.ciego.casos = JSON.parse(readFileSync(RUTA_CIEGO, 'utf8'));
+const elegidos = conjunto === 'todos' ? ['original', 'holdout', 'ciego'] : [conjunto];
 if (!elegidos.every((c) => CONJUNTOS[c])) {
-  console.error(`Conjunto desconocido: ${conjunto}. Usa original, holdout o todos.`);
+  console.error(`Conjunto desconocido: ${conjunto}. Usa original, holdout, ciego o todos.`);
   process.exit(1);
 }
 
@@ -55,6 +60,11 @@ console.log(`🧪 Modo: ${conLLM ? `LLM (${modelo()}) + reglas` : 'simulado: sol
 
 for (const clave of elegidos) {
   const { nombre, casos, compatDudosos } = CONJUNTOS[clave];
+  if (!casos?.length) {
+    console.log(`
+━━━ ${nombre}: sin casos todavía (tests/ia/ciego/casos.json) ━━━`);
+    continue;
+  }
   console.log(`\n━━━ ${nombre}: ${casos.length} casos ━━━`);
   const m = await evaluarConjunto(casos, {
     conLLM,
