@@ -1,0 +1,45 @@
+# Demo local de Edumon IA: backend + MongoDB 7 (datos 100 % ficticios).
+#
+#   docker compose -f docker-compose.demo.yml up --build -d
+#   docker compose -f docker-compose.demo.yml exec backend node src/scripts/seedDemo.js
+#
+# - No reemplaza a docker-compose.yml (producción usa MongoDB externo).
+# - Las llaves de IA se leen de .env (sin llaves: modo simulado, plan B de la demo).
+# - NODE_ENV=development: las cookies de sesión no exigen HTTPS, así funciona
+#   el recorrido con curl sobre http://localhost:4000. No usar así en producción.
+services:
+  mongo:
+    image: mongo:7
+    container_name: edumon-demo-mongo
+    volumes:
+      - mongo-demo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: .
+    container_name: edumon-demo-backend
+    init: true
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/edumon_demo
+      UPLOAD_DIR: /data/uploads
+      FRONTEND_URL: ""
+      # sin correos reales durante la demo (las alertas igual quedan en la base)
+      SMTP_HOST: ""
+    ports:
+      - "4000:4000"
+    volumes:
+      - uploads-demo:/data/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-demo:
+  uploads-demo:
