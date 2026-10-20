@@ -115,6 +115,12 @@ const mensajeSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  // etiqueta del tema de crianza (solo mensajes del usuario). Es lo ÚNICO que
+  // usa la agregación anónima del Ciclo Edumon: nunca el texto
+  tema: {
+    type: new mongoose.Schema({ eje: String, subtema: String }, { _id: false }),
+    default: null,
+  },
   // ruta sugerida si hubo riesgo (solo mensajes del usuario)
   rutaAtencion: {
     type: rutaAtencionSchema,

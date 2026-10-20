@@ -112,6 +112,8 @@ export async function procesarMensaje(conversacion, textoActual) {
     contenido: textoActual,
     nivelRiesgo,
     categoriaRiesgo: clasificacion.categoriaRiesgo ?? null,
+    // en riesgo grave el tema puede ser engañoso (abuso → "sexualidad"): no se agrega
+    tema: riesgoGrave ? null : (clasificacion.tema ?? null),
     rutaAtencion: clasificarRuta({ categoria: clasificacion.categoriaRiesgo, gravedad: clasificacion.gravedad, texto: textoActual }),
     deteccion: clasificacion.deteccion ?? null,
   });

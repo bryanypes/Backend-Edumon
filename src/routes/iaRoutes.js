@@ -23,6 +23,8 @@ import {
   verificarIntegridadAlertas,
   getExplicacionMensaje,
   getExplicacionAlerta,
+  getCicloCurso,
+  sugerirDesdeCiclo,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -76,6 +78,10 @@ router.patch('/alertas/:id', colegio, actualizarAlerta);
 router.get('/temas', colegio, getTemas);
 router.post('/retos/borrador', colegio, limiteIA, generarRetoBorrador);
 router.post('/modulos/sugerencias', colegio, limiteIA, sugerirModulosCurso);
+
+// ─── Colegio: Ciclo Edumon (temas anónimos del curso) ─────────────────────────
+router.get('/cursos/:cursoId/ciclo', colegio, getCicloCurso);
+router.post('/cursos/:cursoId/ciclo/sugerencia', colegio, limiteIA, sugerirDesdeCiclo);
 
 // ─── Colegio: lineamientos de escuela de padres (rectoría → docentes) ─────────
 const soloAdmin = requireRole(['administrador']);
