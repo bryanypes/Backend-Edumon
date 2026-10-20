@@ -26,6 +26,12 @@ tags:
     description: |
       Punto 5 — "¿Por qué Edumon dijo esto?". Explica lo que quedó guardado al responder
       (no vuelve a llamar a la IA).
+  - name: Ciclo Edumon
+    description: |
+      Temas anónimos que consultan las familias del curso → sugerencia de módulo y reto → retos creados.
+      Privacidad: solo etiquetas de tema (nunca texto); "familia" = titular; un tema aparece solo si lo
+      consultaron al menos 5 familias distintas; ventana de 30 días (lo que duran las conversaciones).
+      Roles: **docente** dueño del curso o **administrador** de la institución del curso.
   - name: Bitácora de alertas
     description: |
       Punto 4 — bitácora inmutable. Cada evento del historial de una alerta (creación,
@@ -208,6 +214,83 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { description: Rol no autorizado o usuario sin institución }
         '404': { description: Alerta no encontrada o no visible }
+
+  /api/ia/cursos/{cursoId}/ciclo:
+    get:
+      tags: [Ciclo Edumon]
+      operationId: getCicloCurso
+      summary: Temas anónimos del curso y retos creados sobre cada tema
+      description: Pantalla de la demo — vista del docente "¿Qué preguntan las familias de mi curso?".
+      parameters:
+        - { name: cursoId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Vista del ciclo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CicloCurso' }
+              example:
+                curso: { _id: 6716f2000000000000000001, nombre: Grado Quinto }
+                ventana: { desde: '2026-09-20T15:00:00.000Z', dias: 30 }
+                minimoFamilias: 5
+                hayTemasOcultos: true
+                temas:
+                  - { eje: estilos_vida_saludable, subtema: pantallas, familias: 6, subtemaLabel: Pantallas y celular, ejeLabel: Estilos de vida saludables, retosCreados: [] }
+        '400': { description: ID de curso inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol no autorizado (padre, superadmin)' }
+        '404': { description: Curso no encontrado o sin permisos sobre él }
+
+  /api/ia/cursos/{cursoId}/ciclo/sugerencia:
+    post:
+      tags: [Ciclo Edumon]
+      operationId: sugerirDesdeCiclo
+      summary: Sugerencia de módulos y borrador de reto a partir del tema principal del curso
+      description: |
+        Reutiliza el sugeridor de módulos y el generador de retos existentes (con IA si hay llave;
+        catálogo/plantilla en modo simulado). El borrador NO se guarda: el docente lo publica con el
+        flujo normal de retos (POST de tareas), con `escuelaPadres: { eje, subtema }`.
+        Pantalla de la demo — botón "Sugerirme un reto" en la vista del ciclo. Comparte el 429 LIMITE_IA.
+      parameters:
+        - { name: cursoId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Sugerencia
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  basadoEn:
+                    type: object
+                    properties:
+                      eje: { type: string }
+                      subtema: { type: string }
+                      subtemaLabel: { type: string }
+                      familias: { type: integer }
+                  modulos:
+                    type: object
+                    description: Igual que POST /api/ia/modulos/sugerencias
+                    properties:
+                      modulos: { type: array, items: { type: object, properties: { titulo: { type: string }, descripcion: { type: string }, eje: { type: string }, ejeLabel: { type: string }, ideasRetos: { type: array, items: { type: string } } } } }
+                      generadoPor: { type: string, enum: [ia, catalogo] }
+                  reto:
+                    type: object
+                    description: 'Igual que `borrador` de POST /api/ia/retos/borrador (eje, subtema, tema, titulo, descripcionHtml, criteriosHtml, recursos, fuentes, duracionDias, generadoPor…)'
+        '400': { description: ID de curso inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: Rol no autorizado }
+        '404': { description: Curso no encontrado o sin permisos sobre él }
+        '422':
+          description: Ningún tema reúne 5 familias todavía
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  code: { type: string, const: SIN_TEMAS_SUFICIENTES }
+        '429': { $ref: '#/components/responses/LimiteIA' }
 
   /api/ia/alertas/{id}/integridad:
     get:
@@ -395,6 +478,34 @@ components:
         latenciaMs: { type: [integer, 'null'] }
         huboFallback: { type: boolean }
         proveedoresFallidos: { type: array, items: { type: string } }
+
+    CicloCurso:
+      type: object
+      properties:
+        curso: { type: object, properties: { _id: { type: string }, nombre: { type: string } } }
+        ventana: { type: object, properties: { desde: { type: string, format: date-time }, dias: { type: integer } } }
+        minimoFamilias: { type: integer, const: 5 }
+        hayTemasOcultos: { type: boolean, description: 'Hay temas con menos de 5 familias (no se muestran ni se cuentan)' }
+        temas:
+          type: array
+          description: Ordenados de más a menos familias
+          items:
+            type: object
+            properties:
+              eje: { type: string }
+              ejeLabel: { type: string }
+              subtema: { type: string }
+              subtemaLabel: { type: string }
+              familias: { type: integer, minimum: 5 }
+              retosCreados:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    tareaId: { type: string }
+                    titulo: { type: string }
+                    estado: { type: string, enum: [publicada, cerrada] }
+                    fechaEntrega: { type: string, format: date-time }
 
     Hallazgo:
       type: [object, 'null']
