@@ -13,8 +13,8 @@ export const createNotificacionValidator = [
 
   body('tipo')
     .notEmpty().withMessage('El tipo es obligatorio')
-    .isIn(['tarea', 'entrega', 'calificacion', 'foro', 'evento', 'sistema'])
-    .withMessage('El tipo debe ser: tarea, entrega, calificacion, foro, evento o sistema'),
+    .isIn(['tarea', 'entrega', 'calificacion', 'foro', 'evento', 'sistema', 'alerta_ia'])
+    .withMessage('El tipo debe ser: tarea, entrega, calificacion, foro, evento, sistema o alerta_ia'),
 
   body('mensaje')
     .notEmpty().withMessage('El mensaje es obligatorio')
@@ -88,7 +88,7 @@ export const getNotificacionesValidator = [
 
   query('tipo')
     .optional()
-    .isIn(['tarea', 'entrega', 'calificacion', 'foro', 'evento', 'sistema'])
+    .isIn(['tarea', 'entrega', 'calificacion', 'foro', 'evento', 'sistema', 'alerta_ia'])
     .withMessage('El tipo debe ser válido'),
 
   query('leido')

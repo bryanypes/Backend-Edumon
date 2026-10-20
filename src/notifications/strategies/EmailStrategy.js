@@ -15,7 +15,8 @@ export class EmailStrategy extends NotificacionStrategy {
       calificacion: '⭐ Calificación',
       foro: '💬 Foro',
       evento: '📅 Nuevo Evento',
-      sistema: '🔔 Notificación'
+      sistema: '🔔 Notificación',
+      alerta_ia: '⚠️ Alerta de convivencia (Edumon)'
     };
 
     try {

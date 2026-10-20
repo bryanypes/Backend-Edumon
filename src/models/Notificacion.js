@@ -9,7 +9,7 @@ const notificacionSchema = new mongoose.Schema({
   tipo: {
     type: String,
     enum: {
-      values: ["tarea", "entrega", "calificacion", "foro", "evento", "sistema"],
+      values: ["tarea", "entrega", "calificacion", "foro", "evento", "sistema", "alerta_ia"],
     },
     required: [true, 'El tipo es obligatorio']
   },
@@ -33,7 +33,7 @@ const notificacionSchema = new mongoose.Schema({
   },
   referenciaModelo: {
     type: String,
-    enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento', 'Buzon', 'Foro']
+    enum: ['Tarea', 'Entrega', 'Curso', 'Modulo', 'User', 'Evento', 'Buzon', 'Foro', 'AlertaRiesgo']
   },
   metadata: {
     type: Map,
