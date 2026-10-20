@@ -1,83 +1,62 @@
 /**
- * Mide al clasificador de Edumon (LLM + reglas) contra el set de evaluación.
- * Necesita GROQ_API_KEY en el .env; sin ella mide solo las reglas.
+ * Mide al clasificador de Edumon (LLM + reglas) contra los conjuntos de evaluación.
+ * Sin GROQ_API_KEY ni OPENAI_API_KEY mide solo las reglas (modo simulado).
  *
- *   npm run eval:edumon
+ *   npm run eval:edumon                          # conjunto original (193) y holdout
+ *   npm run eval:edumon -- --conjunto=holdout    # original | holdout | todos
  *   npm run eval:edumon -- --solo-fallos
+ *
+ * El número que importa es el del holdout (tests/ia/holdout): las reglas nunca
+ * se ajustaron mirando esos casos.
  */
 import 'dotenv/config';
-import { clasificar } from '../services/ia/clasificador.js';
 import { iaDisponible, modelo } from '../services/ia/groqClient.js';
+import { evaluarConjunto } from '../services/ia/evaluacion.js';
 import { CASOS_EVALUACION } from '../data/casosEvaluacionEdumon.js';
+import { CASOS_HOLDOUT } from '../../tests/ia/holdout/casosHoldout.js';
 
+const arg = (nombre) => process.argv.find((a) => a.startsWith(`--${nombre}=`))?.split('=')[1];
+const soloFallos = process.argv.includes('--solo-fallos');
+const conjunto = arg('conjunto') || 'todos';
+const conLLM = iaDisponible();
 // el plan gratuito de Groq admite 8000 tokens por minuto y cada clasificación
 // usa ~2600: con menos pausa las llamadas caen a las reglas y la medición no vale
-const PAUSA_MS = iaDisponible() ? Number(process.env.EVAL_PAUSA_MS) || 21000 : 0;
-const soloFallos = process.argv.includes('--solo-fallos');
-const esperar = (ms) => new Promise((r) => { setTimeout(r, ms); });
+const pausaMs = conLLM ? Number(process.env.EVAL_PAUSA_MS) || 21000 : 0;
 
-const metricas = {
-  riesgo: { ok: 0, total: 0 },
-  tema: { ok: 0, total: 0 },
-  tarea: { ok: 0, total: 0 },
-  edad: { ok: 0, total: 0 },
+const CONJUNTOS = {
+  original: { nombre: 'Original (193)', casos: CASOS_EVALUACION, compatDudosos: true },
+  holdout: { nombre: 'Holdout (nuevo)', casos: CASOS_HOLDOUT, compatDudosos: false },
 };
-// los errores que más importan: alertar de más o dejar pasar un caso grave
-const falsosGraves = [];
-const gravesPerdidos = [];
-const sinLLM = [];
-
-console.log(`🧪 Evaluando ${CASOS_EVALUACION.length} casos con ${iaDisponible() ? `LLM (${modelo()}) + reglas` : 'solo reglas (sin GROQ_API_KEY ni OPENAI_API_KEY)'}\n`);
-
-for (const caso of CASOS_EVALUACION) {
-  const r = await clasificar(caso.texto, []);
-  const riesgo = r.categoriaRiesgo ? `${r.categoriaRiesgo}:${r.gravedad}` : null;
-  const fallos = [];
-
-  // sin LLM, un caso dudoso se espera sin riesgo (queda en atención)
-  const riesgoEsperado = !iaDisponible() && caso.dudoso ? null : caso.riesgo;
-  metricas.riesgo.total += 1;
-  if (riesgo === riesgoEsperado) metricas.riesgo.ok += 1;
-  else fallos.push(`riesgo: esperado ${riesgoEsperado}, obtuvo ${riesgo}`);
-  if (riesgo?.endsWith(':grave') && !riesgoEsperado?.endsWith(':grave')) falsosGraves.push(caso.texto);
-  if (riesgoEsperado?.endsWith(':grave') && !riesgo?.endsWith(':grave')) gravesPerdidos.push(caso.texto);
-
-  if (caso.subtema !== undefined && (iaDisponible() || !caso.soloLLM)) {
-    metricas.tema.total += 1;
-    const subtema = r.tema?.subtema ?? null;
-    if ([caso.subtema].flat().includes(subtema)) metricas.tema.ok += 1;
-    else fallos.push(`tema: esperado ${caso.subtema}, obtuvo ${subtema}`);
-  }
-  if (caso.tarea !== undefined) {
-    metricas.tarea.total += 1;
-    if (Boolean(r.pideHacerTarea) === caso.tarea) metricas.tarea.ok += 1;
-    else fallos.push(`tarea: esperado ${caso.tarea}, obtuvo ${r.pideHacerTarea}`);
-  }
-  if (caso.edad !== undefined) {
-    metricas.edad.total += 1;
-    if (r.edad === caso.edad) metricas.edad.ok += 1;
-    else fallos.push(`edad: esperado ${caso.edad}, obtuvo ${r.edad}`);
-  }
-
-  if (iaDisponible() && r.fuente !== 'ia') sinLLM.push(caso.texto);
-  // sin cuota diaria, todo lo que sigue lo responderían las reglas: la medición ya no vale
-  if (/cuota diaria/.test(r.deteccion?.errorIA ?? '')) {
-    console.log(`\n⛔ Se agotó la cuota diaria de Groq tras ${metricas.riesgo.total} casos. Vuelve a correr la evaluación mañana.`);
-    break;
-  }
-  if (fallos.length) console.log(`❌ "${caso.texto}"${r.fuente !== 'ia' && iaDisponible() ? ' (el LLM falló, respondieron las reglas)' : ''}\n   ${fallos.join('\n   ')}`);
-  else if (!soloFallos) console.log(`✅ "${caso.texto}"`);
-  await esperar(PAUSA_MS);
+const elegidos = conjunto === 'todos' ? ['original', 'holdout'] : [conjunto];
+if (!elegidos.every((c) => CONJUNTOS[c])) {
+  console.error(`Conjunto desconocido: ${conjunto}. Usa original, holdout o todos.`);
+  process.exit(1);
 }
 
-const pct = ({ ok, total }) => (total ? `${ok}/${total} (${Math.round((ok / total) * 100)}%)` : '—');
-console.log('\n📊 Resultados');
-console.log(`   Riesgo: ${pct(metricas.riesgo)}`);
-console.log(`   Tema:   ${pct(metricas.tema)}`);
-console.log(`   Tareas: ${pct(metricas.tarea)}`);
-console.log(`   Edad:   ${pct(metricas.edad)}`);
-console.log(`\n🚨 Alertas graves de más (avisarían sin motivo): ${falsosGraves.length}`);
-falsosGraves.forEach((t) => console.log(`   - ${t}`));
-console.log(`🚨 Casos graves que no alertaron: ${gravesPerdidos.length}`);
-gravesPerdidos.forEach((t) => console.log(`   - ${t}`));
-if (sinLLM.length) console.log(`\n⚠️  ${sinLLM.length} casos los respondieron las reglas porque el LLM falló (límite de Groq): sube EVAL_PAUSA_MS`);
+const pct = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
+console.log(`🧪 Modo: ${conLLM ? `LLM (${modelo()}) + reglas` : 'simulado: solo reglas (sin llaves de IA)'}`);
+
+for (const clave of elegidos) {
+  const { nombre, casos, compatDudosos } = CONJUNTOS[clave];
+  console.log(`\n━━━ ${nombre}: ${casos.length} casos ━━━`);
+  const m = await evaluarConjunto(casos, {
+    conLLM,
+    compatDudosos,
+    pausaMs,
+    alCaso: (caso, r, motivos) => {
+      if (motivos.length) console.log(`❌ "${caso.texto}"${conLLM && r.fuente !== 'ia' ? ' (respondieron las reglas)' : ''}\n   ${motivos.join('\n   ')}`);
+      else if (!soloFallos) console.log(`✅ "${caso.texto}"`);
+    },
+  });
+
+  console.log(`\n📊 ${nombre}`);
+  console.log(`   Recall de graves:        ${pct(m.recallGraves)} (${m.conteos.graves.detectados}/${m.conteos.graves.esperados}; categoría correcta ${pct(m.gravesCategoriaCorrecta)})`);
+  console.log(`   Tasa de falsas alarmas:  ${pct(m.tasaFalsasAlarmas)} (${m.conteos.noGraves.falsasAlarmas}/${m.conteos.noGraves.total} casos no graves)`);
+  console.log(`   Riesgo exacto:           ${pct(m.riesgoExacto)}${compatDudosos && !conLLM ? ' (convención histórica: dudosos sin LLM = sin riesgo)' : ''}`);
+  console.log(`   Precisión de tema:       ${pct(m.precisionTema)} (${m.conteos.tema.ok}/${m.conteos.tema.total})`);
+  console.log(`🚨 Graves que no alertaron: ${m.gravesPerdidos.length}`);
+  m.gravesPerdidos.forEach((g) => console.log(`   - "${g.texto}" (esperado ${g.esperado}, obtuvo ${g.obtenido})`));
+  console.log(`🚨 Falsas alarmas graves: ${m.falsasAlarmas.length}`);
+  m.falsasAlarmas.forEach((g) => console.log(`   - "${g.texto}" (obtuvo ${g.obtenido})`));
+  if (m.cuotaAgotada) console.log('\n⛔ Se agotó la cuota diaria del proveedor: la medición quedó incompleta.');
+}
