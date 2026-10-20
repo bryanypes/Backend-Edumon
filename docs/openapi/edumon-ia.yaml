@@ -1,0 +1,231 @@
+openapi: 3.1.0
+info:
+  title: Edumon IA — endpoints nuevos de la rama edumon.ia
+  version: 0.1.0
+  description: |
+    Contrato para la web. Solo incluye los endpoints NUEVOS de la rama `edumon.ia`
+    y los campos nuevos que se agregaron a respuestas existentes (todos opcionales:
+    los clientes actuales no se rompen).
+
+    Autenticación: cookie `access_token` (httpOnly, la pone `POST /api/auth/login`)
+    o cabecera `Authorization: Bearer <token>`.
+
+    Errores comunes de autorización en todos los endpoints:
+    - 401 `{ "message": "Token requerido" }` sin sesión.
+    - 403 `{ "message": "No tienes permisos para esta acción" }` con un rol no autorizado.
+servers:
+  - url: http://localhost:4000
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+
+tags:
+  - name: Proveedores de IA
+    description: Punto 1 — capa de proveedores, salud y límite por usuario.
+
+paths:
+  /api/ia/health:
+    get:
+      tags: [Proveedores de IA]
+      operationId: getSaludIA
+      summary: Estado de cada proveedor de IA
+      description: |
+        Rol autorizado: **administrador**. Pantalla de la demo: panel de administración
+        ("¿con qué IA está respondiendo Edumon?"). Nunca devuelve llaves.
+      responses:
+        '200':
+          description: Estado actual
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaludIA' }
+              example:
+                modo: llm
+                orden: [groq, openai]
+                timeoutMs: 20000
+                cooldownSegundos: 60
+                proveedores:
+                  - nombre: groq
+                    modelo: openai/gpt-oss-120b
+                    orden: 1
+                    estado: en_cooldown
+                    cooldownRestanteSegundos: 42
+                    motivoCooldown: rate_limit
+                    ultimaLatenciaMs: 310
+                    ultimoExito: null
+                    ultimoError: { tipo: rate_limit, status: 429, en: '2026-10-20T15:02:11.000Z' }
+                  - nombre: openai
+                    modelo: gpt-4.1-mini
+                    orden: 2
+                    estado: activo
+                    cooldownRestanteSegundos: 0
+                    motivoCooldown: null
+                    ultimaLatenciaMs: 1840
+                    ultimoExito: '2026-10-20T15:02:13.000Z'
+                    ultimoError: null
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/ia/conversaciones/{id}/mensajes:
+    post:
+      tags: [Proveedores de IA]
+      operationId: enviarMensaje
+      summary: (Existente) Enviar un mensaje a Edumon — campos nuevos en la respuesta
+      description: |
+        Rol autorizado: **padre** con consentimiento vigente. Contrato existente sin
+        cambios de forma; se AGREGAN `respuesta.ia` y campos en `mensajeUsuario.deteccion`,
+        y el error 429 `LIMITE_IA`. Pantalla de la demo: chat de la familia.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: ID de la conversación }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contenido]
+              properties:
+                contenido: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '201':
+          description: Mensaje procesado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensajeUsuario:
+                    type: object
+                    description: Mensaje del cuidador tal como se guardó
+                    properties:
+                      _id: { type: string }
+                      contenido: { type: string }
+                      nivelRiesgo: { type: string, enum: [normal, atencion, riesgo_moderado, riesgo] }
+                      deteccion: { $ref: '#/components/schemas/Deteccion' }
+                  respuesta:
+                    type: object
+                    description: Mensaje de Edumon (campos existentes + `ia`)
+                    properties:
+                      _id: { type: string }
+                      contenido: { type: string }
+                      tipo: { type: string, enum: [respuesta, pedir_edad, fuera_alcance, no_tareas, apoyo, riesgo, charla] }
+                      fuentes:
+                        type: array
+                        items: { type: object, properties: { nombre: { type: string }, url: { type: [string, 'null'] } } }
+                      ia: { $ref: '#/components/schemas/GeneracionIA' }
+                  conversacion:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      titulo: { type: string }
+                      edadHijo: { type: [integer, 'null'] }
+        '400': { description: 'ID inválido o mensaje vacío / de más de 2000 caracteres' }
+        '403': { description: 'Rol distinto de padre, o `code: CONSENTIMIENTO_REQUERIDO`' }
+        '404': { description: Conversación no encontrada }
+        '429': { $ref: '#/components/responses/LimiteIA' }
+
+  # Los demás endpoints que llaman a la IA comparten el mismo 429 LIMITE_IA:
+  # POST /api/ia/retos/borrador, POST /api/ia/modulos/sugerencias,
+  # POST /api/ia/lineamientos/borrador (contratos existentes sin otros cambios).
+
+components:
+  securitySchemes:
+    cookieAuth: { type: apiKey, in: cookie, name: access_token }
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  responses:
+    NoAutenticado:
+      description: Sin sesión
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: Token requerido }
+    SinPermiso:
+      description: Rol no autorizado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: No tienes permisos para esta acción }
+    LimiteIA:
+      description: |
+        Límite por usuario (IA_RATE_LIMIT_MAX solicitudes cada IA_RATE_LIMIT_WINDOW_SECONDS).
+        Trae la cabecera `Retry-After` (segundos). La web debe mostrar `message` tal cual.
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message, code, retryAfter]
+            properties:
+              message: { type: string }
+              code: { type: string, const: LIMITE_IA }
+              retryAfter: { type: integer, description: Segundos de espera }
+          example:
+            message: Llegaste al límite de 20 solicitudes a Edumon cada 60 segundos. Espera 37 s y vuelve a intentarlo.
+            code: LIMITE_IA
+            retryAfter: 37
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+
+    SaludIA:
+      type: object
+      required: [modo, orden, timeoutMs, cooldownSegundos, proveedores]
+      properties:
+        modo: { type: string, enum: [llm, simulado], description: '`simulado` = no hay ninguna llave' }
+        orden: { type: array, items: { type: string, enum: [groq, openai] }, description: Valor efectivo de LLM_PROVIDER_ORDER }
+        timeoutMs: { type: integer }
+        cooldownSegundos: { type: number }
+        proveedores:
+          type: array
+          items:
+            type: object
+            properties:
+              nombre: { type: string, enum: [groq, openai] }
+              modelo: { type: string }
+              orden: { type: [integer, 'null'], description: Posición en el orden; null si no está en LLM_PROVIDER_ORDER }
+              estado: { type: string, enum: [activo, en_cooldown, sin_llave, fuera_del_orden] }
+              cooldownRestanteSegundos: { type: integer }
+              motivoCooldown: { type: [string, 'null'], enum: [rate_limit, auth, null] }
+              ultimaLatenciaMs: { type: [integer, 'null'] }
+              ultimoExito: { type: [string, 'null'], format: date-time }
+              ultimoError:
+                type: [object, 'null']
+                properties:
+                  tipo: { type: string, enum: [rate_limit, auth, servidor, timeout, red, peticion, respuesta] }
+                  status: { type: [integer, 'null'] }
+                  en: { type: string, format: date-time }
+
+    GeneracionIA:
+      type: [object, 'null']
+      description: Quién redactó la respuesta de Edumon. null en mensajes anteriores a esta rama.
+      properties:
+        modo:
+          type: string
+          enum: [llm, fichas_fallback, simulado, plantilla]
+          description: |
+            llm = la redactó un proveedor; fichas_fallback = todos los proveedores fallaron y se
+            respondió con la ficha curada; simulado = no hay llaves; plantilla = texto fijo
+            (riesgo grave, charla, límites, apoyo).
+        proveedor: { type: [string, 'null'], enum: [groq, openai, null] }
+        modelo: { type: [string, 'null'] }
+        latenciaMs: { type: [integer, 'null'] }
+        huboFallback: { type: boolean }
+        proveedoresFallidos: { type: array, items: { type: string } }
+
+    Deteccion:
+      type: [object, 'null']
+      description: Por qué se clasificó así el mensaje (campos nuevos marcados).
+      properties:
+        fuente: { type: string, enum: [ia, reglas] }
+        modelo: { type: [string, 'null'] }
+        decidio: { type: [string, 'null'], enum: [regla, regla_confirmada_por_ia, ia, null] }
+        errorIA: { type: [string, 'null'], description: Motivo legible si el LLM falló y respondieron las reglas }
+        proveedor: { type: [string, 'null'], description: NUEVO }
+        latenciaMs: { type: [integer, 'null'], description: NUEVO }
+        huboFallback: { type: boolean, description: 'NUEVO: true si falló al menos un proveedor (incluido caer a reglas)' }
+        proveedoresFallidos: { type: array, items: { type: string }, description: NUEVO }
+        desdeCache: { type: boolean, description: 'NUEVO: la clasificación salió de la caché' }
