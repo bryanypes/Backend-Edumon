@@ -468,9 +468,14 @@ export const getCostosIA = async (req, res) => {
     const fecha = (v) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v) : undefined);
     const entero = (v, def) => (v === undefined ? def : (Number.isInteger(Number(v)) && Number(v) >= 0 ? Number(v) : NaN));
     // por defecto, las familias de los cursos activos de la institución
-    const familiasInstitucion = (await Curso.distinct('participantes.usuarioId', {
-      institucionId: req.user.institucionId, estado: 'activo', 'participantes.etiqueta': 'padre',
-    })).length;
+    const [conteo] = await Curso.aggregate([
+      { $match: { institucionId: new mongoose.Types.ObjectId(req.user.institucionId), estado: 'activo' } },
+      { $unwind: '$participantes' },
+      { $match: { 'participantes.etiqueta': 'padre' } },
+      { $group: { _id: null, familias: { $addToSet: '$participantes.usuarioId' } } },
+      { $project: { familias: { $size: '$familias' } } },
+    ]);
+    const familiasInstitucion = conteo?.familias ?? 0;
     const familias = entero(req.query.familias, familiasInstitucion);
     const mensajesPorFamiliaMes = entero(req.query.mensajesPorFamiliaMes, 10);
     if (Number.isNaN(familias) || Number.isNaN(mensajesPorFamiliaMes)) {
