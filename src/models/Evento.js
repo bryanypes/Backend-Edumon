@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import escuelaPadresSchema from './schemas/escuelaPadresSchema.js';
 
 const eventoSchema = new mongoose.Schema({
   titulo: {
@@ -83,6 +84,11 @@ const eventoSchema = new mongoose.Schema({
     type: String,
     enum: ['programado', 'en_curso', 'finalizado', 'cancelado'],
     default: 'programado'
+  },
+  // el docente decide si Edumon recomienda este evento y sobre qué tema
+  escuelaPadres: {
+    type: escuelaPadresSchema,
+    default: null
   },
   fechaCreacion: {
     type: Date,

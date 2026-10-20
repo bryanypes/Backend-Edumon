@@ -43,7 +43,7 @@ export const obtenerCalendarioCurso = async (req, res) => {
         cursosIds: cursoId,
         ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
       })
-        .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado')
+        .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado escuelaPadres')
         .sort({ fechaInicio: 1 })
         .lean()
     ]);
@@ -76,6 +76,7 @@ export const obtenerCalendarioCurso = async (req, res) => {
       ubicacion: evento.ubicacion,
       categoria: evento.categoria,
       estado: evento.estado,
+      escuelaPadres: evento.escuelaPadres ?? null,
       color: obtenerColorEvento(evento.categoria),
       icono: obtenerIconoEvento(evento.categoria)
     }));
@@ -378,7 +379,7 @@ export const obtenerCalendarioUsuario = async (req, res) => {
         cursosIds: { $in: cursosIds },
         ...(Object.keys(filtroFechas).length > 0 && { fechaInicio: filtroFechas })
       })
-        .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado cursosIds')
+        .select('titulo descripcion fechaInicio fechaFin hora ubicacion categoria estado cursosIds escuelaPadres')
         .sort({ fechaInicio: 1 })
         .lean()
     ]);
@@ -413,6 +414,7 @@ export const obtenerCalendarioUsuario = async (req, res) => {
       ubicacion: evento.ubicacion,
       categoria: evento.categoria,
       estado: evento.estado,
+      escuelaPadres: evento.escuelaPadres ?? null,
       cursosIds: evento.cursosIds,
       cursosNombres: evento.cursosIds
         .map(id => cursoMap[id.toString()])
