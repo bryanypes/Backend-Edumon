@@ -1,0 +1,43 @@
+{
+  "nota": "Precios en USD por 1 millón de tokens (audio: USD por hora). Copiados de las páginas oficiales en la fecha indicada; actualizar si cambian. OpenAI: nivel estándar (no batch ni flex).",
+  "modelos": [
+    {
+      "proveedor": "groq",
+      "modelo": "openai/gpt-oss-120b",
+      "entradaUSDPorMillon": 0.15,
+      "salidaUSDPorMillon": 0.60,
+      "fuente": "https://console.groq.com/docs/models",
+      "consultado": "2026-10-20"
+    },
+    {
+      "proveedor": "groq",
+      "modelo": "openai/gpt-oss-20b",
+      "entradaUSDPorMillon": 0.075,
+      "salidaUSDPorMillon": 0.30,
+      "fuente": "https://console.groq.com/docs/models",
+      "consultado": "2026-10-20"
+    },
+    {
+      "proveedor": "groq",
+      "modelo": "whisper-large-v3",
+      "audioUSDPorHora": 0.111,
+      "fuente": "https://console.groq.com/docs/models",
+      "consultado": "2026-10-20"
+    },
+    {
+      "proveedor": "groq",
+      "modelo": "whisper-large-v3-turbo",
+      "audioUSDPorHora": 0.04,
+      "fuente": "https://console.groq.com/docs/models",
+      "consultado": "2026-10-20"
+    },
+    {
+      "proveedor": "openai",
+      "modelo": "gpt-4.1-mini",
+      "entradaUSDPorMillon": 0.40,
+      "salidaUSDPorMillon": 1.60,
+      "fuente": "https://platform.openai.com/docs/pricing",
+      "consultado": "2026-10-20"
+    }
+  ]
+}

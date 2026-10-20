@@ -11,7 +11,7 @@
  * se ajustaron mirando esos casos.
  */
 import 'dotenv/config';
-import { iaDisponible, modeloPrincipal as modelo } from '../services/ia/proveedorIA.js';
+import { iaDisponible, modeloPrincipal as modelo, usoAcumulado } from '../services/ia/proveedorIA.js';
 import { evaluarConjunto } from '../services/ia/evaluacion.js';
 import { CASOS_EVALUACION } from '../data/casosEvaluacionEdumon.js';
 import { CASOS_HOLDOUT } from '../../tests/ia/holdout/casosHoldout.js';
@@ -97,6 +97,8 @@ for (const clave of elegidos) {
       proveedor: conLLM ? (proveedores.length ? proveedores.join(',') : 'ninguno_respondio') : null,
       modelo: conLLM ? modelo() : null,
       completa: !m.cuotaAgotada,
+      // tokens reales de las llamadas al proveedor en este proceso (para el costo)
+      usoTokens: usoAcumulado(),
       metricas: m,
     });
     console.log(`💾 Guardado en ${ruta}`);
