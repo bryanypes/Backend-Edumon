@@ -10,7 +10,7 @@
  * se ajustaron mirando esos casos.
  */
 import 'dotenv/config';
-import { iaDisponible, modelo } from '../services/ia/groqClient.js';
+import { iaDisponible, modeloPrincipal as modelo } from '../services/ia/proveedorIA.js';
 import { evaluarConjunto } from '../services/ia/evaluacion.js';
 import { CASOS_EVALUACION } from '../data/casosEvaluacionEdumon.js';
 import { CASOS_HOLDOUT } from '../../tests/ia/holdout/casosHoldout.js';

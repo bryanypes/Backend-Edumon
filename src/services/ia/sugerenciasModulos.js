@@ -1,4 +1,4 @@
-import { completarJSON, iaDisponible } from './groqClient.js';
+import { completarJSON, iaDisponible } from './proveedorIA.js';
 import { EJES_CRIANZA, EJES_LABELS } from '../../config/edumonIA.js';
 import { normalizar } from './reglas.js';
 
