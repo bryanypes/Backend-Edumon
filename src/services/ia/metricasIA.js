@@ -61,7 +61,7 @@ export async function resumenMetricas(dir = DIR_EVALUACIONES) {
     precisionTema: c.metricas?.precisionTema ?? null,
   });
   return {
-    nota: 'Resultados reales, sin ajustar. El conjunto que importa es "holdout": las reglas no se ajustaron mirando esos casos.',
+    nota: 'Resultados reales, sin ajustar. "original" y "holdout" son conjuntos de DESARROLLO (sus fallos orientaron mejoras); la métrica final es "ciego", escrito por personas que no vieron las reglas.',
     ultimas: Object.values(ultimas).map((c) => ({
       ...resumen(c),
       precisionPorTema: c.metricas?.precisionPorTema ?? {},
