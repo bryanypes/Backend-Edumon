@@ -7,6 +7,7 @@ import { clasificar } from './clasificador.js';
 import { generarRespuesta } from './generador.js';
 import { detectarCharla } from './reglas.js';
 import { crearAlertaRiesgo, institucionesDeLaFamilia } from './alertas.js';
+import { clasificarRuta } from './rutaAtencion.js';
 import {
   respuestaRiesgo,
   RESPUESTA_PEDIR_EDAD,
@@ -111,6 +112,7 @@ export async function procesarMensaje(conversacion, textoActual) {
     contenido: textoActual,
     nivelRiesgo,
     categoriaRiesgo: clasificacion.categoriaRiesgo ?? null,
+    rutaAtencion: clasificarRuta({ categoria: clasificacion.categoriaRiesgo, gravedad: clasificacion.gravedad, texto: textoActual }),
     deteccion: clasificacion.deteccion ?? null,
   });
 

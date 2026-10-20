@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { CATEGORIAS_RIESGO } from '../config/edumonIA.js';
 import deteccionIASchema from './schemas/deteccionIASchema.js';
+import rutaAtencionSchema from './schemas/rutaAtencionSchema.js';
 
 // cada cambio de la alerta: creación, cambio de estado o nota; por = null es Edumon
 const historialSchema = new mongoose.Schema({
@@ -88,6 +89,11 @@ const alertaRiesgoSchema = new mongoose.Schema({
   // por qué se generó (regla, IA o la familia la pidió); sobrevive al borrado de la conversación
   deteccion: {
     type: deteccionIASchema,
+    default: null,
+  },
+  // ámbito, tipo Ley 1620 (si es escolar) y protocolo sugerido; pendiente de validación
+  rutaAtencion: {
+    type: rutaAtencionSchema,
     default: null,
   },
   // línea de tiempo de la ruta de atención: nunca se reescribe, solo se agrega
