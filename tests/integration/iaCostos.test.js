@@ -65,7 +65,9 @@ describe('Costo de la IA', () => {
     it('el administrador ve el costo; por defecto proyecta con las familias de su institución', async () => {
       const inst = await crearInstitucion();
       const padres = await Promise.all([1, 2, 3].map(() => crearPadre()));
-      await crearCurso({ institucionId: inst._id, participantes: padres.map((p) => ({ usuarioId: p._id, etiqueta: 'padre' })) });
+      const docente = await crearDocente({ institucionId: inst._id });
+      // el docente también es participante: no cuenta como familia
+      await crearCurso({ institucionId: inst._id, docenteId: docente._id, participantes: [{ usuarioId: docente._id, etiqueta: 'docente' }, ...padres.map((p) => ({ usuarioId: p._id, etiqueta: 'padre' }))] });
       await UsoIA.create({ proveedor: 'groq', modelo: 'openai/gpt-oss-120b', operacion: 'clasificacion_edumon', tokensEntrada: 1000, tokensSalida: 100 });
       const agent = await loginComo(app, await crearAdministrador({ institucionId: inst._id }));
 
