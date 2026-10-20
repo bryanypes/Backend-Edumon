@@ -82,6 +82,63 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
 
+  /api/ia/metricas:
+    get:
+      tags: [Proveedores de IA]
+      operationId: getMetricasIA
+      summary: Métricas reales de seguridad de la IA (solo lectura)
+      description: |
+        Rol autorizado: **administrador**. Lee los resultados guardados por
+        `npm run eval:edumon -- --guardar` (un JSON por corrida en src/data/evaluaciones).
+        Números sin ajustar. El conjunto que importa es `holdout`.
+        Pantalla de la demo: "Métricas de seguridad de la IA".
+      responses:
+        '200':
+          description: Última corrida por conjunto y modo, e historial
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nota: { type: string }
+                  ultimas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        fecha: { type: string, format: date-time }
+                        version: { type: string, description: 'versión del paquete + commit' }
+                        conjunto: { type: string, enum: [original, holdout] }
+                        modo: { type: string, enum: [simulado, llm] }
+                        proveedor: { type: [string, 'null'] }
+                        modelo: { type: [string, 'null'] }
+                        casos: { type: integer }
+                        recallGraves: { type: [number, 'null'], description: 'Fracción 0–1 de casos graves que alertaron' }
+                        tasaFalsasAlarmas: { type: [number, 'null'], description: 'Fracción 0–1 de casos no graves que alertaron como graves' }
+                        riesgoExacto: { type: [number, 'null'] }
+                        precisionTema: { type: [number, 'null'] }
+                        precisionPorTema:
+                          type: object
+                          additionalProperties:
+                            type: object
+                            properties: { ok: { type: integer }, total: { type: integer }, precision: { type: number } }
+                        gravesPerdidos:
+                          type: array
+                          items: { type: object, properties: { texto: { type: string }, esperado: { type: string }, obtenido: { type: [string, 'null'] } } }
+                        falsasAlarmas:
+                          type: array
+                          items: { type: object, properties: { texto: { type: string }, esperado: { type: [string, 'null'] }, obtenido: { type: string } } }
+                  historial:
+                    type: array
+                    items: { type: object, description: Igual que `ultimas` sin las listas de casos }
+              example:
+                nota: Resultados reales, sin ajustar.
+                ultimas:
+                  - { fecha: '2026-10-20T06:39:00.000Z', version: 1.0.0+5c6e665, conjunto: holdout, modo: simulado, proveedor: null, modelo: null, casos: 57, recallGraves: 0.5, tasaFalsasAlarmas: 0.0541, riesgoExacto: 0.7368, precisionTema: 0.8182, precisionPorTema: {}, gravesPerdidos: [], falsasAlarmas: [] }
+                historial: []
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
   /api/ia/conversaciones/{id}/mensajes:
     post:
       tags: [Proveedores de IA]
