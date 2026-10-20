@@ -9,9 +9,11 @@ import cookieParser from 'cookie-parser';
 import timeout from 'connect-timeout';
 import compression from 'compression';
 import multer from 'multer';
+import jwt from 'jsonwebtoken';
 
 import { setupSocketIO } from './socket/socketHandlers.js';
 import { authMiddleware } from './middlewares/authMiddleware.js';
+import { extractAccessToken } from './controllers/authController.js';
 import { verificarAccesoArchivoPrivado } from './middlewares/archivoPrivadoMiddleware.js';
 import { normalizarTelefono } from './utils/normalizarTelefono.js';
 import {
@@ -40,6 +42,28 @@ import buzonRoutes from './routes/buzonRoutes.js';
 import apkRoutes from './routes/apkRoutes.js';
 import iaRoutes from './routes/iaRoutes.js';
 
+// TRUST_PROXY: número de saltos ("1", "2"), "false"/"0" o una lista de IPs/subredes
+export const valorTrustProxy = (crudo) => {
+  if (crudo === undefined || crudo === '') return 1;
+  const v = String(crudo).trim();
+  if (v === 'false') return false;
+  if (/^\d+$/.test(v)) return Number(v);
+  return v;
+};
+
+// usuario del token (firma verificada; nunca un id sin verificar, o cualquiera
+// inventaría ids para multiplicar su cupo) o, sin sesión, la IP
+export const claveLimiteGlobal = (req) => {
+  const token = extractAccessToken(req);
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+      if (userId) return `usuario:${userId}`;
+    } catch { /* token vencido o inválido: se trata como anónimo */ }
+  }
+  return `ip:${ipKeyGenerator(req.ip)}`;
+};
+
 // Solo construye app + server + io. server.js conecta Mongo y arranca el
 // scheduler; los tests importan este archivo directo con su propia BD en memoria.
 export const crearApp = () => {
@@ -47,7 +71,10 @@ export const crearApp = () => {
   const server = http.createServer(app);
   const isDev  = process.env.NODE_ENV === 'development';
 
-  app.set('trust proxy', 1);
+  // Saltos de proxy de confianza para req.ip / req.secure. 1 = solo el balanceador
+  // de Render (o nginx). Con Vercel delante (rewrite /api) hay un salto más; ver
+  // DEPLOY.md. El límite global no depende de este valor para usuarios con sesión.
+  app.set('trust proxy', valorTrustProxy(process.env.TRUST_PROXY));
 
   // margen amplio: la publicación del APK (hasta 200 MB) se procesa en memoria
   app.use(timeout('90s'));
@@ -140,6 +167,9 @@ export const crearApp = () => {
 
   // 500/15min por IP: con wifi institucional muchas familias comparten IP,
   // un límite más bajo tumbaba a todo el colegio por el tráfico de unos pocos
+  // Clave por usuario autenticado (token verificado) y por IP solo para anónimos:
+  // detrás del rewrite de Vercel + el proxy de Render no se puede garantizar que
+  // req.ip sea la del cliente, y si fuera la del proxy todos compartirían cupo.
   const makeRateLimitHandler = (mensaje) =>
     rateLimit({
       windowMs:         15 * 60 * 1000,
@@ -147,6 +177,7 @@ export const crearApp = () => {
       standardHeaders:  true,
       legacyHeaders:    false,
       skipFailedRequests: false,
+      keyGenerator:     claveLimiteGlobal,
       handler: (req, res) => {
         const retryAfter = Math.ceil(
           (req.rateLimit.resetTime - Date.now()) / 1000,
@@ -289,6 +320,11 @@ export const crearApp = () => {
   app.use('/api/buzon',         buzonRoutes);
   app.use('/api/apk',           apkRoutes);
   app.use('/api/ia',            iaRoutes);
+
+  // Ping liviano para Render / monitores: no toca la base de datos ni la IA
+  app.get('/health', (req, res) => {
+    res.json({ ok: true, uptimeSegundos: Math.round(process.uptime()) });
+  });
 
   // Health check
   app.get('/', (req, res) => {
