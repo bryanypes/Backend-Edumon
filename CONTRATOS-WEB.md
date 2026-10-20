@@ -105,6 +105,21 @@ Todo menos `/consentimiento` responde 403 `CONSENTIMIENTO_REQUERIDO` si el perfi
     "ultimoExito": "…", "ultimoError": null }] }
 ```
 
+## Retroalimentación de usuarios (evidencia de validación)
+
+| Método | Ruta | Rol | Pantalla |
+|---|---|---|---|
+| PUT | `/api/ia/conversaciones/{id}/mensajes/{mensajeId}/calificacion` | padre | Chat: 👍/👎 bajo cada respuesta, con comentario opcional |
+| GET | `/api/ia/retroalimentacion?sesion=&desde=&hasta=` | administrador | Panel "¿Les sirve Edumon?" |
+
+- **Calificar:** el cuerpo es `{ "util": true, "comentario": "opcional", "sesionValidacion": "feria-2026-10-21" }`.
+  - Responde 201 la primera vez y 200 si se reemplaza; hay una sola calificación por mensaje y perfil.
+  - Solo se pueden calificar respuestas de Edumon: con un mensaje del cuidador responde 400.
+- **Agregado:** responde `{ total, utiles, noUtiles, porcentajeUtil, porTipoRespuesta, porModoIA, comentariosRecientes[≤20], sesionesValidacion[] }`.
+  - No trae familias, perfiles ni conversaciones.
+  - En los comentarios se ocultan correos, teléfonos y números largos.
+- **Sugerencia para la feria:** que la web mande `sesionValidacion: "feria-2026-10-21"` mientras dure la feria, para separar las pruebas con usuarios reales.
+
 ## Ciclo Edumon (docente dueño del curso o admin de la institución)
 
 | Método | Ruta | Pantalla |
