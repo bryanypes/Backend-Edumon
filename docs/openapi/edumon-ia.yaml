@@ -22,6 +22,10 @@ security:
 tags:
   - name: Proveedores de IA
     description: Punto 1 — capa de proveedores, salud y límite por usuario.
+  - name: Explicabilidad
+    description: |
+      Punto 5 — "¿Por qué Edumon dijo esto?". Explica lo que quedó guardado al responder
+      (no vuelve a llamar a la IA).
   - name: Bitácora de alertas
     description: |
       Punto 4 — bitácora inmutable. Cada evento del historial de una alerta (creación,
@@ -129,6 +133,81 @@ paths:
         '403': { description: 'Rol distinto de padre, o `code: CONSENTIMIENTO_REQUERIDO`' }
         '404': { description: Conversación no encontrada }
         '429': { $ref: '#/components/responses/LimiteIA' }
+
+  /api/ia/conversaciones/{id}/mensajes/{mensajeId}/explicacion:
+    get:
+      tags: [Explicabilidad]
+      operationId: getExplicacionMensaje
+      summary: Explicación de un mensaje del chat
+      description: |
+        Rol autorizado: **padre** dueño de la conversación, con consentimiento vigente
+        (docentes y administradores NO pueden leer conversaciones: 403).
+        `mensajeId` puede ser el mensaje del cuidador o la respuesta de Edumon: se explica el par.
+        Pantalla de la demo: chat, enlace "¿Por qué Edumon dijo esto?" bajo cada respuesta.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: ID de la conversación }
+        - { name: mensajeId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Explicación
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  explicacion: { $ref: '#/components/schemas/ExplicacionMensaje' }
+              example:
+                explicacion:
+                  mensajeId: 6716f1aa0000000000000001
+                  respuestaId: 6716f1aa0000000000000002
+                  nivelRiesgo: riesgo
+                  riesgo: { categoria: autolesion_suicidio, etiqueta: riesgo de autolesión o suicidio, gravedad: grave }
+                  decidio: regla
+                  seNotificoAlColegio: true
+                  rutaAtencion: null
+                  clasificacion:
+                    fuente: ia
+                    proveedor: openai
+                    modelo: gpt-4.1-mini
+                    latenciaMs: 812
+                    huboFallback: true
+                    desdeCache: false
+                    reglaSegura: { categoria: autolesion_suicidio, gravedad: grave, fragmento: se quiere morir }
+                    reglaDudosa: null
+                    modeloDijo: { nivelRiesgo: riesgo, gravedad: grave, categoria: autolesion_suicidio }
+                    errorIA: null
+                  respuesta: { tipo: riesgo, modo: plantilla, proveedor: null, modelo: null, latenciaMs: null, huboFallback: false, esTextoFijo: true }
+                  fichas: []
+                  fuentes: []
+                  resumen: Posible riesgo grave … Una regla de seguridad reconoció "se quiere morir". Es un texto fijo revisado de antemano; ningún modelo lo redactó.
+        '400': { description: ID de conversación o de mensaje inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol distinto de padre, o `code: CONSENTIMIENTO_REQUERIDO`' }
+        '404': { description: Conversación no encontrada (o de otra familia) o mensaje que no es de esa conversación }
+
+  /api/ia/alertas/{id}/explicacion:
+    get:
+      tags: [Explicabilidad]
+      operationId: getExplicacionAlerta
+      summary: Por qué se generó una alerta
+      description: |
+        Roles: **administrador** y **docente**, con la visibilidad de `GET /api/ia/alertas`.
+        Pantalla de la demo: detalle de la alerta en el tablero de convivencia.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Explicación
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  explicacion: { $ref: '#/components/schemas/ExplicacionAlerta' }
+        '400': { description: ID inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: Rol no autorizado o usuario sin institución }
+        '404': { description: Alerta no encontrada o no visible }
 
   /api/ia/alertas/{id}/integridad:
     get:
@@ -316,6 +395,109 @@ components:
         latenciaMs: { type: [integer, 'null'] }
         huboFallback: { type: boolean }
         proveedoresFallidos: { type: array, items: { type: string } }
+
+    Hallazgo:
+      type: [object, 'null']
+      properties:
+        categoria: { type: string }
+        gravedad: { type: string, enum: [moderado, grave] }
+        fragmento: { type: [string, 'null'], description: Fragmento del mensaje que activó la regla }
+
+    RutaAtencion:
+      type: [object, 'null']
+      description: |
+        Clasificación de ruta (punto 3, en construcción: hoy siempre null). Forma acordada:
+        ambito escolar → tipoLey1620 I/II/III (Decreto 1965 de 2013, art. 40);
+        hogar/personal → tipoLey1620 null y `protocolo`. Todo con `pendienteValidacion: true`.
+      properties:
+        ambito: { type: string, enum: [escolar, hogar, personal] }
+        tipoLey1620: { type: [string, 'null'], enum: [I, II, III, null] }
+        protocolo: { type: [string, 'null'] }
+        criterio: { type: string, description: Por qué se asignó esta ruta }
+        fundamento:
+          type: array
+          items:
+            type: object
+            properties:
+              norma: { type: string }
+              articulo: { type: string }
+              fuente: { type: string, description: URL oficial }
+        pendienteValidacion: { type: boolean, const: true }
+
+    ExplicacionMensaje:
+      type: object
+      properties:
+        mensajeId: { type: [string, 'null'], description: Mensaje del cuidador }
+        respuestaId: { type: [string, 'null'], description: Respuesta de Edumon }
+        nivelRiesgo: { type: [string, 'null'], enum: [normal, atencion, riesgo_moderado, riesgo, null] }
+        riesgo:
+          type: [object, 'null']
+          properties:
+            categoria: { type: [string, 'null'] }
+            etiqueta: { type: [string, 'null'] }
+            gravedad: { type: string, enum: [moderado, grave] }
+        decidio:
+          type: [string, 'null']
+          enum: [regla, modelo, ambos, null]
+          description: Quién determinó el riesgo (o, sin riesgo, quién clasificó el mensaje)
+        seNotificoAlColegio: { type: boolean }
+        rutaAtencion: { $ref: '#/components/schemas/RutaAtencion' }
+        clasificacion:
+          type: [object, 'null']
+          properties:
+            fuente: { type: string, enum: [ia, reglas] }
+            proveedor: { type: [string, 'null'] }
+            modelo: { type: [string, 'null'] }
+            latenciaMs: { type: [integer, 'null'] }
+            huboFallback: { type: boolean }
+            desdeCache: { type: boolean }
+            reglaSegura: { $ref: '#/components/schemas/Hallazgo' }
+            reglaDudosa: { $ref: '#/components/schemas/Hallazgo' }
+            modeloDijo:
+              type: [object, 'null']
+              properties:
+                nivelRiesgo: { type: string }
+                gravedad: { type: string }
+                categoria: { type: string }
+            errorIA: { type: [string, 'null'] }
+        respuesta:
+          type: [object, 'null']
+          properties:
+            tipo: { type: [string, 'null'] }
+            modo: { type: [string, 'null'], enum: [llm, fichas_fallback, simulado, plantilla, null] }
+            proveedor: { type: [string, 'null'] }
+            modelo: { type: [string, 'null'] }
+            latenciaMs: { type: [integer, 'null'] }
+            huboFallback: { type: boolean }
+            esTextoFijo: { type: boolean }
+        fichas:
+          type: array
+          items:
+            type: object
+            properties:
+              _id: { type: string }
+              titulo: { type: string }
+              eje: { type: string }
+              subtema: { type: string }
+              edades: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }
+              fuente: { type: [object, 'null'], properties: { nombre: { type: string }, url: { type: [string, 'null'] } } }
+        fuentes:
+          type: array
+          items: { type: object, properties: { nombre: { type: string }, url: { type: [string, 'null'] } } }
+        resumen: { type: string, description: Texto listo para mostrar }
+
+    ExplicacionAlerta:
+      type: object
+      properties:
+        alertaId: { type: string }
+        origen: { type: string, enum: [automatica, solicitada] }
+        categoria: { type: string }
+        etiqueta: { type: [string, 'null'] }
+        decidio: { type: [string, 'null'], enum: [regla, modelo, ambos, familia, null] }
+        mensajeDisparador: { type: string }
+        rutaAtencion: { $ref: '#/components/schemas/RutaAtencion' }
+        clasificacion: { type: [object, 'null'], description: Igual que en ExplicacionMensaje (sin latencia ni caché) }
+        resumen: { type: string }
 
     EventoBitacora:
       type: object
