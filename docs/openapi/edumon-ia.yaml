@@ -402,6 +402,11 @@ components:
         categoria: { type: string }
         gravedad: { type: string, enum: [moderado, grave] }
         fragmento: { type: [string, 'null'], description: Fragmento del mensaje que activó la regla }
+        aproximado: { type: boolean, description: 'La regla coincidió después de corregir la ortografía (solo reglas graves)' }
+        correcciones:
+          type: array
+          items: { type: object, properties: { de: { type: string }, a: { type: string } } }
+          example: [{ de: kiero, a: quiero }]
 
     RutaAtencion:
       type: [object, 'null']
