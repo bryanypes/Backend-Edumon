@@ -21,6 +21,8 @@ import {
   getSaludIA,
   verificarIntegridadAlerta,
   verificarIntegridadAlertas,
+  getExplicacionMensaje,
+  getExplicacionAlerta,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -56,6 +58,7 @@ router.get('/conversaciones/:id', familiaConConsentimiento, getConversacion);
 router.delete('/conversaciones/:id', familiaConConsentimiento, eliminarConversacion);
 router.post('/conversaciones/:id/mensajes', familiaConConsentimiento, limiteIA, enviarMensaje);
 router.post('/conversaciones/:id/ayuda', familiaConConsentimiento, pedirAyuda);
+router.get('/conversaciones/:id/mensajes/:mensajeId/explicacion', familiaConConsentimiento, getExplicacionMensaje);
 
 // ─── Colegio: alertas de riesgo ───────────────────────────────────────────────
 // el controlador además exige que el docente sea el responsable de convivencia
@@ -65,6 +68,7 @@ router.get('/alertas', colegio, getAlertas);
 // antes de /alertas/:id para que "integridad" no se lea como un id
 router.get('/alertas/integridad', colegio, verificarIntegridadAlertas);
 router.get('/alertas/:id/integridad', colegio, verificarIntegridadAlerta);
+router.get('/alertas/:id/explicacion', colegio, getExplicacionAlerta);
 router.get('/alertas/:id', colegio, getAlerta);
 router.patch('/alertas/:id', colegio, actualizarAlerta);
 
