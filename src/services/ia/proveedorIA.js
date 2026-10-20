@@ -13,14 +13,15 @@
 const CATALOGO = {
   groq: {
     nombre: 'groq',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
+    // *_BASE_URL (opcional): proxy o servidor compatible; vacío = la API oficial
+    url: () => `${process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'}/chat/completions`,
     clave: () => process.env.GROQ_API_KEY,
     modelo: () => process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
     razonamiento: true,
   },
   openai: {
     nombre: 'openai',
-    url: 'https://api.openai.com/v1/chat/completions',
+    url: () => `${process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'}/chat/completions`,
     clave: () => process.env.OPENAI_API_KEY,
     modelo: () => process.env.OPENAI_MODEL || 'gpt-4.1-mini',
     razonamiento: false,
@@ -97,7 +98,7 @@ async function llamar(proveedor, opciones, timeoutMs) {
   const { system, messages, schema, nombre, esfuerzo = 'medium', maxTokens = 4000 } = opciones;
   let respuesta;
   try {
-    respuesta = await fetch(proveedor.url, {
+    respuesta = await fetch(proveedor.url(), {
       method: 'POST',
       headers: { Authorization: `Bearer ${proveedor.clave()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

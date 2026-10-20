@@ -234,3 +234,26 @@ describe('capa de proveedores de IA', () => {
     });
   });
 });
+
+describe('URL base configurable', () => {
+  it('GROQ_BASE_URL / OPENAI_BASE_URL cambian el destino; vacías usan la API oficial', async () => {
+    const restaurar = guardarEntorno();
+    _reiniciarEstadoIA();
+    try {
+      configurarLlaves({ groq: false });
+      process.env.OPENAI_BASE_URL = 'http://127.0.0.1:9/v1';
+      const original = globalThis.fetch;
+      const mock = vi.fn(async () => respuestaOk(OK));
+      vi.stubGlobal('fetch', mock);
+      await completar(OPCIONES);
+      expect(String(mock.mock.calls[0][0])).toBe('http://127.0.0.1:9/v1/chat/completions');
+      process.env.OPENAI_BASE_URL = '';
+      await completar(OPCIONES);
+      expect(String(mock.mock.calls[1][0])).toBe('https://api.openai.com/v1/chat/completions');
+      vi.stubGlobal('fetch', original);
+    } finally {
+      delete process.env.OPENAI_BASE_URL;
+      restaurar();
+    }
+  });
+});
