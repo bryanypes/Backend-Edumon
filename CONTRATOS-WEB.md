@@ -17,7 +17,7 @@ Este archivo es el resumen para integrar rápido.
 | GET | `/api/ia/alertas/{id}/integridad` | administrador, docente (visibilidad de alertas) | Detalle de alerta: botón "Verificar integridad" |
 | GET | `/api/ia/alertas/integridad` | administrador, docente (visibilidad de alertas) | Tablero de convivencia: "Bitácora íntegra" |
 
-Para el Ciclo Edumon y las métricas, ver la sección "Pendientes de esta noche" al final.
+Ciclo Edumon y métricas: ver las secciones al final.
 
 ## Campos nuevos en respuestas existentes
 
@@ -90,8 +90,37 @@ Para el Ciclo Edumon y las métricas, ver la sección "Pendientes de esta noche"
     "ultimoExito": "…", "ultimoError": null }] }
 ```
 
-## Pendientes de esta noche
+## Ciclo Edumon (docente dueño del curso o admin de la institución)
 
-Se documentan en el YAML a medida que queden listos:
-- Ciclo Edumon por curso.
-- Métricas de seguridad de la IA (solo administrador).
+| Método | Ruta | Pantalla |
+|---|---|---|
+| GET | `/api/ia/cursos/{cursoId}/ciclo` | Vista del docente: "¿Qué preguntan las familias de mi curso?" |
+| POST | `/api/ia/cursos/{cursoId}/ciclo/sugerencia` | Botón "Sugerirme un módulo y un reto" |
+
+`GET /api/ia/cursos/{cursoId}/ciclo` responde:
+
+```json
+{ "curso": { "_id": "…", "nombre": "Grado Quinto A" },
+  "ventana": { "desde": "…", "dias": 30 }, "minimoFamilias": 5, "hayTemasOcultos": false,
+  "temas": [{ "eje": "estilos_vida_saludable", "subtema": "pantallas", "subtemaLabel": "Pantallas y celular",
+              "ejeLabel": "Estilos de vida saludables", "familias": 6,
+              "retosCreados": [{ "tareaId": "…", "titulo": "…", "estado": "publicada", "fechaEntrega": "…" }] }] }
+```
+
+- Un tema solo aparece si lo consultaron **5 familias distintas o más**. Los demás no se cuentan; solo se indica `hayTemasOcultos`.
+- La respuesta nunca trae el texto de los mensajes ni quién preguntó.
+
+`POST /api/ia/cursos/{cursoId}/ciclo/sugerencia`:
+- Responde `{ basadoEn, modulos, reto }`.
+  - `modulos` tiene la misma forma que `POST /api/ia/modulos/sugerencias`.
+  - `reto` tiene la misma forma que el `borrador` de `POST /api/ia/retos/borrador`.
+- El borrador no se guarda. Para publicarlo se usa el flujo normal de tareas con `escuelaPadres: { eje, subtema }`.
+- Si ningún tema llega a 5 familias responde `422 { code: "SIN_TEMAS_SUFICIENTES" }`. Puede responder `429 LIMITE_IA`.
+
+## Métricas de seguridad de la IA (administrador)
+
+`GET /api/ia/metricas` responde `{ nota, ultimas[], historial[] }`.
+- `ultimas` trae la última corrida por conjunto (`original` o `holdout`) y modo (`simulado` o `llm`).
+- Cada corrida incluye `recallGraves`, `tasaFalsasAlarmas`, `riesgoExacto`, `precisionTema` y `precisionPorTema`, todas como fracciones de 0 a 1.
+- También trae las listas `gravesPerdidos[]` y `falsasAlarmas[]`, con el texto de cada caso de evaluación (son ficticios).
+- El número que importa mostrar es el del conjunto **holdout**.
