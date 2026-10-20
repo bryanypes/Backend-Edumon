@@ -131,6 +131,17 @@ Todo menos `/consentimiento` responde 403 `CONSENTIMIENTO_REQUERIDO` si el perfi
 - `retosDelCiclo`: `retos`, `entregas`, `porcentajeParticipacion` y `porCurso[]`. Un curso con menos de 5 familias va a `otrosCursos`.
 - Errores: 400 si el periodo es inválido.
 
+## Costo de la IA (administrador)
+
+`GET /api/ia/costos?familias=&mensajesPorFamiliaMes=10&desde=&hasta=` responde:
+- `costoAcumuladoUSD`, `llamadas`, `tokensEntrada` y `tokensSalida`.
+- `porModelo`, con el precio usado en cada uno.
+- `chat.costoPorMensajeUSD`.
+- `proyeccionMensual`: mensajes por familia al mes × familias; por defecto toma las familias de la institución.
+- `tablaDePrecios`: precios con su fuente oficial y fecha.
+
+Los tokens son los reales que reporta el proveedor. Si un modelo no tiene precio en la tabla, su costo es `null`.
+
 ## Ciclo Edumon (docente dueño del curso o admin de la institución)
 
 | Método | Ruta | Pantalla |

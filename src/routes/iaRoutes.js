@@ -29,6 +29,7 @@ import {
   calificarRespuesta,
   getRetroalimentacion,
   getImpacto,
+  getCostosIA,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -52,6 +53,7 @@ router.get('/health', requireRole(['administrador']), getSaludIA);
 router.get('/metricas', requireRole(['administrador']), getMetricasIA);
 router.get('/retroalimentacion', requireRole(['administrador']), getRetroalimentacion);
 router.get('/impacto', requireRole(['administrador']), getImpacto);
+router.get('/costos', requireRole(['administrador']), getCostosIA);
 
 // ─── Familia: acompañante Edumon ──────────────────────────────────────────────
 const soloFamilia = requireRole(['padre']);

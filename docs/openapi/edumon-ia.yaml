@@ -228,6 +228,51 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { description: Rol distinto de administrador o sin institución }
 
+  /api/ia/costos:
+    get:
+      tags: [Evidencia y validación]
+      operationId: getCostosIA
+      summary: Costo de la IA (tokens reales × precios oficiales) y proyección mensual
+      description: |
+        Rol: **administrador**. Los tokens se registran por llamada (sin contenido ni institución), así
+        que el costo acumulado es de toda la plataforma. Precios: src/config/preciosIA.json (fuente y fecha
+        de las páginas oficiales de Groq y OpenAI; configurable con IA_PRECIOS_ARCHIVO). Un modelo sin
+        precio en la tabla da costo null. Pantalla: panel admin "¿Cuánto cuesta Edumon?".
+      parameters:
+        - { name: desde, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: hasta, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: familias, in: query, required: false, schema: { type: integer, minimum: 0 }, description: 'Por defecto: familias de los cursos activos de la institución' }
+        - { name: mensajesPorFamiliaMes, in: query, required: false, schema: { type: integer, minimum: 0, default: 10 } }
+      responses:
+        '200':
+          description: Costos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periodo: { type: object }
+                  tablaDePrecios: { type: object, properties: { nota: { type: string }, modelos: { type: array, items: { type: object } } } }
+                  llamadas: { type: integer }
+                  tokensEntrada: { type: integer }
+                  tokensSalida: { type: integer }
+                  costoAcumuladoUSD: { type: number }
+                  hayModelosSinPrecio: { type: boolean }
+                  porModelo: { type: object, additionalProperties: { type: object } }
+                  chat: { type: object, properties: { mensajes: { type: integer }, costoPorMensajeUSD: { type: [number, 'null'] } } }
+                  proyeccionMensual:
+                    type: object
+                    properties:
+                      familias: { type: integer }
+                      mensajesPorFamiliaMes: { type: integer }
+                      mensajesMes: { type: integer }
+                      costoUSD: { type: [number, 'null'] }
+                      supuesto: { type: string }
+                  alcance: { type: string }
+        '400': { description: Parámetros inválidos }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: Rol distinto de administrador o sin institución }
+
   /api/ia/metricas:
     get:
       tags: [Proveedores de IA]

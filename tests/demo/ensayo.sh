@@ -89,6 +89,12 @@ MET="$(get rectora /api/ia/metricas)"
 echo "   $(echo "$MET" | campo '.ultimas.map(u=>u.conjunto+"/"+u.modo+": recall="+u.recallGraves+" FA="+u.tasaFalsasAlarmas).join(" · ")')"
 [ -n "$(echo "$MET" | campo '.ultimas.length')" ] && ok "métricas disponibles" || mal "sin métricas"
 
+echo "▶ 8. Costo de la IA e impacto (rectora)"
+COS="$(get rectora /api/ia/costos)"
+echo "   llamadas=$(echo "$COS" | campo '.llamadas') tokens=$(echo "$COS" | campo '.tokensEntrada')/$(echo "$COS" | campo '.tokensSalida') costo=US\$$(echo "$COS" | campo '.costoAcumuladoUSD') por mensaje=US\$$(echo "$COS" | campo '.chat.costoPorMensajeUSD') proyección mensual=US\$$(echo "$COS" | campo '.proyeccionMensual.costoUSD') (familias=$(echo "$COS" | campo '.proyeccionMensual.familias'))"
+IMP="$(get rectora /api/ia/impacto)"
+[ "$(echo "$IMP" | campo '.alertas.total')" -ge 5 ] 2>/dev/null && ok "impacto: alertas=$(echo "$IMP" | campo '.alertas.total') familias que usaron Edumon=$(echo "$IMP" | campo '.uso.familiasQueUsaronEdumon')" || mal "impacto sin datos"
+
 PROM="$(printf '%s\n' "${LATENCIAS[@]}" | awk '{s+=$1} END {if (NR) printf "%.3f", s/NR}')"
 echo "⏱  Latencia promedio de una respuesta del chat: ${PROM} s (${#LATENCIAS[@]} mensajes)"
 SALUD="$(get rectora /api/ia/health)"

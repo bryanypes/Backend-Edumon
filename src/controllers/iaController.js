@@ -21,6 +21,7 @@ import { resumenMetricas } from '../services/ia/metricasIA.js';
 import RetroalimentacionIA from '../models/RetroalimentacionIA.js';
 import { resumenRetroalimentacion } from '../services/ia/retroalimentacion.js';
 import { metricasDeImpacto } from '../services/ia/impacto.js';
+import { resumenCostos } from '../services/ia/costosIA.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -455,6 +456,27 @@ export const getImpacto = async (req, res) => {
       return res.status(400).json({ message: 'Periodo inválido: usa fechas ISO y desde <= hasta' });
     }
     res.json(await metricasDeImpacto({ institucionId: req.user.institucionId, desde, hasta }));
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// costo de la IA: acumulado, por mensaje y proyección mensual para el colegio
+export const getCostosIA = async (req, res) => {
+  try {
+    if (!req.user.institucionId) return res.status(403).json({ message: SIN_INSTITUCION });
+    const fecha = (v) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v) : undefined);
+    const entero = (v, def) => (v === undefined ? def : (Number.isInteger(Number(v)) && Number(v) >= 0 ? Number(v) : NaN));
+    // por defecto, las familias de los cursos activos de la institución
+    const familiasInstitucion = (await Curso.distinct('participantes.usuarioId', {
+      institucionId: req.user.institucionId, estado: 'activo', 'participantes.etiqueta': 'padre',
+    })).length;
+    const familias = entero(req.query.familias, familiasInstitucion);
+    const mensajesPorFamiliaMes = entero(req.query.mensajesPorFamiliaMes, 10);
+    if (Number.isNaN(familias) || Number.isNaN(mensajesPorFamiliaMes)) {
+      return res.status(400).json({ message: 'familias y mensajesPorFamiliaMes deben ser enteros >= 0' });
+    }
+    res.json(await resumenCostos({ desde: fecha(req.query.desde), hasta: fecha(req.query.hasta), familias, mensajesPorFamiliaMes }));
   } catch (error) {
     errorInterno(res, error);
   }

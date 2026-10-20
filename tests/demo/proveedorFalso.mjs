@@ -73,8 +73,11 @@ http.createServer((req, res) => {
       return;
     }
     const datos = responder(JSON.parse(crudo));
+    const contenido = JSON.stringify(datos);
+    // tokens aproximados (≈ 4 caracteres por token), como reportaría un proveedor real
+    const usage = { prompt_tokens: Math.ceil(crudo.length / 4), completion_tokens: Math.ceil(contenido.length / 4) };
     res.writeHead(200, { 'Content-Type': 'application/json' })
-      .end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(datos) } }] }));
+      .end(JSON.stringify({ choices: [{ message: { content: contenido } }], usage }));
     console.log(`[${NOMBRE}] #${llamadas} → 200 (${JSON.parse(crudo).response_format?.json_schema?.name})`);
   });
 }).listen(PUERTO, '127.0.0.1', () => console.log(`[${NOMBRE}] escuchando en http://127.0.0.1:${PUERTO}/v1 modo=${MODO}`));
