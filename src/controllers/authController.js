@@ -16,10 +16,11 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
 
 const COOKIE_BASE = {
   httpOnly: true,
-  secure:   IS_PROD,           // SameSite=None exige Secure
-  // 'none' en prod porque frontend y backend viven en orígenes distintos (cross-site);
-  // con 'strict'/'lax' el navegador no reenvía la cookie y todo cae en 401
-  sameSite: IS_PROD ? 'none' : 'lax',
+  secure:   IS_PROD,
+  // 'lax': la web llama a /api en su mismo dominio (rewrite de Vercel o nginx), así
+  // que la cookie es de primera parte. Si el frontend viviera en otro sitio
+  // (cross-site), usar COOKIE_SAMESITE=none (exige Secure, que ya va en producción)
+  sameSite: process.env.COOKIE_SAMESITE || 'lax',
   path:     '/',
 };
 
