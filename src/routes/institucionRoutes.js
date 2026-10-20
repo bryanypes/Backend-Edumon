@@ -7,7 +7,8 @@ import {
   preregistrarDocente,
   updateInstitucion,
   cambiarEstadoInstitucion,
-  deleteInstitucion
+  deleteInstitucion,
+  asignarResponsableConvivencia
 } from '../controllers/institucionController.js';
 import { param } from 'express-validator';
 import { uploadCSVCloudinary } from '../middlewares/cloudinaryMiddleware.js';
@@ -36,6 +37,7 @@ router.delete(
 // Admin del colegio
 router.get('/mi-institucion', requireRole(['administrador', 'superadmin']), getMiInstitucion);
 router.post('/docentes', requireRole(['administrador']), preregistrarDocente);
+router.patch('/responsable-convivencia', requireRole(['administrador']), asignarResponsableConvivencia);
 
 router.post(
   '/docentes/csv',

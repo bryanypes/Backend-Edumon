@@ -10,6 +10,8 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
+    "seed:fichas": "node src/scripts/seedFichas.js",
+    "eval:edumon": "node src/scripts/evaluarEdumon.js",
     "bootstrap:reset-passwords": "node src/scripts/resetBootstrapPasswords.js --confirmar",
     "correos:prueba": "node src/scripts/enviarCorreosDePrueba.js",
     "telefonos:normalizar": "node src/scripts/normalizarTelefonos.js",
@@ -47,7 +49,8 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^9.1.0",
     "sharp": "^0.34.5",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "unpdf": "^1.7.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.11",

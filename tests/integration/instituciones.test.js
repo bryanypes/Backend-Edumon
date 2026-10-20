@@ -402,3 +402,86 @@ describe('DELETE /api/instituciones/:id — soft delete (no borra nada), solo su
     expect(loginPadre.status).toBe(401);
   });
 });
+
+describe('PATCH /api/instituciones/responsable-convivencia', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('el admin designa a un docente activo de su institución', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const docente = await crearDocente({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent
+      .patch('/api/instituciones/responsable-convivencia')
+      .send({ docenteId: docente._id.toString() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.institucion.responsableConvivenciaId._id).toBe(docente._id.toString());
+    const guardada = await Institucion.findById(institucion._id).lean();
+    expect(guardada.responsableConvivenciaId.toString()).toBe(docente._id.toString());
+  });
+
+  it('docenteId null quita la designación', async () => {
+    const institucion = await crearInstitucion();
+    const docente = await crearDocente({ institucionId: institucion._id });
+    await Institucion.findByIdAndUpdate(institucion._id, { responsableConvivenciaId: docente._id });
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.patch('/api/instituciones/responsable-convivencia').send({ docenteId: null });
+
+    expect(res.status).toBe(200);
+    const guardada = await Institucion.findById(institucion._id).lean();
+    expect(guardada.responsableConvivenciaId).toBeNull();
+  });
+
+  it('rechaza un docente de otra institución (404)', async () => {
+    const institucion = await crearInstitucion();
+    const otra = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const docenteAjeno = await crearDocente({ institucionId: otra._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent
+      .patch('/api/instituciones/responsable-convivencia')
+      .send({ docenteId: docenteAjeno._id.toString() });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('rechaza un docente suspendido (404)', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const docente = await crearDocente({ institucionId: institucion._id, estado: 'suspendido' });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent
+      .patch('/api/instituciones/responsable-convivencia')
+      .send({ docenteId: docente._id.toString() });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('rechaza un docenteId con formato inválido (400)', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+
+    const res = await agent.patch('/api/instituciones/responsable-convivencia').send({ docenteId: 'abc' });
+    expect(res.status).toBe(400);
+  });
+
+  it('un docente no puede designar al responsable (403)', async () => {
+    const institucion = await crearInstitucion();
+    const docente = await crearDocente({ institucionId: institucion._id });
+    const agent = await loginComo(app, docente);
+
+    const res = await agent
+      .patch('/api/instituciones/responsable-convivencia')
+      .send({ docenteId: docente._id.toString() });
+
+    expect(res.status).toBe(403);
+  });
+});

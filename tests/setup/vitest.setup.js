@@ -25,6 +25,10 @@ process.env.SMTP_USER = 'no-reply@test.edumon.local';
 process.env.SMTP_PASS = 'test-smtp-password';
 process.env.SMTP_FROM_NAME = 'Edumon Test';
 process.env.SMTP_FROM_EMAIL = 'no-reply@test.edumon.local';
+// vacía (no ausente) a propósito: dotenv no pisa variables ya definidas, así
+// la key real del .env nunca llega a los tests y Edumon corre en modo simulado
+process.env.GROQ_API_KEY = '';
+process.env.OPENAI_API_KEY = '';
 
 // almacenamiento local de archivos: carpeta temporal aislada por corrida
 process.env.UPLOAD_DIR = path.join(os.tmpdir(), `edumon-test-uploads-${process.pid}`);

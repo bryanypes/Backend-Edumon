@@ -243,9 +243,53 @@ export const getMiInstitucion = async (req, res) => {
 
     const institucion = await Institucion.findById(usuario.institucionId)
       .populate('adminId', 'nombre apellido correo')
+      .populate('responsableConvivenciaId', 'nombre apellido correo')
       .lean();
 
     res.json({ institucion });
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+  }
+};
+
+// Admin del colegio: designa el docente que recibe las alertas de riesgo de
+// Edumon (IA). docenteId = null quita la designación (las alertas vuelven al admin).
+export const asignarResponsableConvivencia = async (req, res) => {
+  try {
+    const { docenteId } = req.body;
+    const admin = await User.findById(req.user.userId).select('institucionId').lean();
+
+    if (!admin?.institucionId) {
+      return res.status(400).json({ message: 'No tienes institución asignada' });
+    }
+
+    if (docenteId !== null) {
+      if (typeof docenteId !== 'string' || !/^[0-9a-fA-F]{24}$/.test(docenteId)) {
+        return res.status(400).json({ message: 'docenteId debe ser un ID válido o null' });
+      }
+
+      const docente = await User.findOne({
+        _id: docenteId,
+        rol: 'docente',
+        estado: 'activo',
+        institucionId: admin.institucionId,
+      }).select('_id').lean();
+
+      if (!docente) {
+        return res.status(404).json({ message: 'El docente no existe, no está activo o no pertenece a tu institución' });
+      }
+    }
+
+    const institucion = await Institucion.findByIdAndUpdate(
+      admin.institucionId,
+      { responsableConvivenciaId: docenteId },
+      { new: true }
+    ).populate('responsableConvivenciaId', 'nombre apellido correo').lean();
+
+    res.json({
+      message: docenteId ? 'Responsable de convivencia asignado' : 'Responsable de convivencia removido',
+      institucion,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
