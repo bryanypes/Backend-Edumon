@@ -13,6 +13,7 @@ import { sugerirModulos } from '../services/ia/sugerenciasModulos.js';
 import { contextoLineamientosDelCurso } from '../services/ia/lineamientos.js';
 import Curso from '../models/Curso.js';
 import Modulo from '../models/Modulo.js';
+import { estadoProveedores } from '../services/ia/proveedorIA.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -344,6 +345,11 @@ export const actualizarAlerta = async (req, res) => {
   } catch (error) {
     errorInterno(res, error);
   }
+};
+
+// ─── Salud de los proveedores de IA (solo administrador) ─────────────────────
+export const getSaludIA = (req, res) => {
+  res.json(estadoProveedores());
 };
 
 // ─── Retos de escuela de padres ───────────────────────────────────────────
