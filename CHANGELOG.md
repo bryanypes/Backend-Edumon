@@ -56,6 +56,22 @@ Rama `edumon.ia`. Parte de `master` más el merge de `origin/feature/modulo-ia` 
 - **Conjunto ciego vacío** (`tests/ia/ciego/casos.json`) con `npm run eval:ciego`. Desde ahora, el conjunto original y el holdout v1 son conjuntos de desarrollo y la métrica final es el ciego.
 - **OpenAPI de los endpoints de `modulo-ia` que usa la demo:** consentimiento, conversaciones, ayuda y lista de alertas.
 
+- **Retroalimentación de usuarios:**
+  - `PUT /api/ia/conversaciones/:id/mensajes/:mensajeId/calificacion`: útil o no útil, con comentario opcional y etiqueta de sesión de validación.
+  - `GET /api/ia/retroalimentacion` (administrador): agregado anónimo.
+- **Métricas de impacto**, `GET /api/ia/impacto` (administrador): uso, alertas por ámbito y gravedad, % dentro del plazo (`IA_PLAZO_ATENCION_HORAS_*`), horas hasta la primera atención según la bitácora y participación en retos (mínimo 5 familias por curso).
+- **Costo de la IA:**
+  - Tokens reales por llamada (`UsoIA`).
+  - Tabla de precios oficial con fuente y fecha (`src/config/preciosIA.json`).
+  - `GET /api/ia/costos` (administrador), con costo acumulado, costo por mensaje y proyección mensual.
+- **Notas de voz:** `POST /api/ia/conversaciones/:id/audio`, apagado por defecto con `IA_NOTAS_VOZ`.
+  - Whisper por la capa de proveedores.
+  - Pasa por la misma red de seguridad.
+  - El audio no se guarda.
+- **Prueba de carga** k6 (`tests/carga/`) en un entorno local aislado.
+- **Script de latencia real** del chat (`tests/demo/latenciaReal.mjs`).
+- Los errores de los proveedores ya no exponen el id de organización de la cuenta.
+
 ### Cambiado
 
 - `seed.js`: los padres quedan sin `institucionId` propio, como en el resto del sistema (viene del merge de `modulo-ia`).
@@ -80,6 +96,14 @@ GROQ_BASE_URL=
 OPENAI_BASE_URL=
 EVAL_PAUSA_MS=
 EVAL_RESULTADOS_DIR=
+IA_PLAZO_ATENCION_HORAS_GRAVE=
+IA_PLAZO_ATENCION_HORAS_MODERADO=
+IA_PRECIOS_ARCHIVO=
+IA_NOTAS_VOZ=
+IA_AUDIO_MAX_MB=
+IA_AUDIO_MAX_SEGUNDOS=
+GROQ_MODELO_TRANSCRIPCION=
+OPENAI_MODELO_TRANSCRIPCION=
 ```
 
 `GROQ_API_KEY`, `GROQ_MODEL`, `OPENAI_API_KEY` y `OPENAI_MODEL` ya existían.
@@ -90,5 +114,6 @@ EVAL_RESULTADOS_DIR=
 - Protocolo oficial de riesgo suicida: no se encontró un texto normativo descargable.
 - Anclar la bitácora en una cadena global, para detectar también que se borre una alerta completa.
 - Llenar el conjunto ciego (`tests/ia/ciego/casos.json`) con casos escritos por personas que no vieron las reglas.
-- Fase B sin construir: análisis de reflexiones, SSE, escalamiento automático, cifrado en reposo, notas de voz, fichas que crecen, temas para la cena e informe PDF Ley 2025.
+- Fase B sin construir: análisis de reflexiones, SSE, escalamiento automático, cifrado en reposo, fichas que crecen, temas para la cena e informe PDF Ley 2025.
+- La cuota del nivel gratuito de Groq (8.000 tokens por minuto con gpt-oss-120b) alcanza para unos 2 mensajes por minuto en todo el sistema.
 - Medición con un proveedor real: las llaves del `.env` responden 401.
