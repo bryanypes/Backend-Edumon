@@ -22,6 +22,12 @@ security:
 tags:
   - name: Proveedores de IA
     description: Punto 1 — capa de proveedores, salud y límite por usuario.
+  - name: Chat de la familia (existente, modulo-ia)
+    description: |
+      Endpoints que ya existían (merge de modulo-ia) y que usa la demo. Rol: **padre**.
+      Las conversaciones son privadas del perfil activo (titular o perfil familiar) y se
+      borran a los 30 días sin actividad. Todo excepto `/consentimiento` exige consentimiento
+      vigente (403 `CONSENTIMIENTO_REQUERIDO`).
   - name: Explicabilidad
     description: |
       Punto 5 — "¿Por qué Edumon dijo esto?". Explica lo que quedó guardado al responder
@@ -138,6 +144,170 @@ paths:
                 historial: []
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/ia/consentimiento:
+    get:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: getConsentimiento
+      summary: Estado del consentimiento informado del perfil activo
+      responses:
+        '200':
+          description: Estado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  versionVigente: { type: string, example: '3' }
+                  aceptado: { type: boolean }
+                  aceptadoEn: { type: [string, 'null'], format: date-time }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+    post:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: aceptarConsentimiento
+      summary: Aceptar el consentimiento (la versión que se mostró)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [version], properties: { version: { type: string, example: '3' } } }
+      responses:
+        '200': { description: 'Ya estaba aceptado: `{ message, aceptadoEn }`' }
+        '201': { description: 'Aceptado: `{ message, aceptadoEn }`' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '409': { description: 'La versión enviada no es la vigente (el texto cambió): volver a mostrarlo' }
+    delete:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: revocarConsentimiento
+      summary: Revocar el consentimiento (borra también las conversaciones del perfil)
+      responses:
+        '200':
+          description: Revocado
+          content:
+            application/json:
+              schema: { type: object, properties: { message: { type: string }, conversacionesEliminadas: { type: integer } } }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/ia/conversaciones:
+    get:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: getMisConversaciones
+      summary: Conversaciones del perfil activo
+      responses:
+        '200':
+          description: Lista (sin mensajes)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversaciones:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id: { type: string }
+                        titulo: { type: string }
+                        edadHijo: { type: [integer, 'null'] }
+                        ultimaActividad: { type: string, format: date-time }
+                        createdAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol distinto de padre o CONSENTIMIENTO_REQUERIDO' }
+    post:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: crearConversacion
+      summary: Nueva conversación (sin cuerpo)
+      responses:
+        '201':
+          description: Creada
+          content:
+            application/json:
+              schema: { type: object, properties: { conversacion: { type: object, properties: { _id: { type: string }, titulo: { type: string, example: Nueva conversación }, mensajes: { type: array, items: { type: object } } } } } }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol distinto de padre o CONSENTIMIENTO_REQUERIDO' }
+
+  /api/ia/conversaciones/{id}:
+    get:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: getConversacion
+      summary: Conversación completa con sus mensajes
+      description: Cada mensaje trae los campos de `mensajeUsuario` / `respuesta` de POST .../mensajes.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: '`{ conversacion }` con `mensajes[]`' }
+        '400': { description: ID inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol distinto de padre o CONSENTIMIENTO_REQUERIDO' }
+        '404': { description: No existe o es de otra familia o perfil }
+    delete:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: eliminarConversacion
+      summary: Borrar una conversación
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: '`{ message: "Conversación eliminada" }`' }
+        '400': { description: ID inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { description: Conversación no encontrada }
+
+  /api/ia/conversaciones/{id}/ayuda:
+    post:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: pedirAyuda
+      summary: La familia acepta que el colegio la contacte (riesgo moderado)
+      description: 'Solo cuando la última respuesta de Edumon trae `ofrecerAyuda` sin solicitar. Crea una alerta con `origen: solicitada`.'
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '201': { description: '`{ mensaje }`: confirmación de Edumon (texto fijo)' }
+        '400': { description: ID inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { description: Conversación no encontrada }
+        '409': { description: No hay una oferta de ayuda pendiente en esta conversación }
+
+  /api/ia/alertas:
+    get:
+      tags: [Bitácora de alertas]
+      operationId: getAlertas
+      summary: (Existente) Alertas visibles para el usuario
+      description: |
+        Roles: **administrador** y **docente**. El admin y el responsable de convivencia ven todas
+        las de la institución; otro docente, solo las de familias de sus cursos. Pantalla de la
+        demo: tablero de convivencia. Cada alerta trae `rutaAtencion` e `historial[]` (EventoBitacora).
+      parameters:
+        - { name: estado, in: query, required: false, schema: { type: string, enum: [nueva, en_atencion, cerrada] } }
+      responses:
+        '200':
+          description: Más recientes primero
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alertas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id: { type: string }
+                        categoria: { type: string }
+                        origen: { type: string, enum: [automatica, solicitada] }
+                        estado: { type: string, enum: [nueva, en_atencion, cerrada] }
+                        mensajeDisparador: { type: string }
+                        usuarioId: { type: object, description: 'Familia (nombre, apellido, telefono, correo)' }
+                        perfilId: { type: [object, 'null'] }
+                        atendidaPor: { type: [object, 'null'] }
+                        deteccion: { $ref: '#/components/schemas/Deteccion' }
+                        rutaAtencion: { $ref: '#/components/schemas/RutaAtencion' }
+                        historial: { type: array, items: { $ref: '#/components/schemas/EventoBitacora' } }
+                        createdAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: Rol no autorizado o usuario sin institución }
 
   /api/ia/conversaciones/{id}/mensajes:
     post:
