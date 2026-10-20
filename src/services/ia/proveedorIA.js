@@ -10,6 +10,9 @@
 //   fichas, plantillas) y lo deja registrado; nunca en silencio.
 // - Nunca se registra ni se devuelve una llave: los mensajes de error se depuran.
 
+import mongoose from 'mongoose';
+import UsoIA from '../../models/UsoIA.js';
+
 const CATALOGO = {
   groq: {
     nombre: 'groq',
@@ -126,10 +129,40 @@ async function llamar(proveedor, opciones, timeoutMs) {
 
   const contenido = cuerpo?.choices?.[0]?.message?.content;
   if (!contenido) throw new ErrorProveedor(proveedor.nombre, 'respuesta', respuesta.status, 'respuesta vacía');
+  let datos;
   try {
-    return JSON.parse(contenido);
+    datos = JSON.parse(contenido);
   } catch {
     throw new ErrorProveedor(proveedor.nombre, 'respuesta', respuesta.status, 'JSON inválido');
+  }
+  // tokens reales que cobró el proveedor (para el costo)
+  const uso = {
+    tokensEntrada: Number(cuerpo?.usage?.prompt_tokens) || 0,
+    tokensSalida: Number(cuerpo?.usage?.completion_tokens) || 0,
+  };
+  return { datos, uso };
+}
+
+// acumulado del proceso (lo usa la evaluación, que corre sin base de datos)
+const acumulado = { llamadas: 0, tokensEntrada: 0, tokensSalida: 0, porModelo: {} };
+export const usoAcumulado = () => JSON.parse(JSON.stringify(acumulado));
+
+// cada llamada exitosa queda en UsoIA si hay base de datos conectada; nunca
+// bloquea ni rompe la respuesta (es solo medición)
+async function registrarUso(fila) {
+  acumulado.llamadas += 1;
+  acumulado.tokensEntrada += fila.tokensEntrada;
+  acumulado.tokensSalida += fila.tokensSalida;
+  const clave = `${fila.proveedor}/${fila.modelo}`;
+  acumulado.porModelo[clave] ??= { llamadas: 0, tokensEntrada: 0, tokensSalida: 0 };
+  acumulado.porModelo[clave].llamadas += 1;
+  acumulado.porModelo[clave].tokensEntrada += fila.tokensEntrada;
+  acumulado.porModelo[clave].tokensSalida += fila.tokensSalida;
+  if (mongoose.connection.readyState !== 1) return;
+  try {
+    await UsoIA.create(fila);
+  } catch (error) {
+    console.warn('[Edumon IA] No se pudo registrar el uso de tokens:', error.message);
   }
 }
 
@@ -153,9 +186,13 @@ export async function completar(opciones) {
 
     const inicio = Date.now();
     try {
-      const datos = await llamar(proveedor, opciones, timeoutMs);
+      const { datos, uso } = await llamar(proveedor, opciones, timeoutMs);
       const latenciaMs = Date.now() - inicio;
       Object.assign(est, { ultimaLatenciaMs: latenciaMs, ultimoExito: new Date() });
+      await registrarUso({
+        proveedor: proveedor.nombre, modelo: proveedor.modelo(), operacion: opciones.nombre ?? null,
+        ...uso, latenciaMs, huboFallback: intentos.length > 0,
+      });
       return {
         datos,
         proveedor: proveedor.nombre,
@@ -163,6 +200,7 @@ export async function completar(opciones) {
         latenciaMs,
         huboFallback: intentos.length > 0,
         intentos,
+        uso,
       };
     } catch (error) {
       const tipo = error.tipo ?? 'red';
