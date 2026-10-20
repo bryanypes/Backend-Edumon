@@ -9,6 +9,11 @@ const historialSchema = new mongoose.Schema({
   nota: { type: String, trim: true, maxlength: 2000, default: '' },
   por: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   en: { type: Date, default: Date.now },
+  // bitácora encadenada (ver services/ia/bitacora.js). Opcionales: las alertas
+  // anteriores se encadenan con `npm run bitacora:encadenar`
+  seq: { type: Number, default: null },
+  hashAnterior: { type: String, default: null },
+  hash: { type: String, default: null },
 }, { _id: false });
 
 // Se crea cuando Edumon detecta una posible situación de riesgo. Guarda solo

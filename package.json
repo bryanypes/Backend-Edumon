@@ -12,6 +12,7 @@
     "seed": "node src/scripts/seed.js",
     "seed:fichas": "node src/scripts/seedFichas.js",
     "eval:edumon": "node src/scripts/evaluarEdumon.js",
+    "bitacora:encadenar": "node src/scripts/encadenarBitacora.js",
     "bootstrap:reset-passwords": "node src/scripts/resetBootstrapPasswords.js --confirmar",
     "correos:prueba": "node src/scripts/enviarCorreosDePrueba.js",
     "telefonos:normalizar": "node src/scripts/normalizarTelefonos.js",
