@@ -19,6 +19,8 @@ import {
   generarRetoBorrador,
   sugerirModulosCurso,
   getSaludIA,
+  verificarIntegridadAlerta,
+  verificarIntegridadAlertas,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -60,6 +62,9 @@ router.post('/conversaciones/:id/ayuda', familiaConConsentimiento, pedirAyuda);
 const colegio = requireRole(['docente', 'administrador']);
 
 router.get('/alertas', colegio, getAlertas);
+// antes de /alertas/:id para que "integridad" no se lea como un id
+router.get('/alertas/integridad', colegio, verificarIntegridadAlertas);
+router.get('/alertas/:id/integridad', colegio, verificarIntegridadAlerta);
 router.get('/alertas/:id', colegio, getAlerta);
 router.patch('/alertas/:id', colegio, actualizarAlerta);
 
