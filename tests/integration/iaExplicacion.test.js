@@ -120,7 +120,8 @@ describe('"¿Por qué Edumon dijo esto?"', () => {
       configurarLlaves({ groq: false });
       conModelo(clasificacionLLM());
       const { enviar, explicar } = await prepararFamilia(app);
-      const { body } = await enviar('dice que todos estarian mejor sin el');
+      // frase que ninguna regla reconoce: solo el modelo ve el riesgo
+      const { body } = await enviar('siente que es una carga para todos');
 
       const e = (await explicar(body.respuesta._id)).body.explicacion;
       expect(e).toMatchObject({

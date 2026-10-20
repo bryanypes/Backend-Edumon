@@ -85,11 +85,35 @@ const preguntaSinContar = (t) => t.includes('?')
 
 const ZONAS_INTIMAS = '(partes intimas|parte intima|partes privadas|sus partes|genital\\w*|vagina|pene|pipi|cuca|vulva|senos|pechos|nalgas)';
 
+// frases hechas que usan "morir", "matar" o "suicida" sin intención real
+// ("me muero de la risa", "es un suicida manejando"): se neutralizan antes de
+// buscar intención suicida, sin descartar el resto del mensaje
+const HIPERBOLES = /\b(morir|morirme|morirse|muero|muere|mori|murio|matar|matarme|matarse|mata|mato|ahorco|ahorca|ahorcaba)\s+de\s+(la\s+|el\s+)?(risa|pena|verguenza|hambre|sueno|frio|calor|ganas|amor|envidia|aburrimiento|cansancio|ternura|susto|emocion)\b|\bes\s+(un|una)\s+suicida\b/g;
+const sinHiperboles = (t) => t.replace(HIPERBOLES, ' ');
+
+// figuras adultas que no son de la familia cercana: un beso o un toque suyo a
+// un niño es señal de alarma (en la familia, "la toca" queda como indicio dudoso)
+const ADULTO_NO_FAMILIAR = '(profe|profesor|profesora|docente|maestro|maestra|entrenador|entrenadora|monitor|monitora|conductor|chofer|vecino|vecina|senor|un hombre|un man|adulto|catequista|cura|sacerdote|pastor|novio de (su|la) mama|celador)';
+const ARMAS = '(cuchillo|pistola|revolver|machete|navaja|arma|tijeras|bisturi)';
+
 const REGLAS_RIESGO = [
   // ══ GRAVE ══
   {
     categoria: 'autolesion_suicidio', gravedad: 'grave', seguro: true,
+    limpiar: sinHiperboles,
     patrones: P([
+      // ── categorías generales (mejora A2) ──
+      // intención sin la palabra "suicidio": no despertar, desaparecer para siempre, "estarían mejor sin mí"
+      /\b(dormir(se|me)?|acostarse|acostarme)\b[^.?!]{0,15}\by no (volver a )?despertar\b/,
+      /\bno (volver a )?despertar(se|me)? (nunca|jamas|mas)\b/,
+      /\b(quiere|quiero|quisiera|queria|quisieramos)\s+desaparecer\b[^.?!]{0,15}\b(para siempre|del mundo|de este mundo|de la vida|de la tierra)\b/,
+      /\b(estarian|estarias|estaria|estariamos|vivirian|seria|serian)\s+(todos\s+)?mejor\s+sin\s+(mi|el|ella|nosotros)\b(?=\s*($|[.,;!?]|y\b|porque\b|que\b|pero\b))/,
+      /\b(se|me)\s+(esta\s+|estoy\s+)?despid\w*\s+de\s+(todos|todo el mundo|la familia)\b[^.?!]{0,30}\b(para siempre|no (lo|la|me) (van|vamos) a ver)\b/,
+      // ingesta o método: sustancias letales siempre; pastillas solo con cantidad o intención
+      /\b(tomo|se tomo|tomando|ingirio|trago|se trago|bebio|se bebio|se echo)\b[^.?!]{0,25}\b(veneno|raticida|matarratas|veneno para ratas|cloro|pesticida|insecticida|acido|soda caustica|gasolina)\b/,
+      /\b(tomo|se tomo|tomando|trago|se trago)\b[^.?!]{0,20}\b(muchas|todas las|un frasco de|una caja de|un monton de|varias)\s+pastillas\b/,
+      /\bpara (matarse|matarme|morirse|morirme|quitarse la vida|quitarme la vida|suicidarse|no despertar)\b/,
+      // ── patrones anteriores ──
       'quiere morir', 'quiero morir', 'quiere morirse', 'quiero morirme', 'ganas de morir',
       'se quiere matar', 'quiere matarse', 'me quiero matar', 'quiero matarme', 'pensando en matarse',
       'pensando en matarme', 'suicid', 'quitarse la vida', 'quitarme la vida', 'autolesi',
@@ -115,6 +139,13 @@ const REGLAS_RIESGO = [
       /\b(lo|la|los|las|me)\s+abus(o|aron|a|an|ando|aba|aban)\b/,
       new RegExp(`\\b(toc|manose|sob)\\w*\\b[^.?!]{0,40}\\b${ZONAS_INTIMAS}\\b`),
       /\b(pidio|pide|piden|pidieron|mando|manda|mandaron|envio|envia|mostro|muestra|mostraron)\b[^.?!]{0,30}\b(fotos?|videos?|imagenes)\b[^.?!]{0,25}\b(desnud\w*|intim\w*|sin ropa|porno\w*|sexual\w*|en ropa interior)/,
+      // ── categorías generales (mejora A2) ──
+      // grooming: pedir o mandar material íntimo con cualquier forma del verbo (también en juegos y redes)
+      /\b(pid\w*|ped\w*|mand\w*|envi\w*|exig\w*|mostr\w*|compart\w*)\b[^.?!]{0,30}\b(fotos?|videos?|imagenes|selfies?)\b[^.?!]{0,25}\b(desnud\w*|intim\w*|sin ropa|porno\w*|sexual\w*|en ropa interior|en calzones|sin camisa)/,
+      /\b(pid\w*|ped\w*|mand\w*|exig\w*)\b[^.?!]{0,25}\b(nudes|packs?)\b(?!\s+de\s)/,
+      // figura adulta no familiar que besa, toca o manosea a un niño
+      new RegExp(`\\b${ADULTO_NO_FAMILIAR}\\b[^.?!]{0,30}\\b(la|lo|las|los)\\s+(besa|beso|besaba|besaron|toca|toco|tocaba|tocaron)\\b`),
+      /\b(la|lo|le|las|los)\s+(manosea|manoseo|manoseaba|manosean|manosearon)\b/,
     ]),
     // "violación de sus derechos" no es abuso sexual
     excluir: (t) => (/\bviolacion de (sus|los|mis|tus) derechos\b/.test(t)
@@ -127,12 +158,18 @@ const REGLAS_RIESGO = [
       'paliza', 'golpiza', 'lo queme', 'la queme', 'le queme',
       /\b(le|lo|la) quem(o|aron|aba)\b[^.?!]{0,40}\b(cigarr\w*|plancha|cuchara|agua hirviendo|agua caliente|encendedor|fosforo)/,
       /\b(le|lo|la) (pega|golpea|pegaba|golpeaba)\b[^.?!]{0,40}\b(deja|dejo|dejan|quedan|quedaron|queda) (marcas|morados|moretones|heridas)/,
+      // ── categorías generales (mejora A2): violencia física grave ──
+      /\b(le|lo|la)\s+(revent\w*|parti\w*|romp\w*|abri\w*|volt\w*)\s+(la|el|los)\s+(boca|cara|nariz|cabeza|labio|labios|ceja|dientes|brazo|costillas)\b(?!\s+(al|a la|a los|a las|del|de la)\b)/,
+      /\b(le|lo|la)\s+(dio|dieron|da|daba|pego|pegaron)\b[^.?!]{0,20}\b(a|con)\s+(punos|patadas|punetazos|puntapies|el puno|la hebilla)\b/,
+      /\b(lo|la|le)\s+(ahorc\w*|estrangul\w*|asfixi\w*)\b/,
     ]),
     prueba: golpeConLesion,
+    limpiar: sinHiperboles,
     excluir: (t) => NEGACION_GOLPE.test(t) || (contieneAlguno(t, CONTEXTO_PARES) && !contieneAlguno(t, INSTRUMENTOS)),
   },
   {
     categoria: 'violencia_intrafamiliar', gravedad: 'grave', seguro: true,
+    limpiar: sinHiperboles,
     patrones: P([
       'me amenaza con matar', 'me amenazo con matar', 'amenaza con matarme', 'amenazo con matarme',
       'amenaza con matarnos', 'amenazo con matarnos', 'nos amenaza con matar', 'nos amenazo con matar',
@@ -140,6 +177,10 @@ const REGLAS_RIESGO = [
       /\b(amenaz\w*|apunt\w*)\b[^.?!]{0,40}\b(arma|pistola|revolver|cuchillo|machete)\b/,
       /\b(arma|pistola|revolver|cuchillo|machete)\b[^.?!]{0,40}\bamenaz/,
       /\bmatar\w*\b[^.?!]{0,30}\b(arma|pistola|revolver|cuchillo|machete)\b/,
+      // ── categorías generales (mejora A2): arma contra el cuerpo ──
+      new RegExp(`\\b(puso|pone|puse|pusieron|coloco|apunto|apunta|saco|saca|pego)\\b[^.?!]{0,25}\\b${ARMAS}\\b[^.?!]{0,25}\\b(cuello|cabeza|garganta|pecho|cara|estomago|barriga)\\b`),
+      new RegExp(`\\b${ARMAS}\\b[^.?!]{0,10}\\b(en|contra|sobre)\\s+(el|la|mi|su|nuestro)\\s+(cuello|cabeza|garganta|pecho|cara)\\b`),
+      /\b(me|nos)\s+(ahorc\w*|estrangul\w*|asfixi\w*)\b/,
     ]),
   },
   {
@@ -225,7 +266,8 @@ const REGLAS_RIESGO = [
 ];
 
 // el fragmento del mensaje que activó la regla (para explicar la alerta), o null
-const coincidencia = (t, regla) => {
+const coincidencia = (texto, regla) => {
+  const t = regla.limpiar ? regla.limpiar(texto) : texto;
   if (regla.excluir?.(t)) return null;
   for (const p of regla.patrones) {
     const m = t.match(p);
