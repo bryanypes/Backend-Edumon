@@ -8,6 +8,9 @@
 // "suicidarse", pero "notas" ya no aparece dentro de "anotas". También se
 // admiten expresiones regulares para frases con contexto.
 
+import { crearCorrector } from './ortografiaGrave.js';
+import { FICHAS_CRIANZA } from '../../data/fichasCrianza.js';
+
 export const normalizar = (texto = '') => texto
   .toLowerCase()
   .normalize('NFD')
@@ -239,14 +242,55 @@ const mayor = (a, b) => (!a ? b : !b ? a : RANGO[b.gravedad] > RANGO[a.gravedad]
  * Análisis completo para combinar con la IA.
  * { seguro: {categoria, gravedad, patron} | null, dudoso: {categoria, gravedad, patron} | null }
  */
+// ─── Coincidencia aproximada (solo reglas GRAVE, ver ortografiaGrave.js) ─────
+// vocabulario "conocido": palabras bien escritas que nunca se corrigen
+const palabrasDe = (textos) => textos.flatMap((x) => normalizar(x).match(/[a-z]+/g) ?? []);
+const fuentesDe = (patrones) => patrones.map((p) => (p instanceof RegExp ? p.source : p));
+let corrector = null;
+const corregirHaciaGraves = (t) => {
+  if (!corrector) {
+    const todas = [
+      ...REGLAS_RIESGO.flatMap((r) => fuentesDe(r.patrones)),
+      ...fuentesDe(PATRONES_ATENCION),
+      ...TEMAS.flatMap((tema) => fuentesDe(tema.patrones)),
+      ...fuentesDe(CONTEXTO_PARES), ...fuentesDe(INSTRUMENTOS), ...fuentesDe(LESIONES), ...fuentesDe(GOLPE_CUIDADOR),
+    ];
+    const vocabulario = new Set([
+      // sin escapes de regex (\b, \s, \w…) para no pegar letras sueltas a las palabras
+      ...palabrasDe(todas.map((f) => f.replace(/\\[a-zA-Z]/g, ' '))),
+      ...palabrasDe(FICHAS_CRIANZA.flatMap((f) => [f.titulo, f.contenido, f.practica])),
+    ]);
+    corrector = crearCorrector({
+      fuentesGraves: REGLAS_RIESGO.filter((r) => r.gravedad === 'grave').flatMap((r) => fuentesDe(r.patrones)),
+      vocabulario,
+    });
+  }
+  return corrector(t);
+};
+
 export const analizarRiesgo = (texto) => {
   const t = normalizar(texto);
   let seguro = null;
   let dudoso = null;
+  let corregido = null;
   for (const regla of REGLAS_RIESGO) {
-    const patron = coincidencia(t, regla);
+    let patron = coincidencia(t, regla);
+    let aproximado = false;
+    // solo las reglas GRAVE se evalúan también sobre el texto con la ortografía corregida
+    if (!patron && regla.gravedad === 'grave') {
+      corregido ??= corregirHaciaGraves(t);
+      if (corregido.cambios.length) {
+        patron = coincidencia(corregido.texto, regla);
+        aproximado = Boolean(patron);
+      }
+    }
     if (!patron) continue;
-    const hallazgo = { categoria: regla.categoria, gravedad: regla.gravedad, patron };
+    const hallazgo = {
+      categoria: regla.categoria,
+      gravedad: regla.gravedad,
+      patron,
+      ...(aproximado && { aproximado: true, correcciones: corregido.cambios }),
+    };
     if (regla.seguro) seguro = mayor(seguro, hallazgo);
     else dudoso = mayor(dudoso, hallazgo);
   }
