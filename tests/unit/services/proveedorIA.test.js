@@ -257,3 +257,22 @@ describe('URL base configurable', () => {
     }
   });
 });
+
+describe('datos de la cuenta del proveedor', () => {
+  it('el id de organización que repite el proveedor en un 429 no sale en errores ni estado', async () => {
+    const restaurar = guardarEntorno();
+    _reiniciarEstadoIA();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      configurarLlaves({ openai: false });
+      stubProveedores({ groq: () => respuestaError(429, 'Rate limit reached in organization `org_01abcdefghijklmn` service tier `on_demand`') });
+      const error = await completar(OPCIONES).catch((e) => e);
+      const todo = JSON.stringify([error.message, error.intentos, estadoProveedores()]);
+      expect(todo).not.toContain('org_01abcdefghijklmn');
+      expect(todo).toContain('[organizacion]');
+    } finally {
+      restaurar();
+      vi.restoreAllMocks();
+    }
+  });
+});
