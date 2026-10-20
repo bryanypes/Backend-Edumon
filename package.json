@@ -12,6 +12,7 @@
     "seed": "node src/scripts/seed.js",
     "seed:fichas": "node src/scripts/seedFichas.js",
     "eval:edumon": "node src/scripts/evaluarEdumon.js",
+    "eval:ciego": "node src/scripts/evaluarEdumon.js --conjunto=ciego",
     "bitacora:encadenar": "node src/scripts/encadenarBitacora.js",
     "seed:demo": "node src/scripts/seedDemo.js",
     "bootstrap:reset-passwords": "node src/scripts/resetBootstrapPasswords.js --confirmar",
