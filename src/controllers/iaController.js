@@ -18,6 +18,8 @@ import { encadenar, verificarCadena } from '../services/ia/bitacora.js';
 import { explicarMensaje, explicarAlerta } from '../services/ia/explicacion.js';
 import { vistaCiclo, sugerenciaCiclo, MIN_FAMILIAS } from '../services/ia/cicloEdumon.js';
 import { resumenMetricas } from '../services/ia/metricasIA.js';
+import RetroalimentacionIA from '../models/RetroalimentacionIA.js';
+import { resumenRetroalimentacion } from '../services/ia/retroalimentacion.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -377,6 +379,65 @@ export const getExplicacionMensaje = async (req, res) => {
       return res.status(404).json({ message: 'Mensaje no encontrado en esta conversación' });
     }
     res.json({ explicacion });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Retroalimentación: la familia califica una respuesta de Edumon ───────────
+export const calificarRespuesta = async (req, res) => {
+  try {
+    const { id, mensajeId } = req.params;
+    const { util } = req.body;
+    const comentario = typeof req.body.comentario === 'string' ? req.body.comentario.trim() : '';
+    const sesion = typeof req.body.sesionValidacion === 'string' ? req.body.sesionValidacion.trim() : '';
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(mensajeId)) {
+      return res.status(400).json({ message: 'ID de conversación o de mensaje inválido' });
+    }
+    if (typeof util !== 'boolean') {
+      return res.status(400).json({ message: 'Indica si la respuesta fue útil (util: true o false)' });
+    }
+    if (comentario.length > 500 || sesion.length > 60) {
+      return res.status(400).json({ message: 'El comentario admite 500 caracteres y la sesión 60' });
+    }
+    const conversacion = await ConversacionIA.findOne({ _id: id, ...filtroDueño(req) }).select('institucionId mensajes').lean();
+    if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
+    const mensaje = conversacion.mensajes.find((m) => String(m._id) === mensajeId);
+    if (!mensaje) return res.status(404).json({ message: 'Mensaje no encontrado en esta conversación' });
+    if (mensaje.rol !== 'edumon') return res.status(400).json({ message: 'Solo se califican las respuestas de Edumon' });
+
+    const clave = { mensajeId, usuarioId: req.user.userId, perfilId: req.user.perfilId || null };
+    const existia = await RetroalimentacionIA.exists(clave);
+    const calificacion = await RetroalimentacionIA.findOneAndUpdate(clave, {
+      $set: {
+        conversacionId: id,
+        institucionId: conversacion.institucionId,
+        util,
+        comentario,
+        sesionValidacion: sesion || null,
+        tipoRespuesta: mensaje.tipo ?? null,
+        modoIA: mensaje.ia?.modo ?? null,
+      },
+    }, { upsert: true, new: true, setDefaultsOnInsert: true }).select('util comentario sesionValidacion updatedAt').lean();
+
+    res.status(existia ? 200 : 201).json({ message: existia ? 'Calificación actualizada' : 'Gracias por tu calificación', calificacion });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// agregado para el administrador: totales, % útil y comentarios recientes anónimos
+export const getRetroalimentacion = async (req, res) => {
+  try {
+    if (!req.user.institucionId) return res.status(403).json({ message: SIN_INSTITUCION });
+    const fecha = (v) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v) : undefined);
+    const sesion = typeof req.query.sesion === 'string' && req.query.sesion.trim() ? req.query.sesion.trim() : undefined;
+    res.json(await resumenRetroalimentacion({
+      institucionId: new mongoose.Types.ObjectId(req.user.institucionId),
+      sesionValidacion: sesion,
+      desde: fecha(req.query.desde),
+      hasta: fecha(req.query.hasta),
+    }));
   } catch (error) {
     errorInterno(res, error);
   }
