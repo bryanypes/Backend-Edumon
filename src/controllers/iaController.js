@@ -20,6 +20,7 @@ import { vistaCiclo, sugerenciaCiclo, MIN_FAMILIAS } from '../services/ia/cicloE
 import { resumenMetricas } from '../services/ia/metricasIA.js';
 import RetroalimentacionIA from '../models/RetroalimentacionIA.js';
 import { resumenRetroalimentacion } from '../services/ia/retroalimentacion.js';
+import { metricasDeImpacto } from '../services/ia/impacto.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -438,6 +439,22 @@ export const getRetroalimentacion = async (req, res) => {
       desde: fecha(req.query.desde),
       hasta: fecha(req.query.hasta),
     }));
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// métricas de impacto de la institución del administrador (solo agregados)
+export const getImpacto = async (req, res) => {
+  try {
+    if (!req.user.institucionId) return res.status(403).json({ message: SIN_INSTITUCION });
+    const fecha = (v) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v) : undefined);
+    const desde = fecha(req.query.desde);
+    const hasta = fecha(req.query.hasta);
+    if ((req.query.desde && !desde) || (req.query.hasta && !hasta) || (desde && hasta && desde > hasta)) {
+      return res.status(400).json({ message: 'Periodo inválido: usa fechas ISO y desde <= hasta' });
+    }
+    res.json(await metricasDeImpacto({ institucionId: req.user.institucionId, desde, hasta }));
   } catch (error) {
     errorInterno(res, error);
   }
