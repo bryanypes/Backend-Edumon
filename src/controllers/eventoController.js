@@ -6,6 +6,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { rangoDiaBogota } from '../utils/fechaColombia.js';
+import { extraerEscuelaPadres } from '../utils/escuelaPadresBody.js';
 
 // docente y padre ya se acotan a sus propios cursos/eventos en este archivo; a
 // administrador nunca se le restringía a su propia institución, por lo que podía
@@ -87,13 +88,16 @@ export const createEvento = async (req, res) => {
     }
     if (subidas.length > 0) await Promise.all(subidas);
 
+    const escuelaPadres = extraerEscuelaPadres(req.body);
+
     const nuevoEvento = new Evento({
       titulo, descripcion, fechaInicio, fechaFin, hora, ubicacion,
       docenteId: userId,
       cursosIds,
       categoria,
       imagenPortada,
-      adjuntos
+      adjuntos,
+      escuelaPadres: escuelaPadres || null,
     });
 
     const eventoGuardado = await nuevoEvento.save();
@@ -241,6 +245,10 @@ export const updateEvento = async (req, res) => {
     delete updateData._id;
     delete updateData.docenteId;
     delete updateData.fechaCreacion;
+
+    // recomendación de Edumon: undefined = no se toca, null = se quita
+    const escuelaPadres = extraerEscuelaPadres(updateData);
+    if (escuelaPadres !== undefined) updateData.escuelaPadres = escuelaPadres;
 
     // Reasignar cursosIds exige revalidar dueño/institución del destino: si no, un docente
     // colgaba su evento de un curso ajeno (mismo hueco que tenía updateTarea con cursoId).
