@@ -87,7 +87,11 @@ const depurar = (texto = '') => {
     const clave = p.clave();
     if (clave) limpio = limpio.split(clave).join('[llave]');
   }
-  return limpio.replace(/\b(sk|gsk|sk-proj)[-_][A-Za-z0-9_*\-]{4,}/g, '[llave]').slice(0, 300);
+  return limpio
+    .replace(/\b(sk|gsk|sk-proj)[-_][A-Za-z0-9_*\-]{4,}/g, '[llave]')
+    // el proveedor repite el id de la organización de la cuenta: tampoco se registra
+    .replace(/\borg[-_][A-Za-z0-9]{6,}/g, '[organizacion]')
+    .slice(0, 300);
 };
 
 const tipoPorStatus = (status) => {
