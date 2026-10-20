@@ -164,6 +164,70 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { description: Rol distinto de administrador o sin institución }
 
+  /api/ia/impacto:
+    get:
+      tags: [Evidencia y validación]
+      operationId: getImpacto
+      summary: Métricas de impacto de la institución (solo agregados)
+      description: |
+        Rol: **administrador**. Periodo por defecto: últimos 30 días (lo que duran las conversaciones).
+        Plazos de atención por gravedad (IA_PLAZO_ATENCION_HORAS_GRAVE=24, _MODERADO=72; pendientes de
+        validación). Un curso con menos de 5 familias no se desagrega (va a `otrosCursos`).
+        Pantalla: panel admin "Impacto de Edumon".
+      parameters:
+        - { name: desde, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: hasta, in: query, required: false, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Agregados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periodo: { type: object, properties: { desde: { type: string, format: date-time }, hasta: { type: string, format: date-time }, nota: { type: string } } }
+                  uso:
+                    type: object
+                    properties:
+                      familiasQueUsaronEdumon: { type: integer }
+                      conversaciones: { type: integer }
+                      mensajesDeFamilias: { type: integer }
+                  alertas:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      porAmbito: { type: object, additionalProperties: { type: object, properties: { total: { type: integer }, grave: { type: integer }, moderado: { type: integer } } } }
+                      porGravedad: { type: object, properties: { grave: { type: integer }, moderado: { type: integer } } }
+                      plazosHoras: { type: object, properties: { grave: { type: number }, moderado: { type: number }, pendienteValidacion: { type: boolean } } }
+                      atendidasDentroDelPlazo: { type: integer }
+                      fueraDelPlazo: { type: integer, description: Atendidas tarde o vencidas sin atender }
+                      sinAtenderAunEnPlazo: { type: integer }
+                      porcentajeDentroDelPlazo: { type: [number, 'null'] }
+                      horasPromedioHastaPrimeraAtencion: { type: [number, 'null'], description: Desde la bitácora (primer cambio de estado) }
+                  retosDelCiclo:
+                    type: object
+                    properties:
+                      minimoFamiliasPorCurso: { type: integer }
+                      retos: { type: integer }
+                      entregas: { type: integer }
+                      porcentajeParticipacion: { type: [number, 'null'] }
+                      porCurso:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cursoId: { type: string }
+                            nombre: { type: string }
+                            familias: { type: integer }
+                            familiasQueParticiparon: { type: integer }
+                            retos: { type: integer }
+                            entregas: { type: integer }
+                            porcentajeParticipacion: { type: [number, 'null'] }
+                      otrosCursos: { type: [object, 'null'], description: Suma de los cursos con menos de 5 familias }
+        '400': { description: Periodo inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: Rol distinto de administrador o sin institución }
+
   /api/ia/metricas:
     get:
       tags: [Proveedores de IA]

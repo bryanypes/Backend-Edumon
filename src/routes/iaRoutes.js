@@ -28,6 +28,7 @@ import {
   sugerirDesdeCiclo,
   calificarRespuesta,
   getRetroalimentacion,
+  getImpacto,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -50,6 +51,7 @@ const limiteIA = crearLimiteIA();
 router.get('/health', requireRole(['administrador']), getSaludIA);
 router.get('/metricas', requireRole(['administrador']), getMetricasIA);
 router.get('/retroalimentacion', requireRole(['administrador']), getRetroalimentacion);
+router.get('/impacto', requireRole(['administrador']), getImpacto);
 
 // ─── Familia: acompañante Edumon ──────────────────────────────────────────────
 const soloFamilia = requireRole(['padre']);

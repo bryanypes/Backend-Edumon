@@ -120,6 +120,17 @@ Todo menos `/consentimiento` responde 403 `CONSENTIMIENTO_REQUERIDO` si el perfi
   - En los comentarios se ocultan correos, teléfonos y números largos.
 - **Sugerencia para la feria:** que la web mande `sesionValidacion: "feria-2026-10-21"` mientras dure la feria, para separar las pruebas con usuarios reales.
 
+## Métricas de impacto (administrador)
+
+`GET /api/ia/impacto?desde=&hasta=` responde solo agregados de la institución. Por defecto toma los últimos 30 días.
+- `uso`: `familiasQueUsaronEdumon`, `conversaciones` y `mensajesDeFamilias`.
+- `alertas`:
+  - `porAmbito`, `porGravedad` y `plazosHoras` (24 h grave y 72 h moderado; configurables y pendientes de validación).
+  - `atendidasDentroDelPlazo`, `fueraDelPlazo`, `sinAtenderAunEnPlazo` y `porcentajeDentroDelPlazo`.
+  - `horasPromedioHastaPrimeraAtencion`, calculado desde la bitácora.
+- `retosDelCiclo`: `retos`, `entregas`, `porcentajeParticipacion` y `porCurso[]`. Un curso con menos de 5 familias va a `otrosCursos`.
+- Errores: 400 si el periodo es inválido.
+
 ## Ciclo Edumon (docente dueño del curso o admin de la institución)
 
 | Método | Ruta | Pantalla |
