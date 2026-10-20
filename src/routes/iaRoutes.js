@@ -26,6 +26,8 @@ import {
   getExplicacionAlerta,
   getCicloCurso,
   sugerirDesdeCiclo,
+  calificarRespuesta,
+  getRetroalimentacion,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -47,6 +49,7 @@ const limiteIA = crearLimiteIA();
 // ─── Plataforma: estado de los proveedores de IA ──────────────────────────────
 router.get('/health', requireRole(['administrador']), getSaludIA);
 router.get('/metricas', requireRole(['administrador']), getMetricasIA);
+router.get('/retroalimentacion', requireRole(['administrador']), getRetroalimentacion);
 
 // ─── Familia: acompañante Edumon ──────────────────────────────────────────────
 const soloFamilia = requireRole(['padre']);
@@ -63,6 +66,7 @@ router.delete('/conversaciones/:id', familiaConConsentimiento, eliminarConversac
 router.post('/conversaciones/:id/mensajes', familiaConConsentimiento, limiteIA, enviarMensaje);
 router.post('/conversaciones/:id/ayuda', familiaConConsentimiento, pedirAyuda);
 router.get('/conversaciones/:id/mensajes/:mensajeId/explicacion', familiaConConsentimiento, getExplicacionMensaje);
+router.put('/conversaciones/:id/mensajes/:mensajeId/calificacion', familiaConConsentimiento, calificarRespuesta);
 
 // ─── Colegio: alertas de riesgo ───────────────────────────────────────────────
 // el controlador además exige que el docente sea el responsable de convivencia

@@ -28,6 +28,8 @@ tags:
       Las conversaciones son privadas del perfil activo (titular o perfil familiar) y se
       borran a los 30 días sin actividad. Todo excepto `/consentimiento` exige consentimiento
       vigente (403 `CONSENTIMIENTO_REQUERIDO`).
+  - name: Evidencia y validación
+    description: Retroalimentación de usuarios, métricas de impacto y costo de IA (evidencia para la feria).
   - name: Explicabilidad
     description: |
       Punto 5 — "¿Por qué Edumon dijo esto?". Explica lo que quedó guardado al responder
@@ -87,6 +89,80 @@ paths:
                     ultimoError: null
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/ia/conversaciones/{id}/mensajes/{mensajeId}/calificacion:
+    put:
+      tags: [Evidencia y validación]
+      operationId: calificarRespuesta
+      summary: La familia califica una respuesta de Edumon (útil / no útil)
+      description: |
+        Rol: **padre** dueño de la conversación, con consentimiento. Una calificación por mensaje y
+        perfil: volver a enviarla la reemplaza (200). Solo respuestas de Edumon (`rol: edumon`).
+        Pantalla: chat, pulgares 👍/👎 bajo cada respuesta, con comentario opcional.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: mensajeId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [util]
+              properties:
+                util: { type: boolean }
+                comentario: { type: string, maxLength: 500 }
+                sesionValidacion: { type: string, maxLength: 60, description: 'Etiqueta opcional, p. ej. "feria-2026-10-21", para separar pruebas con usuarios reales' }
+      responses:
+        '201': { description: 'Primera calificación: `{ message, calificacion: { util, comentario, sesionValidacion, updatedAt } }`' }
+        '200': { description: Calificación reemplazada (misma forma) }
+        '400': { description: 'IDs inválidos, `util` no booleano, textos demasiado largos o mensaje que no es de Edumon' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol distinto de padre o CONSENTIMIENTO_REQUERIDO' }
+        '404': { description: Conversación (o mensaje) no encontrada o de otra familia }
+
+  /api/ia/retroalimentacion:
+    get:
+      tags: [Evidencia y validación]
+      operationId: getRetroalimentacion
+      summary: Agregado de calificaciones de la institución del administrador
+      description: |
+        Rol: **administrador**. Sin datos personales: ni familias ni conversaciones; en los comentarios
+        se ocultan correos, teléfonos y números largos. Pantalla: panel admin "¿Les sirve Edumon?".
+      parameters:
+        - { name: sesion, in: query, required: false, schema: { type: string }, description: Filtra por sesión de validación }
+        - { name: desde, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: hasta, in: query, required: false, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Agregado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filtro: { type: object }
+                  total: { type: integer }
+                  utiles: { type: integer }
+                  noUtiles: { type: integer }
+                  porcentajeUtil: { type: [number, 'null'] }
+                  porTipoRespuesta: { type: object, additionalProperties: { type: object, properties: { total: { type: integer }, utiles: { type: integer }, porcentajeUtil: { type: number } } } }
+                  porModoIA: { type: object, additionalProperties: { type: object } }
+                  comentariosRecientes:
+                    type: array
+                    maxItems: 20
+                    items:
+                      type: object
+                      properties:
+                        util: { type: boolean }
+                        comentario: { type: string }
+                        tipoRespuesta: { type: [string, 'null'] }
+                        modoIA: { type: [string, 'null'] }
+                        sesionValidacion: { type: [string, 'null'] }
+                        fecha: { type: string, format: date-time }
+                  sesionesValidacion: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: Rol distinto de administrador o sin institución }
 
   /api/ia/metricas:
     get:
