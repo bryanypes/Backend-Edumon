@@ -19,8 +19,10 @@ connectDB().then(() =>
 iniciarSchedulerTareas();
 
 const PORT = process.env.PORT || 4000;
+// 0.0.0.0: Render (y Docker) exigen escuchar en todas las interfaces, no solo en localhost
+const HOST = process.env.HOST || '0.0.0.0';
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
   console.log('WebSocket habilitado');
