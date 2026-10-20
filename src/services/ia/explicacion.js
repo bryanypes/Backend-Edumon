@@ -9,10 +9,10 @@ import { ETIQUETAS_CATEGORIA } from './alertas.js';
 const QUIEN = { regla: 'regla', ia: 'modelo', regla_confirmada_por_ia: 'ambos' };
 
 const NIVEL = {
-  normal: 'Consulta habitual de crianza',
-  atencion: 'Consulta con señales de malestar: se sugirió hablar con orientación escolar',
-  riesgo_moderado: 'Posible riesgo moderado: se ofreció contactar al colegio solo si la familia lo pide',
-  riesgo: 'Posible riesgo grave: se avisó automáticamente al colegio',
+  normal: 'Consulta habitual de crianza.',
+  atencion: 'Consulta con señales de malestar: se sugirió hablar con orientación escolar.',
+  riesgo_moderado: 'Posible riesgo moderado: se ofreció contactar al colegio solo si la familia lo pide.',
+  riesgo: 'Posible riesgo grave: se avisó automáticamente al colegio.',
 };
 
 const MODO_RESPUESTA = {
@@ -38,7 +38,7 @@ function quienDecidio(deteccion) {
 }
 
 function resumen({ nivelRiesgo, decidio, deteccion, respuesta, fichas, rutaAtencion }) {
-  const frases = [NIVEL[nivelRiesgo] ?? 'Mensaje clasificado'];
+  const frases = [NIVEL[nivelRiesgo] ?? 'Mensaje clasificado.'];
   if (deteccion?.reglaSegura?.patron && decidio !== 'modelo') {
     frases.push(deteccion.reglaSegura.aproximado
       ? `Una regla de seguridad reconoció "${deteccion.reglaSegura.patron}" corrigiendo la ortografía (${(deteccion.reglaSegura.correcciones ?? []).map((c) => `${c.de} → ${c.a}`).join(', ')}).`
@@ -49,7 +49,7 @@ function resumen({ nivelRiesgo, decidio, deteccion, respuesta, fichas, rutaAtenc
   if (deteccion?.fuente === 'reglas' && deteccion?.errorIA) frases.push(`La IA no estaba disponible (${deteccion.errorIA}); decidieron las reglas.`);
   if (respuesta?.ia?.modo) frases.push(`${MODO_RESPUESTA[respuesta.ia.modo]}.`);
   if (fichas.length) frases.push(`Fichas usadas: ${fichas.map((f) => f.titulo).join('; ')}.`);
-  if (rutaAtencion?.protocolo) frases.push(`Ruta sugerida: ${rutaAtencion.protocolo}.`);
+  if (rutaAtencion?.protocolo) frases.push(`Ruta sugerida: ${rutaAtencion.protocolo.replace(/\.$/, '')}.`);
   return frases.join(' ');
 }
 
