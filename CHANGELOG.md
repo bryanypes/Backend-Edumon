@@ -45,6 +45,17 @@ Rama `edumon.ia`. Parte de `master` más el merge de `origin/feature/modulo-ia` 
   - `DEMO-BACKEND.md`.
   - `docs/ia/`: línea base y resultados de la evaluación.
 
+- **Reglas GRAVE por categorías generales** (fase A2):
+  - Intención suicida sin la palabra.
+  - Ingesta o método.
+  - Figura adulta no familiar que besa, toca o manosea.
+  - Grooming.
+  - Violencia física grave y armas.
+  - Cada categoría tiene pruebas de falsas alarmas con frases cotidianas.
+  - Las frases hechas ("morir de la risa", "es un suicida manejando") se neutralizan antes de evaluar.
+- **Conjunto ciego vacío** (`tests/ia/ciego/casos.json`) con `npm run eval:ciego`. Desde ahora, el conjunto original y el holdout v1 son conjuntos de desarrollo y la métrica final es el ciego.
+- **OpenAPI de los endpoints de `modulo-ia` que usa la demo:** consentimiento, conversaciones, ayuda y lista de alertas.
+
 ### Cambiado
 
 - `seed.js`: los padres quedan sin `institucionId` propio, como en el resto del sistema (viene del merge de `modulo-ia`).
@@ -78,5 +89,6 @@ EVAL_RESULTADOS_DIR=
 - Streaming SSE.
 - Protocolo oficial de riesgo suicida: no se encontró un texto normativo descargable.
 - Anclar la bitácora en una cadena global, para detectar también que se borre una alerta completa.
-- Un holdout escrito por orientación escolar (el actual lo escribió el mismo autor de las reglas).
+- Llenar el conjunto ciego (`tests/ia/ciego/casos.json`) con casos escritos por personas que no vieron las reglas.
+- Fase B sin construir: análisis de reflexiones, SSE, escalamiento automático, cifrado en reposo, notas de voz, fichas que crecen, temas para la cena e informe PDF Ley 2025.
 - Medición con un proveedor real: las llaves del `.env` responden 401.
