@@ -19,6 +19,7 @@ import {
   generarRetoBorrador,
   sugerirModulosCurso,
   getSaludIA,
+  getMetricasIA,
   verificarIntegridadAlerta,
   verificarIntegridadAlertas,
   getExplicacionMensaje,
@@ -45,6 +46,7 @@ const limiteIA = crearLimiteIA();
 
 // ─── Plataforma: estado de los proveedores de IA ──────────────────────────────
 router.get('/health', requireRole(['administrador']), getSaludIA);
+router.get('/metricas', requireRole(['administrador']), getMetricasIA);
 
 // ─── Familia: acompañante Edumon ──────────────────────────────────────────────
 const soloFamilia = requireRole(['padre']);

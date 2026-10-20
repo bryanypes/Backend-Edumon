@@ -17,6 +17,7 @@ import { estadoProveedores } from '../services/ia/proveedorIA.js';
 import { encadenar, verificarCadena } from '../services/ia/bitacora.js';
 import { explicarMensaje, explicarAlerta } from '../services/ia/explicacion.js';
 import { vistaCiclo, sugerenciaCiclo, MIN_FAMILIAS } from '../services/ia/cicloEdumon.js';
+import { resumenMetricas } from '../services/ia/metricasIA.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -450,6 +451,15 @@ export const verificarIntegridadAlertas = async (req, res) => {
 // ─── Salud de los proveedores de IA (solo administrador) ─────────────────────
 export const getSaludIA = (req, res) => {
   res.json(estadoProveedores());
+};
+
+// métricas de seguridad de la IA (resultados guardados de la evaluación)
+export const getMetricasIA = async (req, res) => {
+  try {
+    res.json(await resumenMetricas());
+  } catch (error) {
+    errorInterno(res, error);
+  }
 };
 
 // ─── Retos de escuela de padres ───────────────────────────────────────────

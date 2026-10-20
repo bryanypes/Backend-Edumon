@@ -5,6 +5,7 @@
  *   npm run eval:edumon                          # conjunto original (193) y holdout
  *   npm run eval:edumon -- --conjunto=holdout    # original | holdout | todos
  *   npm run eval:edumon -- --solo-fallos
+ *   npm run eval:edumon -- --guardar             # guarda un JSON por conjunto en src/data/evaluaciones
  *
  * El número que importa es el del holdout (tests/ia/holdout): las reglas nunca
  * se ajustaron mirando esos casos.
@@ -14,9 +15,23 @@ import { iaDisponible, modeloPrincipal as modelo } from '../services/ia/proveedo
 import { evaluarConjunto } from '../services/ia/evaluacion.js';
 import { CASOS_EVALUACION } from '../data/casosEvaluacionEdumon.js';
 import { CASOS_HOLDOUT } from '../../tests/ia/holdout/casosHoldout.js';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { guardarResultado } from '../services/ia/metricasIA.js';
 
 const arg = (nombre) => process.argv.find((a) => a.startsWith(`--${nombre}=`))?.split('=')[1];
 const soloFallos = process.argv.includes('--solo-fallos');
+const guardar = process.argv.includes('--guardar');
+const versionCodigo = () => {
+  const paquete = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+  try {
+    const commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const sucio = execSync('git status --porcelain -- src', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() ? '+cambios' : '';
+    return `${paquete}+${commit}${sucio}`;
+  } catch {
+    return paquete;
+  }
+};
 const conjunto = arg('conjunto') || 'todos';
 const conLLM = iaDisponible();
 // el plan gratuito de Groq admite 8000 tokens por minuto y cada clasificación
@@ -59,4 +74,19 @@ for (const clave of elegidos) {
   console.log(`🚨 Falsas alarmas graves: ${m.falsasAlarmas.length}`);
   m.falsasAlarmas.forEach((g) => console.log(`   - "${g.texto}" (obtuvo ${g.obtenido})`));
   if (m.cuotaAgotada) console.log('\n⛔ Se agotó la cuota diaria del proveedor: la medición quedó incompleta.');
+
+  if (guardar) {
+    const proveedores = Object.keys(m.proveedores);
+    const ruta = await guardarResultado({
+      fecha: new Date().toISOString(),
+      version: versionCodigo(),
+      conjunto: clave,
+      modo: conLLM ? 'llm' : 'simulado',
+      proveedor: conLLM ? (proveedores.length ? proveedores.join(',') : 'ninguno_respondio') : null,
+      modelo: conLLM ? modelo() : null,
+      completa: !m.cuotaAgotada,
+      metricas: m,
+    });
+    console.log(`💾 Guardado en ${ruta}`);
+  }
 }
