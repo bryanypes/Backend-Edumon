@@ -1,6 +1,7 @@
 import express from 'express';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import { requireConsentimientoIA } from '../middlewares/consentimientoIAMiddleware.js';
+import { crearLimiteIA } from '../middlewares/limiteIAMiddleware.js';
 import {
   getConsentimiento,
   aceptarConsentimiento,
@@ -17,6 +18,7 @@ import {
   getTemas,
   generarRetoBorrador,
   sugerirModulosCurso,
+  getSaludIA,
 } from '../controllers/iaController.js';
 import {
   getLineamientos,
@@ -32,6 +34,12 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
+// límite por usuario en los endpoints que llaman a un proveedor de IA
+const limiteIA = crearLimiteIA();
+
+// ─── Plataforma: estado de los proveedores de IA ──────────────────────────────
+router.get('/health', requireRole(['administrador']), getSaludIA);
+
 // ─── Familia: acompañante Edumon ──────────────────────────────────────────────
 const soloFamilia = requireRole(['padre']);
 const familiaConConsentimiento = [soloFamilia, requireConsentimientoIA];
@@ -44,7 +52,7 @@ router.get('/conversaciones', familiaConConsentimiento, getMisConversaciones);
 router.post('/conversaciones', familiaConConsentimiento, crearConversacion);
 router.get('/conversaciones/:id', familiaConConsentimiento, getConversacion);
 router.delete('/conversaciones/:id', familiaConConsentimiento, eliminarConversacion);
-router.post('/conversaciones/:id/mensajes', familiaConConsentimiento, enviarMensaje);
+router.post('/conversaciones/:id/mensajes', familiaConConsentimiento, limiteIA, enviarMensaje);
 router.post('/conversaciones/:id/ayuda', familiaConConsentimiento, pedirAyuda);
 
 // ─── Colegio: alertas de riesgo ───────────────────────────────────────────────
@@ -57,8 +65,8 @@ router.patch('/alertas/:id', colegio, actualizarAlerta);
 
 // ─── Colegio: retos de escuela de padres ──────────────────────────────────────
 router.get('/temas', colegio, getTemas);
-router.post('/retos/borrador', colegio, generarRetoBorrador);
-router.post('/modulos/sugerencias', colegio, sugerirModulosCurso);
+router.post('/retos/borrador', colegio, limiteIA, generarRetoBorrador);
+router.post('/modulos/sugerencias', colegio, limiteIA, sugerirModulosCurso);
 
 // ─── Colegio: lineamientos de escuela de padres (rectoría → docentes) ─────────
 const soloAdmin = requireRole(['administrador']);
@@ -66,7 +74,7 @@ const soloAdmin = requireRole(['administrador']);
 router.get('/lineamientos', colegio, getLineamientos);
 router.get('/lineamientos/seguimiento', colegio, getSeguimientoLineamientos);
 router.get('/lineamientos/seguimiento/:cursoId', colegio, getDetalleParticipacion);
-router.post('/lineamientos/borrador', soloAdmin, uploadPdfComunicado.single('archivo'), generarBorradorLineamientos);
+router.post('/lineamientos/borrador', soloAdmin, limiteIA, uploadPdfComunicado.single('archivo'), generarBorradorLineamientos);
 router.put('/lineamientos', soloAdmin, guardarBorradorLineamientos);
 router.post('/lineamientos/publicar', soloAdmin, publicarLineamientos);
 
