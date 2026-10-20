@@ -12,9 +12,11 @@ const RUTA_PRECIOS = () => process.env.IA_PRECIOS_ARCHIVO || path.resolve(AQUI, 
 export const cargarPrecios = () => JSON.parse(fs.readFileSync(RUTA_PRECIOS(), 'utf8'));
 
 const redondear = (x, d = 6) => (x == null ? null : Number(x.toFixed(d)));
-const costoDe = (precio, entrada, salida) => (precio?.entradaUSDPorMillon == null
-  ? null
-  : (entrada * precio.entradaUSDPorMillon + salida * precio.salidaUSDPorMillon) / 1e6);
+const costoDe = (precio, entrada, salida, segundosAudio = 0) => {
+  if (precio?.audioUSDPorHora != null) return (segundosAudio / 3600) * precio.audioUSDPorHora;
+  if (precio?.entradaUSDPorMillon == null) return null;
+  return (entrada * precio.entradaUSDPorMillon + salida * precio.salidaUSDPorMillon) / 1e6;
+};
 
 /**
  * @param {{ desde?: Date, hasta?: Date, familias: number, mensajesPorFamiliaMes: number }} p
@@ -26,7 +28,7 @@ export async function resumenCostos({ desde, hasta, familias, mensajesPorFamilia
 
   const filas = await UsoIA.aggregate([
     { $match: filtro },
-    { $group: { _id: { proveedor: '$proveedor', modelo: '$modelo', operacion: '$operacion' }, llamadas: { $sum: 1 }, tokensEntrada: { $sum: '$tokensEntrada' }, tokensSalida: { $sum: '$tokensSalida' } } },
+    { $group: { _id: { proveedor: '$proveedor', modelo: '$modelo', operacion: '$operacion' }, llamadas: { $sum: 1 }, tokensEntrada: { $sum: '$tokensEntrada' }, tokensSalida: { $sum: '$tokensSalida' }, segundosAudio: { $sum: '$segundosAudio' } } },
   ]);
 
   let costoTotal = 0;
@@ -37,10 +39,11 @@ export async function resumenCostos({ desde, hasta, familias, mensajesPorFamilia
   for (const f of filas) {
     const { proveedor, modelo, operacion } = f._id;
     const p = precio(proveedor, modelo);
-    const costo = costoDe(p, f.tokensEntrada, f.tokensSalida);
+    const costo = costoDe(p, f.tokensEntrada, f.tokensSalida, f.segundosAudio ?? 0);
     if (costo == null) sinPrecio = true; else costoTotal += costo;
     const clave = `${proveedor}/${modelo}`;
-    porModelo[clave] ??= { llamadas: 0, tokensEntrada: 0, tokensSalida: 0, costoUSD: 0, precio: p };
+    porModelo[clave] ??= { llamadas: 0, tokensEntrada: 0, tokensSalida: 0, segundosAudio: 0, costoUSD: 0, precio: p };
+    porModelo[clave].segundosAudio += f.segundosAudio ?? 0;
     porModelo[clave].llamadas += f.llamadas;
     porModelo[clave].tokensEntrada += f.tokensEntrada;
     porModelo[clave].tokensSalida += f.tokensSalida;

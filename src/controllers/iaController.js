@@ -13,7 +13,8 @@ import { sugerirModulos } from '../services/ia/sugerenciasModulos.js';
 import { contextoLineamientosDelCurso } from '../services/ia/lineamientos.js';
 import Curso from '../models/Curso.js';
 import Modulo from '../models/Modulo.js';
-import { estadoProveedores } from '../services/ia/proveedorIA.js';
+import { estadoProveedores, transcribir } from '../services/ia/proveedorIA.js';
+import { maxSegundosAudio } from '../middlewares/notasVozMiddleware.js';
 import { encadenar, verificarCadena } from '../services/ia/bitacora.js';
 import { explicarMensaje, explicarAlerta } from '../services/ia/explicacion.js';
 import { vistaCiclo, sugerenciaCiclo, MIN_FAMILIAS } from '../services/ia/cicloEdumon.js';
@@ -381,6 +382,50 @@ export const getExplicacionMensaje = async (req, res) => {
       return res.status(404).json({ message: 'Mensaje no encontrado en esta conversación' });
     }
     res.json({ explicacion });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Notas de voz: transcribir y procesar por el mismo flujo de seguridad ──────
+export const enviarAudio = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'ID de conversación inválido' });
+    if (!req.file?.buffer?.length) return res.status(400).json({ message: 'Adjunta el audio en el campo "audio"', code: 'AUDIO_INVALIDO' });
+    const conversacion = await ConversacionIA.findOne({ _id: id, ...filtroDueño(req) });
+    if (!conversacion) return res.status(404).json({ message: 'Conversación no encontrada' });
+
+    let transcripcion;
+    try {
+      transcripcion = await transcribir({ buffer: req.file.buffer, mimetype: req.file.mimetype, nombreArchivo: req.file.originalname || 'nota.webm' });
+    } catch {
+      // sin transcripción no hay texto que revisar: se pide escribir (nunca se descarta en silencio)
+      return res.status(503).json({ message: 'No pudimos entender la nota de voz en este momento. Escribe tu mensaje, por favor.', code: 'TRANSCRIPCION_NO_DISPONIBLE' });
+    } finally {
+      req.file.buffer = null; // el audio no se conserva
+    }
+    if (transcripcion.duracionSegundos && transcripcion.duracionSegundos > maxSegundosAudio()) {
+      return res.status(413).json({ message: `La nota de voz dura más de ${maxSegundosAudio()} segundos`, code: 'AUDIO_DEMASIADO_LARGO' });
+    }
+    const texto = transcripcion.texto.slice(0, MAX_CARACTERES_MENSAJE);
+    if (!texto) return res.status(422).json({ message: 'No se entendió ninguna palabra en la nota de voz', code: 'AUDIO_SIN_TEXTO' });
+
+    // mismo flujo que un mensaje escrito: red de seguridad, alertas, respuesta
+    const respuesta = await procesarMensaje(conversacion, texto, { entrada: 'voz' });
+    res.status(201).json({
+      transcripcion: {
+        texto,
+        duracionSegundos: transcripcion.duracionSegundos,
+        proveedor: transcripcion.proveedor,
+        modelo: transcripcion.modelo,
+        latenciaMs: transcripcion.latenciaMs,
+        huboFallback: transcripcion.huboFallback,
+      },
+      mensajeUsuario: conversacion.mensajes[conversacion.mensajes.length - 2],
+      respuesta,
+      conversacion: { _id: conversacion._id, titulo: conversacion.titulo, edadHijo: conversacion.edadHijo },
+    });
   } catch (error) {
     errorInterno(res, error);
   }
