@@ -406,9 +406,13 @@ components:
     RutaAtencion:
       type: [object, 'null']
       description: |
-        Clasificación de ruta (punto 3, en construcción: hoy siempre null). Forma acordada:
-        ambito escolar → tipoLey1620 I/II/III (Decreto 1965 de 2013, art. 40);
-        hogar/personal → tipoLey1620 null y `protocolo`. Todo con `pendienteValidacion: true`.
+        Punto 3 — clasificación de ruta. Viene en cada alerta (`GET /api/ia/alertas`,
+        `GET /api/ia/alertas/{id}`, explicación) y en el mensaje del cuidador con riesgo.
+        null en mensajes sin riesgo y en alertas anteriores a esta rama.
+        - ambito `escolar` → `tipoLey1620` I/II/III (Decreto 1965 de 2013, art. 40) y protocolo del tipo (arts. 42-44).
+        - ambito `hogar` → `tipoLey1620` null; protocolo según Ley 1098 de 2006, art. 44 (num. 9 reportar / num. 2 apoyo).
+        - ambito `personal` (riesgo suicida) → `tipoLey1620` null; protocolo de salud mental con `fuentePendiente`.
+        La web debe mostrar siempre `nota` ("Pendiente de validación por orientación/convivencia").
       properties:
         ambito: { type: string, enum: [escolar, hogar, personal] }
         tipoLey1620: { type: [string, 'null'], enum: [I, II, III, null] }
@@ -421,8 +425,11 @@ components:
             properties:
               norma: { type: string }
               articulo: { type: string }
-              fuente: { type: string, description: URL oficial }
+              fuente: { type: string, description: URL oficial (Gestor Normativo de Función Pública) }
+              texto: { type: string, description: Texto literal del artículo o numeral }
+        fuentePendiente: { type: [string, 'null'], description: Texto oficial que falta obtener (no se reconstruyó de memoria) }
         pendienteValidacion: { type: boolean, const: true }
+        nota: { type: string }
 
     ExplicacionMensaje:
       type: object
