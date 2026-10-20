@@ -5,6 +5,7 @@ import Curso from '../../models/Curso.js';
 import User from '../../models/User.js';
 import notificador from '../../notifications/NotificadorFacade.js';
 import { encadenar } from './bitacora.js';
+import { clasificarRuta } from './rutaAtencion.js';
 
 export const ETIQUETAS_CATEGORIA = {
   maltrato_fisico: 'maltrato físico',
@@ -96,6 +97,8 @@ export async function crearAlertaRiesgo({ conversacion, categoria, mensajeDispar
       notificadoA,
       docentesCurso,
       deteccion,
+      // automática = grave; solicitada = la familia aceptó ayuda en un caso moderado
+      rutaAtencion: clasificarRuta({ categoria, gravedad: origen === 'automatica' ? 'grave' : 'moderado', texto: mensajeDisparador }),
     };
     const alerta = new AlertaRiesgo(datos);
     alerta.historial = encadenar(alerta, [], [{
