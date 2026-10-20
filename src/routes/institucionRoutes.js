@@ -24,9 +24,9 @@ router.post('/', requireRole(['superadmin']), crearInstitucionValidator, crearIn
 router.get('/', requireRole(['superadmin']), getInstituciones);
 router.put('/:id', requireRole(['superadmin']), updateInstitucion);
 router.patch('/:id/estado', requireRole(['superadmin']), cambiarEstadoInstitucion);
-// irreversible: borra la institución y TODO lo que depende de ella (cursos,
-// tareas, entregas, eventos, foros, docentes/admins, y los padres que se
-// queden sin ningún otro curso). Ver el comentario en el controlador.
+// borrado lógico: no borra nada; desactiva la institución, archiva sus cursos
+// y suspende a sus docentes/admins y a los padres que se queden sin ningún
+// otro curso. Reversible a mano. Ver el comentario en el controlador.
 router.delete(
   '/:id',
   requireRole(['superadmin']),
