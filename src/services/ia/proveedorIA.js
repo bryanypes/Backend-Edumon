@@ -227,6 +227,69 @@ export async function completar(opciones) {
   );
 }
 
+// ─── Transcripción de audio (notas de voz) ────────────────────────────────────
+// Whisper por la misma cadena de proveedores (orden, fallback y cooldown). El
+// audio llega como buffer en memoria y no se guarda en ningún lado.
+const MODELO_TRANSCRIPCION = {
+  groq: () => process.env.GROQ_MODELO_TRANSCRIPCION || 'whisper-large-v3-turbo',
+  openai: () => process.env.OPENAI_MODELO_TRANSCRIPCION || 'whisper-1',
+};
+const urlTranscripcion = (proveedor) => proveedor.url().replace(/\/chat\/completions$/, '/audio/transcriptions');
+
+export async function transcribir({ buffer, mimetype, nombreArchivo = 'nota.webm', idioma = 'es' }) {
+  const { timeoutMs, cooldownMs } = configuracionIA();
+  const proveedores = configurados();
+  const intentos = [];
+  for (const proveedor of proveedores) {
+    const est = estadoDe(proveedor.nombre);
+    if (est.cooldownHasta > Date.now()) {
+      intentos.push({ proveedor: proveedor.nombre, resultado: 'omitido_cooldown', motivo: est.motivoCooldown });
+      continue;
+    }
+    const modelo = MODELO_TRANSCRIPCION[proveedor.nombre]();
+    const inicio = Date.now();
+    try {
+      const form = new FormData();
+      form.append('file', new Blob([buffer], { type: mimetype }), nombreArchivo);
+      form.append('model', modelo);
+      form.append('language', idioma);
+      form.append('response_format', 'verbose_json');
+      let respuesta;
+      try {
+        respuesta = await fetch(urlTranscripcion(proveedor), {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${proveedor.clave()}` },
+          body: form,
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (error) {
+        const esTimeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+        throw new ErrorProveedor(proveedor.nombre, esTimeout ? 'timeout' : 'red', null, esTimeout ? `sin respuesta en ${timeoutMs} ms (timeout)` : depurar(error?.message));
+      }
+      const cuerpo = await respuesta.json().catch(() => null);
+      if (!respuesta.ok) {
+        const tipo = tipoPorStatus(respuesta.status);
+        throw new ErrorProveedor(proveedor.nombre, tipo, respuesta.status, tipo === 'auth' ? 'llave inválida, vencida o sin permisos' : depurar(cuerpo?.error?.message || 'sin detalle'));
+      }
+      const latenciaMs = Date.now() - inicio;
+      Object.assign(est, { ultimaLatenciaMs: latenciaMs, ultimoExito: new Date() });
+      const duracionSegundos = Number(cuerpo?.duration) || null;
+      await registrarUso({
+        proveedor: proveedor.nombre, modelo, operacion: 'transcripcion', tokensEntrada: 0, tokensSalida: 0,
+        segundosAudio: duracionSegundos ?? 0, latenciaMs, huboFallback: intentos.length > 0,
+      });
+      return { texto: String(cuerpo?.text ?? '').trim(), duracionSegundos, proveedor: proveedor.nombre, modelo, latenciaMs, huboFallback: intentos.length > 0, intentos };
+    } catch (error) {
+      const tipo = error.tipo ?? 'red';
+      est.ultimoError = { tipo, status: error.status ?? null, en: new Date() };
+      if (tipo === 'rate_limit' || tipo === 'auth') { est.cooldownHasta = Date.now() + cooldownMs; est.motivoCooldown = tipo; }
+      intentos.push({ proveedor: proveedor.nombre, resultado: 'error', tipo, status: error.status ?? null, mensaje: depurar(error.message) });
+      console.warn(`[Edumon IA] transcripción: ${depurar(error.message)}`);
+    }
+  }
+  throw new ErrorIA(proveedores.length ? 'Ningún proveedor pudo transcribir el audio' : 'No hay proveedor de IA configurado', intentos);
+}
+
 // interfaz única: clasificar un mensaje y redactar una respuesta
 export const classify = (opciones) => completar({ esfuerzo: 'low', maxTokens: 2000, ...opciones });
 export const respond = (opciones) => completar({ esfuerzo: 'medium', ...opciones });

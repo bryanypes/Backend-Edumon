@@ -30,7 +30,9 @@ import {
   getRetroalimentacion,
   getImpacto,
   getCostosIA,
+  enviarAudio,
 } from '../controllers/iaController.js';
+import { requireNotasVoz, recibirAudio } from '../middlewares/notasVozMiddleware.js';
 import {
   getLineamientos,
   generarBorradorLineamientos,
@@ -69,6 +71,8 @@ router.get('/conversaciones/:id', familiaConConsentimiento, getConversacion);
 router.delete('/conversaciones/:id', familiaConConsentimiento, eliminarConversacion);
 router.post('/conversaciones/:id/mensajes', familiaConConsentimiento, limiteIA, enviarMensaje);
 router.post('/conversaciones/:id/ayuda', familiaConConsentimiento, pedirAyuda);
+// notas de voz (IA_NOTAS_VOZ=true): el audio solo vive en memoria mientras se transcribe
+router.post('/conversaciones/:id/audio', requireNotasVoz, familiaConConsentimiento, limiteIA, recibirAudio, enviarAudio);
 router.get('/conversaciones/:id/mensajes/:mensajeId/explicacion', familiaConConsentimiento, getExplicacionMensaje);
 router.put('/conversaciones/:id/mensajes/:mensajeId/calificacion', familiaConConsentimiento, calificarRespuesta);
 

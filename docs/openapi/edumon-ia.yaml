@@ -440,6 +440,56 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '404': { description: Conversación no encontrada }
 
+  /api/ia/conversaciones/{id}/audio:
+    post:
+      tags: [Chat de la familia (existente, modulo-ia)]
+      operationId: enviarAudio
+      summary: Nota de voz — se transcribe y se procesa como un mensaje escrito
+      description: |
+        Requiere IA_NOTAS_VOZ=true en el servidor (si no, 404 `NOTAS_VOZ_DESACTIVADAS`). Rol: **padre** con
+        consentimiento. Transcribe con Whisper (Groq por defecto) por la misma capa de proveedores y pasa
+        el texto por la misma red de seguridad (alertas incluidas). El audio NO se guarda.
+        Límites: IA_AUDIO_MAX_MB (10) y IA_AUDIO_MAX_SEGUNDOS (120). Comparte el 429 LIMITE_IA.
+        Pantalla: chat, botón de micrófono.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio: { type: string, format: binary, description: 'webm, ogg, mp3, m4a, wav o aac' }
+      responses:
+        '201':
+          description: Igual que POST .../mensajes, más la transcripción
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transcripcion:
+                    type: object
+                    properties:
+                      texto: { type: string }
+                      duracionSegundos: { type: [number, 'null'] }
+                      proveedor: { type: string }
+                      modelo: { type: string }
+                      latenciaMs: { type: integer }
+                      huboFallback: { type: boolean }
+                  mensajeUsuario: { type: object, description: 'Con `entrada: "voz"`' }
+                  respuesta: { type: object }
+                  conversacion: { type: object }
+        '400': { description: 'Falta el audio o tipo no permitido (`code: AUDIO_INVALIDO`)' }
+        '403': { description: 'Rol distinto de padre o CONSENTIMIENTO_REQUERIDO' }
+        '404': { description: 'Conversación no encontrada o `code: NOTAS_VOZ_DESACTIVADAS`' }
+        '413': { description: '`AUDIO_DEMASIADO_GRANDE` o `AUDIO_DEMASIADO_LARGO`' }
+        '422': { description: '`AUDIO_SIN_TEXTO`: no se entendió ninguna palabra' }
+        '429': { $ref: '#/components/responses/LimiteIA' }
+        '503': { description: '`TRANSCRIPCION_NO_DISPONIBLE`: ningún proveedor pudo transcribir; pedir que escriba' }
+
   /api/ia/conversaciones/{id}/ayuda:
     post:
       tags: [Chat de la familia (existente, modulo-ia)]

@@ -9,6 +9,8 @@ const usoIASchema = new mongoose.Schema({
   operacion: { type: String, default: null },
   tokensEntrada: { type: Number, default: 0 },
   tokensSalida: { type: Number, default: 0 },
+  // transcripción de notas de voz: se cobra por tiempo de audio
+  segundosAudio: { type: Number, default: 0 },
   latenciaMs: { type: Number, default: null },
   huboFallback: { type: Boolean, default: false },
 }, { timestamps: { createdAt: 'en', updatedAt: false } });

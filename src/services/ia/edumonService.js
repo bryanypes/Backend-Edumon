@@ -95,7 +95,7 @@ const CATEGORIAS_SOLO_APOYO = ['violencia_intrafamiliar', 'negligencia_grave'];
  * Procesa un mensaje del cuidador y agrega a la conversación tanto ese mensaje
  * como la respuesta de Edumon. Guarda la conversación. Devuelve la respuesta.
  */
-export async function procesarMensaje(conversacion, textoActual) {
+export async function procesarMensaje(conversacion, textoActual, { entrada = 'texto' } = {}) {
   const historial = conversacion.mensajes.map((m) => ({ rol: m.rol, contenido: m.contenido, tipo: m.tipo }));
   const clasificacion = await clasificar(textoActual, historial);
 
@@ -112,6 +112,8 @@ export async function procesarMensaje(conversacion, textoActual) {
     contenido: textoActual,
     nivelRiesgo,
     categoriaRiesgo: clasificacion.categoriaRiesgo ?? null,
+    // "voz": el texto salió de transcribir una nota de voz (el audio no se guarda)
+    entrada: entrada === 'voz' ? 'voz' : null,
     // en riesgo grave el tema puede ser engañoso (abuso → "sexualidad"): no se agrega
     tema: riesgoGrave ? null : (clasificacion.tema ?? null),
     rutaAtencion: clasificarRuta({ categoria: clasificacion.categoriaRiesgo, gravedad: clasificacion.gravedad, texto: textoActual }),

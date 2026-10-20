@@ -110,6 +110,12 @@ const mensajeSchema = new mongoose.Schema({
     enum: NIVELES_RIESGO,
     default: null,
   },
+  // "voz" si el mensaje del usuario vino de una nota de voz transcrita
+  entrada: {
+    type: String,
+    enum: ['voz', null],
+    default: null,
+  },
   // categoría final del riesgo (solo mensajes del usuario con riesgo)
   categoriaRiesgo: {
     type: String,

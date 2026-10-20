@@ -105,6 +105,20 @@ Todo menos `/consentimiento` responde 403 `CONSENTIMIENTO_REQUERIDO` si el perfi
     "ultimoExito": "…", "ultimoError": null }] }
 ```
 
+## Notas de voz (padre; apagado por defecto)
+
+`POST /api/ia/conversaciones/{id}/audio` recibe `multipart/form-data` con el campo `audio` (webm, ogg, mp3, m4a, wav o aac). Solo funciona si el servidor tiene `IA_NOTAS_VOZ=true`.
+- Responde 201 con lo mismo que el envío de un mensaje escrito, más `transcripcion: { texto, duracionSegundos, proveedor, modelo, latenciaMs }`.
+- El mensaje del cuidador queda con `entrada: "voz"`.
+- Errores (todos con `code`):
+  - 404 `NOTAS_VOZ_DESACTIVADAS`.
+  - 400 `AUDIO_INVALIDO`.
+  - 413 `AUDIO_DEMASIADO_GRANDE` o `AUDIO_DEMASIADO_LARGO`.
+  - 422 `AUDIO_SIN_TEXTO`.
+  - 503 `TRANSCRIPCION_NO_DISPONIBLE`: mostrar "escribe tu mensaje".
+  - 429 `LIMITE_IA`.
+- El audio no se guarda en ningún lado.
+
 ## Retroalimentación de usuarios (evidencia de validación)
 
 | Método | Ruta | Rol | Pantalla |
