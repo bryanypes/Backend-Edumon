@@ -243,7 +243,24 @@ Respuesta esperada: `ultimas` con `holdout/simulado` (recall 0,5, falsas alarmas
 
 > Las latencias con proveedores falsos **no** representan las de OpenAI o Groq reales. No se pudo medir latencia real porque las llaves del `.env` están vencidas o son inválidas.
 
-## 5. Plan B durante la presentación
+## 5. Evidencia para la feria (comandos)
+
+| Qué | Comando o endpoint |
+|---|---|
+| Evaluación con Groq: holdout v1 (desarrollo) y ciego | `npm run eval:edumon -- --conjunto=holdout --guardar` · `npm run eval:ciego -- --guardar` |
+| Latencia real del chat | backend local con la llave real → `CLAVE_DEMO=… PAUSA_MS=65000 node tests/demo/latenciaReal.mjs http://127.0.0.1:4100 10` |
+| Prueba de carga (simulado) | `CLAVE_DEMO=… bash tests/carga/correrCarga.sh` |
+| Calificaciones de usuarios | `GET /api/ia/retroalimentacion?sesion=feria-2026-10-21` (rectora) |
+| Impacto | `GET /api/ia/impacto` (rectora) |
+| Costo | `GET /api/ia/costos?familias=300&mensajesPorFamiliaMes=10` (rectora) |
+| Notas de voz | con `IA_NOTAS_VOZ=true`: `curl -b … -F "audio=@nota.webm;type=audio/webm" $BASE/api/ia/conversaciones/$CONV/audio` |
+
+> ⚠️ **Cuota de Groq (nivel gratuito):** 8.000 tokens por minuto con `openai/gpt-oss-120b`. Un mensaje completo (clasificación más respuesta) usa unos 6.400 tokens, así que caben unos 2 mensajes por minuto **en todo el sistema**. Pasado eso, Groq responde 429 y Edumon responde con la ficha (`modo: "fichas_fallback"`) hasta que vence el cooldown. Para la feria:
+> - Sube al Dev Tier de Groq, o
+> - baja `LLM_COOLDOWN_SECONDS` (por ejemplo a 15) para que Edumon vuelva a intentar antes, o
+> - acepta que con varias familias a la vez parte de las respuestas salgan de las fichas, que es contenido curado y queda marcado.
+
+## 6. Plan B durante la presentación
 
 - Si el proveedor falla (401, 429, 5xx o timeout), Edumon pasa al siguiente y, si fallan todos, responde con la ficha curada. Siempre queda registrado en `respuesta.ia.modo` y en `/api/ia/health`.
 - Para forzar el modo simulado se dejan vacías `GROQ_API_KEY` y `OPENAI_API_KEY` y se reinicia el backend. La red de seguridad de casos graves funciona igual, porque son las reglas.
