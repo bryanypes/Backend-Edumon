@@ -16,6 +16,7 @@ import Modulo from '../models/Modulo.js';
 import { estadoProveedores } from '../services/ia/proveedorIA.js';
 import { encadenar, verificarCadena } from '../services/ia/bitacora.js';
 import { explicarMensaje, explicarAlerta } from '../services/ia/explicacion.js';
+import { vistaCiclo, sugerenciaCiclo, MIN_FAMILIAS } from '../services/ia/cicloEdumon.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -521,6 +522,45 @@ export const generarRetoBorrador = async (req, res) => {
     }
 
     res.json({ borrador });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Ciclo Edumon: temas anónimos del curso → sugerencia → retos ─────────────
+const cursoDelCiclo = async (req) => {
+  const curso = await cursoGestionable(req, req.params.cursoId);
+  return curso && Curso.findById(curso._id).select('nombre participantes').lean();
+};
+
+export const getCicloCurso = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.cursoId)) {
+      return res.status(400).json({ message: 'ID de curso inválido' });
+    }
+    const curso = await cursoDelCiclo(req);
+    if (!curso) return res.status(404).json({ message: 'Curso no encontrado o sin permisos sobre él' });
+    res.json(await vistaCiclo(curso));
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const sugerirDesdeCiclo = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.cursoId)) {
+      return res.status(400).json({ message: 'ID de curso inválido' });
+    }
+    const curso = await cursoDelCiclo(req);
+    if (!curso) return res.status(404).json({ message: 'Curso no encontrado o sin permisos sobre él' });
+    const sugerencia = await sugerenciaCiclo(curso);
+    if (!sugerencia) {
+      return res.status(422).json({
+        message: `Todavía ningún tema reúne al menos ${MIN_FAMILIAS} familias del curso: no hay datos suficientes para sugerir sin exponer a nadie.`,
+        code: 'SIN_TEMAS_SUFICIENTES',
+      });
+    }
+    res.json(sugerencia);
   } catch (error) {
     errorInterno(res, error);
   }
