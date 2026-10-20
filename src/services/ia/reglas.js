@@ -503,15 +503,21 @@ export const extraerEdad = (texto) => {
 // ─── Charla (saludos, gracias): no es una consulta ────────────────────────────
 const GRACIAS = /\b(gracias|te agradezco|que amable|muy amable|me sirvio|me ayudo mucho|muy util)\b/;
 const DESPEDIDA = /^(chao|chau|adios|hasta luego|hasta pronto|nos vemos|bye)\b/;
-const SALUDO = /^(hola|holi|buenas|buenos dias|buenas tardes|buenas noches|hey|que tal|saludos)\b/;
+// variantes reales de chat: "holaa", "ola", "buen dia", "como estas", "hello" ("que mas" es seguimiento)
+const SALUDO = /^(hol+a+s?|holi+s?|ola+|buenas+|buenos dias|buen dia|buenas tardes|buenas noches|buena tarde|buena noche|hey|hi|hello|que tal|q tal|ke tal|como estas|como esta|como vas|como te va|saludos|edumon)\b/;
+// preguntas sobre Edumon mismo: sin IA caían en "no tengo información confiable"
+const PRESENTACION = /\b(en (que|q) (me )?(puedes|podes|podrias|puede|podria|sabes) (ayudar|servir|apoyar)|(que|q) (puedes|podes|sabes|puede) hacer|(que|q) haces|para (que|q) (sirves|serves|funcionas)|quien eres|(que|q) eres|como funcionas|como me (puedes )?ayudas?|de (que|q) (temas )?(sabes|hablas|me puedes hablar)|(que|q) temas (manejas|sabes|conoces)|(como|para que) te uso|ayudame|necesito ayuda|me ayudas)\b/;
 const ACUSE = /^(ok|okay|vale|listo|perfecto|entiendo|entendido|de acuerdo|bueno|dale|super|genial)\b/;
 // "gracias, pero no funcionó" es un seguimiento, no charla
 const SEGUIMIENTO = /\b(pero|no funciona|no funciono|sigue|todavia|aun|ya lo intente|y si|que mas)\b/;
 
-/** 'saludo' | 'gracias' | 'despedida' | 'acuse' | null */
+/** 'presentacion' | 'saludo' | 'gracias' | 'despedida' | 'acuse' | null */
 export const detectarCharla = (texto) => {
   const t = normalizar(texto).replace(/[^a-z0-9ñ\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!t || t.split(' ').length > 8 || SEGUIMIENTO.test(t) || detectarTema(t)) return null;
+  if (!t || t.split(' ').length > 12 || detectarTema(t)) return null;
+  // antes que el saludo: "hola, ¿en qué me puedes ayudar?" pide la presentación
+  if (PRESENTACION.test(t)) return 'presentacion';
+  if (t.split(' ').length > 8 || SEGUIMIENTO.test(t)) return null;
   if (GRACIAS.test(t)) return 'gracias';
   if (DESPEDIDA.test(t)) return 'despedida';
   if (SALUDO.test(t)) return 'saludo';
