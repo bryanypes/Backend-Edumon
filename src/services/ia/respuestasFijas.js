@@ -57,6 +57,11 @@ export const notaOfrecerAyuda = (categoria) => `Lo que me cuentas es importante.
 
 // charla: saludos, agradecimientos y despedidas no son consultas
 const RESPUESTAS_CHARLA = {
+  presentacion: [
+    '¡Hola! Soy Edumon 💙 y te acompaño en la crianza y en la vida escolar de tus hijos.',
+    'Puedo darte ideas sobre emociones, conducta y límites, pantallas, sueño y alimentación, rutinas, cómo acompañar el estudio, cuando no quiere ir al colegio, convivencia y acoso escolar, peleas entre hermanos, separación o duelo, sexualidad según la edad, alcohol y drogas, la relación con el colegio y cómo cuidarte tú.',
+    'Cuéntame qué está pasando y la edad de tu hijo o hija, y te doy una idea práctica para esta semana. No hago tareas del colegio, pero sí te ayudo a acompañarlo para que las haga.',
+  ].join('\n'),
   saludo: '¡Hola! 💙 Cuéntame qué está pasando con tu hijo o hija, o qué te gustaría mejorar en casa. Si me dices su edad, te doy ideas pensadas para su etapa.',
   gracias: '¡Con mucho gusto! 💙 Recuerda que los cambios toman tiempo: prueba la práctica unos días y me cuentas cómo te fue. Aquí estoy si quieres seguir hablando.',
   despedida: '¡Hasta pronto! 💙 Cuando quieras, aquí estoy para acompañarte.',
