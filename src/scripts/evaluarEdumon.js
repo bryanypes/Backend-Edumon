@@ -48,6 +48,8 @@ if (!elegidos.every((c) => CONJUNTOS[c])) {
   process.exit(1);
 }
 
+// se calcula al arrancar: los JSON que se van guardando no cuentan como cambios
+const VERSION = versionCodigo();
 const pct = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
 console.log(`🧪 Modo: ${conLLM ? `LLM (${modelo()}) + reglas` : 'simulado: solo reglas (sin llaves de IA)'}`);
 
@@ -79,7 +81,7 @@ for (const clave of elegidos) {
     const proveedores = Object.keys(m.proveedores);
     const ruta = await guardarResultado({
       fecha: new Date().toISOString(),
-      version: versionCodigo(),
+      version: VERSION,
       conjunto: clave,
       modo: conLLM ? 'llm' : 'simulado',
       proveedor: conLLM ? (proveedores.length ? proveedores.join(',') : 'ninguno_respondio') : null,
