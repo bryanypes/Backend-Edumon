@@ -22,7 +22,13 @@ const MODO_RESPUESTA = {
   plantilla: 'Es un texto fijo revisado de antemano; ningún modelo lo redactó',
 };
 
-const hallazgo = (h) => (h ? { categoria: h.categoria, gravedad: h.gravedad, fragmento: h.patron ?? null } : null);
+const hallazgo = (h) => (h ? {
+  categoria: h.categoria,
+  gravedad: h.gravedad,
+  fragmento: h.patron ?? null,
+  aproximado: Boolean(h.aproximado),
+  correcciones: h.correcciones ?? [],
+} : null);
 
 function quienDecidio(deteccion) {
   if (!deteccion) return null;
@@ -34,7 +40,9 @@ function quienDecidio(deteccion) {
 function resumen({ nivelRiesgo, decidio, deteccion, respuesta, fichas, rutaAtencion }) {
   const frases = [NIVEL[nivelRiesgo] ?? 'Mensaje clasificado'];
   if (deteccion?.reglaSegura?.patron && decidio !== 'modelo') {
-    frases.push(`Una regla de seguridad reconoció "${deteccion.reglaSegura.patron}".`);
+    frases.push(deteccion.reglaSegura.aproximado
+      ? `Una regla de seguridad reconoció "${deteccion.reglaSegura.patron}" corrigiendo la ortografía (${(deteccion.reglaSegura.correcciones ?? []).map((c) => `${c.de} → ${c.a}`).join(', ')}).`
+      : `Una regla de seguridad reconoció "${deteccion.reglaSegura.patron}".`);
   }
   if (decidio === 'ambos') frases.push('El modelo de IA confirmó el indicio de la regla.');
   if (decidio === 'modelo') frases.push('El modelo de IA identificó el riesgo.');

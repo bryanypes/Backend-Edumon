@@ -104,6 +104,18 @@ describe('"¿Por qué Edumon dijo esto?"', () => {
       expect(e.resumen).toMatch(/regla de seguridad/);
     });
 
+    it('caso grave con errores de ortografía: alerta y explicación de la corrección', async () => {
+      configurarLlaves({ groq: false, openai: false });
+      const { enviar, explicar } = await prepararFamilia(app);
+      const { body } = await enviar('me kiero matar ya no puedo mas');
+
+      expect(body.respuesta.tipo).toBe('riesgo');
+      expect(await AlertaRiesgo.countDocuments()).toBe(1);
+      const e = (await explicar(body.respuesta._id)).body.explicacion;
+      expect(e.clasificacion.reglaSegura).toMatchObject({ aproximado: true, correcciones: [{ de: 'kiero', a: 'quiero' }] });
+      expect(e.resumen).toMatch(/corrigiendo la ortografía \(kiero → quiero\)/);
+    });
+
     it('riesgo que solo vio el modelo: decidió "modelo", con proveedor y modelo', async () => {
       configurarLlaves({ groq: false });
       conModelo(clasificacionLLM());
