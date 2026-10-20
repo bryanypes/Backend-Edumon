@@ -89,6 +89,20 @@ const mensajeSchema = new mongoose.Schema({
     }, { _id: false }),
     default: null,
   },
+  // quién redactó la respuesta de Edumon (solo mensajes de edumon):
+  // llm = un proveedor; fichas_fallback = todos fallaron y se usó la ficha;
+  // simulado = sin llaves; plantilla = texto fijo (riesgo, charla, límites)
+  ia: {
+    type: new mongoose.Schema({
+      modo: { type: String, enum: ['llm', 'fichas_fallback', 'simulado', 'plantilla'] },
+      proveedor: { type: String, default: null },
+      modelo: { type: String, default: null },
+      latenciaMs: { type: Number, default: null },
+      huboFallback: { type: Boolean, default: false },
+      proveedoresFallidos: { type: [String], default: undefined },
+    }, { _id: false }),
+    default: null,
+  },
   // clasificación del mensaje del usuario
   nivelRiesgo: {
     type: String,
