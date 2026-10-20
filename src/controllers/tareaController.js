@@ -6,6 +6,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { parseJSONArray } from '../utils/parseJSONArray.js';
+import { extraerEscuelaPadres } from '../utils/escuelaPadresBody.js';
 
 function resourceTypeDeFormato(formato) {
   const IMAGENES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
@@ -173,6 +174,10 @@ export const createTarea = async (req, res) => {
     }
 
     req.body.archivosAdjuntos = archivosAdjuntos;
+
+    // reto de escuela de padres (Edumon)
+    const escuelaPadres = extraerEscuelaPadres(req.body);
+    if (escuelaPadres) req.body.escuelaPadres = escuelaPadres;
 
     // docenteId explícito otra vez para que nada en req.body lo pueda pisar
     const newTarea = new Tarea({ ...req.body, docenteId: req.user.userId });
@@ -393,6 +398,10 @@ export const updateTarea = async (req, res) => {
         updateData[campo] = req.body[campo];
       }
     }
+
+    // recomendación de Edumon (reto de escuela de padres): undefined = no se toca, null = se quita
+    const escuelaPadres = extraerEscuelaPadres(req.body);
+    if (escuelaPadres !== undefined) updateData.escuelaPadres = escuelaPadres;
 
     let archivosAdjuntos = [...(tareaActual.archivosAdjuntos || [])];
 

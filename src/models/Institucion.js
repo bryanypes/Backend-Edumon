@@ -23,6 +23,12 @@ const institucionSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  // docente que recibe las alertas de riesgo de Edumon (IA); si es null, le llegan al admin
+  responsableConvivenciaId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   activo: { type: Boolean, default: true },
   codigo: {
     // Código único para que docentes/padres se identifiquen
