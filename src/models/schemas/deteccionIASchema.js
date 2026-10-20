@@ -8,6 +8,9 @@ const hallazgoSchema = new mongoose.Schema({
   gravedad: { type: String, enum: ['moderado', 'grave'] },
   // fragmento del mensaje que activó la regla
   patron: { type: String, maxlength: 120 },
+  // la regla coincidió después de corregir la ortografía (solo reglas graves)
+  aproximado: { type: Boolean, default: undefined },
+  correcciones: { type: [{ _id: false, de: String, a: String }], default: undefined },
 }, { _id: false });
 
 const deteccionIASchema = new mongoose.Schema({
