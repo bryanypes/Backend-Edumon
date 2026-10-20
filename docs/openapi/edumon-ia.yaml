@@ -22,6 +22,13 @@ security:
 tags:
   - name: Proveedores de IA
     description: Punto 1 — capa de proveedores, salud y límite por usuario.
+  - name: Bitácora de alertas
+    description: |
+      Punto 4 — bitácora inmutable. Cada evento del historial de una alerta (creación,
+      cambio de estado, nota) se encadena con SHA-256 al anterior.
+      Roles: **administrador** y **docente** con la misma visibilidad que `GET /api/ia/alertas`
+      (admin y responsable de convivencia: todas las de la institución; otro docente: solo
+      las de familias de sus cursos). Una alerta que no le corresponde responde 404.
 
 paths:
   /api/ia/health:
@@ -123,6 +130,100 @@ paths:
         '404': { description: Conversación no encontrada }
         '429': { $ref: '#/components/responses/LimiteIA' }
 
+  /api/ia/alertas/{id}/integridad:
+    get:
+      tags: [Bitácora de alertas]
+      operationId: verificarIntegridadAlerta
+      summary: Verifica la cadena de hashes de una alerta
+      description: |
+        Pantalla de la demo: detalle de la alerta, botón **"Verificar integridad"**.
+        Recalcula todos los hashes; si alguien editó la base de datos, dice en qué evento se rompe.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Resultado de la verificación (200 también cuando la cadena está rota)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegridadAlerta' }
+              examples:
+                valida:
+                  value: { alertaId: 6716f0c2a1b2c3d4e5f60718, valida: true, eventos: 3, ultimoHash: 9f2c…e1, rotaEn: null, estadoCoherente: true, verificadaEn: '2026-10-20T15:10:00.000Z' }
+                rota:
+                  value: { alertaId: 6716f0c2a1b2c3d4e5f60718, valida: false, eventos: 3, ultimoHash: 9f2c…e1, rotaEn: { indice: 1, accion: estado, en: '2026-10-20T14:01:00.000Z', motivo: hash_no_coincide }, estadoCoherente: true, verificadaEn: '2026-10-20T15:10:00.000Z' }
+        '400': { description: ID inválido }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol no autorizado (padre, superadmin) o usuario sin institución' }
+        '404': { description: Alerta no encontrada o no visible para el usuario }
+
+  /api/ia/alertas/integridad:
+    get:
+      tags: [Bitácora de alertas]
+      operationId: verificarIntegridadAlertas
+      summary: Verifica todas las alertas visibles para el usuario
+      description: Pantalla de la demo — tablero de convivencia, indicador general "Bitácora íntegra".
+      responses:
+        '200':
+          description: Resumen
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valida, alertas, eventos, rotas, verificadaEn]
+                properties:
+                  valida: { type: boolean, description: true si TODAS las cadenas cuadran }
+                  alertas: { type: integer }
+                  eventos: { type: integer }
+                  rotas: { type: array, items: { $ref: '#/components/schemas/IntegridadAlerta' } }
+                  verificadaEn: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { description: 'Rol no autorizado o usuario sin institución' }
+
+  /api/ia/alertas/{id}:
+    patch:
+      tags: [Bitácora de alertas]
+      operationId: actualizarAlerta
+      summary: (Existente) Cambiar estado o nota — nuevo error 409
+      description: |
+        Contrato existente. Cambios: los eventos del `historial` traen `seq`, `hashAnterior`
+        y `hash`; si otro usuario modificó la alerta al mismo tiempo responde **409**
+        (la web debe recargar la alerta y reintentar).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                estado: { type: string, enum: [nueva, en_atencion, cerrada] }
+                notas: { type: string, maxLength: 2000 }
+      responses:
+        '200':
+          description: Alerta actualizada, con historial encadenado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  alerta:
+                    type: object
+                    description: Alerta completa (contrato existente); `historial` usa EventoBitacora
+                    properties:
+                      historial: { type: array, items: { $ref: '#/components/schemas/EventoBitacora' } }
+        '400': { description: Estado o notas inválidos }
+        '404': { description: Alerta no encontrada }
+        '409':
+          description: La alerta cambió mientras se editaba
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  code: { type: string, const: ALERTA_MODIFICADA }
+
   # Los demás endpoints que llaman a la IA comparten el mismo 429 LIMITE_IA:
   # POST /api/ia/retos/borrador, POST /api/ia/modulos/sugerencias,
   # POST /api/ia/lineamientos/borrador (contratos existentes sin otros cambios).
@@ -215,6 +316,44 @@ components:
         latenciaMs: { type: [integer, 'null'] }
         huboFallback: { type: boolean }
         proveedoresFallidos: { type: array, items: { type: string } }
+
+    EventoBitacora:
+      type: object
+      description: Evento del historial de una alerta (campos nuevos seq, hashAnterior, hash)
+      properties:
+        accion: { type: string, enum: [creada, estado, nota] }
+        estado: { type: [string, 'null'], enum: [nueva, en_atencion, cerrada, null] }
+        nota: { type: string }
+        por: { description: 'Usuario (populado con nombre, apellido y rol) o null si fue Edumon' }
+        en: { type: string, format: date-time }
+        seq: { type: integer, description: Posición en la cadena (0 = creación) }
+        hashAnterior: { type: string, description: 'Hash del evento anterior (o génesis de la alerta)' }
+        hash: { type: string, description: SHA-256 hex del evento }
+
+    IntegridadAlerta:
+      type: object
+      required: [alertaId, valida, eventos, rotaEn, estadoCoherente]
+      properties:
+        alertaId: { type: string }
+        valida: { type: boolean }
+        eventos: { type: integer }
+        ultimoHash: { type: [string, 'null'] }
+        estadoCoherente: { type: boolean, description: 'El estado visible coincide con el último cambio registrado' }
+        rotaEn:
+          type: [object, 'null']
+          description: Primer evento donde la cadena deja de cuadrar
+          properties:
+            indice: { type: integer }
+            accion: { type: string }
+            en: { type: [string, 'null'], format: date-time }
+            motivo:
+              type: string
+              enum: [sin_hash, secuencia, enlace_roto, hash_no_coincide]
+              description: |
+                sin_hash = evento anterior a la bitácora (correr npm run bitacora:encadenar);
+                secuencia = falta o sobra un evento; enlace_roto = no apunta al anterior
+                (o se cambió el mensaje/categoría de la alerta); hash_no_coincide = se editó el evento.
+        verificadaEn: { type: string, format: date-time }
 
     Deteccion:
       type: [object, 'null']
