@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { NIVELES_RIESGO, DIAS_RETENCION_CONVERSACIONES } from '../config/edumonIA.js';
 import deteccionIASchema from './schemas/deteccionIASchema.js';
+import rutaAtencionSchema from './schemas/rutaAtencionSchema.js';
 
 const mensajeSchema = new mongoose.Schema({
   rol: {
@@ -112,6 +113,11 @@ const mensajeSchema = new mongoose.Schema({
   // categoría final del riesgo (solo mensajes del usuario con riesgo)
   categoriaRiesgo: {
     type: String,
+    default: null,
+  },
+  // ruta sugerida si hubo riesgo (solo mensajes del usuario)
+  rutaAtencion: {
+    type: rutaAtencionSchema,
     default: null,
   },
   // por qué se clasificó así (solo mensajes del usuario)
