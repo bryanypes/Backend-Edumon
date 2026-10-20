@@ -10,12 +10,15 @@ import { crearPadre, crearInstitucion } from '../helpers/factories.js';
 
 const silencio = () => {};
 
+// cada prueba siembra la demo completa (decenas de mensajes por el flujo real): margen amplio para CI
+const LENTO = 60000;
+
 describe('seed de demo (npm run seed:demo)', () => {
   let app;
   beforeEach(() => {
     ({ app } = crearApp());
     vi.spyOn(console, 'log').mockImplementation(silencio);
-  });
+  }, LENTO);
 
   it('crea 1 colegio, 3 cursos con ≥6 familias, una alerta de cada tipo y un ciclo listo', async () => {
     const r = await sembrarDemo({ log: silencio });
@@ -53,7 +56,7 @@ describe('seed de demo (npm run seed:demo)', () => {
     await agentR.post('/api/auth/login').send({ telefono: rectora.telefono, contraseña: CLAVE_DEMO });
     const integridad = await agentR.get('/api/ia/alertas/integridad');
     expect(integridad.body).toMatchObject({ valida: true, alertas: 5 });
-  });
+  }, LENTO);
 
   it('es idempotente y no toca datos que no son de demo', async () => {
     const ajena = await crearInstitucion();
@@ -75,7 +78,7 @@ describe('seed de demo (npm run seed:demo)', () => {
     expect(segunda.cursos.map((c) => c.nombre)).toEqual(primera.cursos.map((c) => c.nombre));
     expect(await Institucion.findById(ajena._id)).not.toBeNull();
     expect(await User.findById(padreReal._id)).not.toBeNull();
-  });
+  }, LENTO);
 
   it('se niega a correr con NODE_ENV=production', async () => {
     const original = process.env.NODE_ENV;
@@ -85,5 +88,5 @@ describe('seed de demo (npm run seed:demo)', () => {
     } finally {
       process.env.NODE_ENV = original;
     }
-  });
+  }, LENTO);
 });
