@@ -19,6 +19,21 @@ Este archivo es el resumen para integrar rápido.
 
 Ciclo Edumon y métricas: ver las secciones al final.
 
+## Endpoints existentes (modulo-ia) que usa la demo
+
+Ya existían; ahora también están en el OpenAPI. Rol: padre, salvo las alertas.
+
+| Método | Ruta | Para qué |
+|---|---|---|
+| GET / POST / DELETE | `/api/ia/consentimiento` | Ver, aceptar (`{ version }`) o revocar el consentimiento. Revocar también borra las conversaciones |
+| GET / POST | `/api/ia/conversaciones` | Listar y crear conversaciones |
+| GET / DELETE | `/api/ia/conversaciones/{id}` | Ver con mensajes y borrar |
+| POST | `/api/ia/conversaciones/{id}/mensajes` | Enviar mensaje (ver campos nuevos abajo) |
+| POST | `/api/ia/conversaciones/{id}/ayuda` | La familia acepta que el colegio la contacte (409 si no hay oferta pendiente) |
+| GET | `/api/ia/alertas?estado=` | Tablero de convivencia (administrador, docente) |
+
+Todo menos `/consentimiento` responde 403 `CONSENTIMIENTO_REQUERIDO` si el perfil no aceptó la versión vigente.
+
 ## Campos nuevos en respuestas existentes
 
 ### `POST /api/ia/conversaciones/{id}/mensajes` (chat)
