@@ -20,6 +20,26 @@ curl -s http://localhost:4000/    # el backend responde
 - Sin llaves de IA en `.env`, todo corre en **modo simulado** (plan B).
 - ⚠️ El 20-10-2026 se validó el archivo con `docker compose config`, pero **no se levantó**: Docker Desktop no estaba corriendo en la máquina de desarrollo. El ensayo se hizo con la opción B.
 
+#### Cómo confirmar que Docker funciona (comandos exactos)
+
+Desde `Backend/`, con Docker Desktop abierto:
+
+```bash
+docker compose -f docker-compose.demo.yml up --build -d
+docker compose -f docker-compose.demo.yml ps
+docker compose -f docker-compose.demo.yml logs backend | grep -E "Conectado a MongoDB|Servidor corriendo|Edumon IA"
+docker compose -f docker-compose.demo.yml exec backend node src/scripts/seedDemo.js
+CLAVE_DEMO='EdumonDemo2026*' bash tests/demo/ensayo.sh http://localhost:4000
+```
+
+Qué debes ver:
+1. `ps`: `edumon-demo-mongo` en estado `running (healthy)` y `edumon-demo-backend` en `running`.
+2. `logs`: `Conectado a MongoDB`, `Servidor corriendo en puerto 4000` y una línea `[Edumon IA] …` que dice qué proveedores están activos (sin llaves: `modo simulado`).
+3. `seedDemo.js`: un JSON con 3 cursos y 5 alertas: `tipoI`, `tipoII`, `tipoIII`, `hogar` y `personal`.
+4. `ensayo.sh`: todos los pasos con ✅ y al final `✅ Recorrido completo sin fallos`.
+
+Para apagar todo: `docker compose -f docker-compose.demo.yml down`. Con `-v` también se borra la base de demo.
+
 ### Opción B: sin Docker (así se ensayó)
 
 Requisitos: Node 22 o superior y `npm ci`. MongoDB corre en memoria y se borra al terminar.
