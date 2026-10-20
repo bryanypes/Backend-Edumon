@@ -35,7 +35,8 @@ import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 export const NIT_DEMO = 'DEMO-EDUMON-IA';
 export const DOMINIO_DEMO = '@demo.edumon.example';
 // contraseña de ejemplo de los usuarios de demo (documentada en DEMO-BACKEND.md)
-export const CLAVE_DEMO = 'EdumonDemo2026*';
+// En un despliegue público se cambia con SEED_DEMO_PASSWORD (no se versiona)
+export const CLAVE_DEMO = process.env.SEED_DEMO_PASSWORD || 'EdumonDemo2026*';
 const dias = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 
 // ── Lo que escribe cada familia (ficticio). Los temas se eligen para que el
