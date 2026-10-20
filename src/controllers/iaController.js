@@ -15,6 +15,7 @@ import Curso from '../models/Curso.js';
 import Modulo from '../models/Modulo.js';
 import { estadoProveedores } from '../services/ia/proveedorIA.js';
 import { encadenar, verificarCadena } from '../services/ia/bitacora.js';
+import { explicarMensaje, explicarAlerta } from '../services/ia/explicacion.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -352,6 +353,49 @@ export const actualizarAlerta = async (req, res) => {
     }
 
     res.json({ message: 'Alerta actualizada', alerta });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── "¿Por qué Edumon dijo esto?" ─────────────────────────────────────────────
+// la familia, sobre sus propios mensajes (la conversación es privada)
+export const getExplicacionMensaje = async (req, res) => {
+  try {
+    const { id, mensajeId } = req.params;
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(mensajeId)) {
+      return res.status(400).json({ message: 'ID de conversación o de mensaje inválido' });
+    }
+    const conversacion = await ConversacionIA.findOne({ _id: id, ...filtroDueño(req) }).lean();
+    if (!conversacion) {
+      return res.status(404).json({ message: 'Conversación no encontrada' });
+    }
+    const explicacion = await explicarMensaje(conversacion, mensajeId);
+    if (!explicacion) {
+      return res.status(404).json({ message: 'Mensaje no encontrado en esta conversación' });
+    }
+    res.json({ explicacion });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// el colegio, sobre una alerta que puede ver
+export const getExplicacionAlerta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de alerta inválido' });
+    }
+    const visibles = await filtroAlertasVisibles(req);
+    if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
+
+    const alerta = await AlertaRiesgo.findOne({ _id: id, ...visibles })
+      .select('origen categoria mensajeDisparador deteccion rutaAtencion').lean();
+    if (!alerta) {
+      return res.status(404).json({ message: 'Alerta no encontrada' });
+    }
+    res.json({ explicacion: explicarAlerta(alerta) });
   } catch (error) {
     errorInterno(res, error);
   }

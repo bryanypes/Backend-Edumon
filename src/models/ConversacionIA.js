@@ -109,6 +109,11 @@ const mensajeSchema = new mongoose.Schema({
     enum: NIVELES_RIESGO,
     default: null,
   },
+  // categoría final del riesgo (solo mensajes del usuario con riesgo)
+  categoriaRiesgo: {
+    type: String,
+    default: null,
+  },
   // por qué se clasificó así (solo mensajes del usuario)
   deteccion: {
     type: deteccionIASchema,

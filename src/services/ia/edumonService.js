@@ -106,7 +106,13 @@ export async function procesarMensaje(conversacion, textoActual) {
   const nivelRiesgo = riesgoGrave ? 'riesgo'
     : riesgoModerado ? 'riesgo_moderado'
       : (clasificacion.atencion ? 'atencion' : 'normal');
-  conversacion.mensajes.push({ rol: 'usuario', contenido: textoActual, nivelRiesgo, deteccion: clasificacion.deteccion ?? null });
+  conversacion.mensajes.push({
+    rol: 'usuario',
+    contenido: textoActual,
+    nivelRiesgo,
+    categoriaRiesgo: clasificacion.categoriaRiesgo ?? null,
+    deteccion: clasificacion.deteccion ?? null,
+  });
 
   let respuesta;
 
