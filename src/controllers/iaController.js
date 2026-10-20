@@ -14,6 +14,7 @@ import { contextoLineamientosDelCurso } from '../services/ia/lineamientos.js';
 import Curso from '../models/Curso.js';
 import Modulo from '../models/Modulo.js';
 import { estadoProveedores } from '../services/ia/proveedorIA.js';
+import { encadenar, verificarCadena } from '../services/ia/bitacora.js';
 
 const MAX_CARACTERES_MENSAJE = 2000;
 
@@ -306,7 +307,8 @@ export const actualizarAlerta = async (req, res) => {
     const visibles = await filtroAlertasVisibles(req);
     if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
 
-    const actual = await AlertaRiesgo.findOne({ _id: id, ...visibles }).select('estado notas atendidaEn').lean();
+    const actual = await AlertaRiesgo.findOne({ _id: id, ...visibles })
+      .select('estado notas atendidaEn institucionId usuarioId categoria origen mensajeDisparador historial').lean();
     if (!actual) {
       return res.status(404).json({ message: 'Alerta no encontrada' });
     }
@@ -330,18 +332,71 @@ export const actualizarAlerta = async (req, res) => {
       entradas.push({ accion: 'nota', nota: notaNueva, por: req.user.userId, en: ahora });
     }
 
-    const actualizacion = { ...(Object.keys(set).length && { $set: set }), ...(entradas.length && { $push: { historial: { $each: entradas } } }) };
-    const alerta = await AlertaRiesgo.findOneAndUpdate({ _id: id, ...visibles }, actualizacion, { new: true })
+    // cada evento nuevo se encadena con SHA-256 al último; si otro cambio entró
+    // entre la lectura y la escritura, el filtro por longitud no coincide (409)
+    const encadenadas = encadenar(actual, actual.historial ?? [], entradas);
+    const largo = (actual.historial ?? []).length;
+    const actualizacion = { ...(Object.keys(set).length && { $set: set }), ...(encadenadas.length && { $push: { historial: { $each: encadenadas } } }) };
+    const filtroEscritura = { _id: id, ...visibles, ...(encadenadas.length && { [`historial.${largo}`]: { $exists: false } }) };
+    const alerta = await AlertaRiesgo.findOneAndUpdate(filtroEscritura, actualizacion, { new: true })
       .populate('usuarioId', 'nombre apellido telefono correo')
       .populate('perfilId', 'nombre')
       .populate('atendidaPor', 'nombre apellido')
       .populate('historial.por', 'nombre apellido rol')
       .lean();
+    if (!alerta && encadenadas.length) {
+      return res.status(409).json({ message: 'La alerta cambió mientras la editabas. Vuelve a cargarla e inténtalo de nuevo.', code: 'ALERTA_MODIFICADA' });
+    }
     if (!alerta) {
       return res.status(404).json({ message: 'Alerta no encontrada' });
     }
 
     res.json({ message: 'Alerta actualizada', alerta });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Integridad de la bitácora de alertas ─────────────────────────────────────
+const CAMPOS_CADENA = 'institucionId usuarioId categoria origen mensajeDisparador estado historial createdAt';
+
+const resumenIntegridad = (alerta) => ({ alertaId: alerta._id, ...verificarCadena(alerta) });
+
+export const verificarIntegridadAlerta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de alerta inválido' });
+    }
+    const visibles = await filtroAlertasVisibles(req);
+    if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
+
+    const alerta = await AlertaRiesgo.findOne({ _id: id, ...visibles }).select(CAMPOS_CADENA).lean();
+    if (!alerta) {
+      return res.status(404).json({ message: 'Alerta no encontrada' });
+    }
+    res.json({ ...resumenIntegridad(alerta), verificadaEn: new Date() });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// todas las alertas que el usuario puede ver: cuántas cuadran y cuáles no
+export const verificarIntegridadAlertas = async (req, res) => {
+  try {
+    const visibles = await filtroAlertasVisibles(req);
+    if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
+
+    const alertas = await AlertaRiesgo.find(visibles).select(CAMPOS_CADENA).sort({ createdAt: 1 }).lean();
+    const resultados = alertas.map(resumenIntegridad);
+    const rotas = resultados.filter((r) => !r.valida);
+    res.json({
+      valida: rotas.length === 0,
+      alertas: resultados.length,
+      eventos: resultados.reduce((s, r) => s + r.eventos, 0),
+      rotas,
+      verificadaEn: new Date(),
+    });
   } catch (error) {
     errorInterno(res, error);
   }

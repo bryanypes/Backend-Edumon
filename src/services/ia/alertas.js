@@ -1,8 +1,10 @@
+import mongoose from 'mongoose';
 import AlertaRiesgo from '../../models/AlertaRiesgo.js';
 import Institucion from '../../models/Institucion.js';
 import Curso from '../../models/Curso.js';
 import User from '../../models/User.js';
 import notificador from '../../notifications/NotificadorFacade.js';
+import { encadenar } from './bitacora.js';
 
 export const ETIQUETAS_CATEGORIA = {
   maltrato_fisico: 'maltrato físico',
@@ -81,7 +83,9 @@ export async function crearAlertaRiesgo({ conversacion, categoria, mensajeDispar
       resolverDocentesDeLaFamilia(conversacion.usuarioId, institucionId),
     ]);
 
-    const alerta = await AlertaRiesgo.create({
+    // el _id se fija antes de crearla porque el primer hash de la bitácora lo incluye
+    const datos = {
+      _id: new mongoose.Types.ObjectId(),
       institucionId,
       usuarioId: conversacion.usuarioId,
       perfilId: conversacion.perfilId,
@@ -92,13 +96,15 @@ export async function crearAlertaRiesgo({ conversacion, categoria, mensajeDispar
       notificadoA,
       docentesCurso,
       deteccion,
-      historial: [{
-        accion: 'creada',
-        estado: 'nueva',
-        por: origen === 'solicitada' ? conversacion.usuarioId : null,
-        nota: origen === 'solicitada' ? 'La familia pidió que la contactaran.' : 'Edumon detectó un posible riesgo grave.',
-      }],
-    });
+    };
+    const alerta = new AlertaRiesgo(datos);
+    alerta.historial = encadenar(alerta, [], [{
+      accion: 'creada',
+      estado: 'nueva',
+      por: origen === 'solicitada' ? conversacion.usuarioId : null,
+      nota: origen === 'solicitada' ? 'La familia pidió que la contactaran.' : 'Edumon detectó un posible riesgo grave.',
+    }]);
+    await alerta.save();
 
     // el aviso no lleva el nombre de la familia: el push y el correo pueden
     // verse en pantallas ajenas; el detalle está en la alerta (con sesión)
