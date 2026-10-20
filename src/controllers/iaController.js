@@ -1,0 +1,443 @@
+import mongoose from 'mongoose';
+import ConsentimientoIA from '../models/ConsentimientoIA.js';
+import ConversacionIA from '../models/ConversacionIA.js';
+import AlertaRiesgo from '../models/AlertaRiesgo.js';
+import Institucion from '../models/Institucion.js';
+import User from '../models/User.js';
+import {
+  VERSION_CONSENTIMIENTO, EJES_CRIANZA, EJES_LABELS, SUBTEMAS, SUBTEMAS_POR_EJE,
+} from '../config/edumonIA.js';
+import { procesarMensaje, solicitarAyuda, institucionDeLaConversacion } from '../services/ia/edumonService.js';
+import { generarRetoEscuelaPadres } from '../services/ia/retoEscuelaPadres.js';
+import { sugerirModulos } from '../services/ia/sugerenciasModulos.js';
+import { contextoLineamientosDelCurso } from '../services/ia/lineamientos.js';
+import Curso from '../models/Curso.js';
+import Modulo from '../models/Modulo.js';
+
+const MAX_CARACTERES_MENSAJE = 2000;
+
+const errorInterno = (res, error) => res.status(500).json({
+  message: 'Error interno',
+  error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+});
+
+// filtro de dueño: el titular (perfilId null) y cada perfil familiar tienen
+// sus propias conversaciones y su propio consentimiento
+const filtroDueño = (req) => ({
+  usuarioId: req.user.userId,
+  perfilId: req.user.perfilId || null,
+});
+
+// ─── Consentimiento ───────────────────────────────────────────────────────────
+
+export const getConsentimiento = async (req, res) => {
+  try {
+    const vigente = await ConsentimientoIA.obtenerVigente(
+      req.user.userId,
+      req.user.perfilId,
+      VERSION_CONSENTIMIENTO,
+    ).lean();
+
+    res.json({
+      versionVigente: VERSION_CONSENTIMIENTO,
+      aceptado: Boolean(vigente),
+      aceptadoEn: vigente?.aceptadoEn ?? null,
+    });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const aceptarConsentimiento = async (req, res) => {
+  try {
+    const { version } = req.body;
+
+    // el cliente manda la versión que mostró: si el texto cambió mientras el
+    // padre lo leía, no puede quedar registrado que aceptó la versión nueva
+    if (version !== VERSION_CONSENTIMIENTO) {
+      return res.status(409).json({
+        message: 'El consentimiento cambió. Vuelve a leerlo antes de aceptarlo.',
+        versionVigente: VERSION_CONSENTIMIENTO,
+      });
+    }
+
+    const existente = await ConsentimientoIA.obtenerVigente(
+      req.user.userId,
+      req.user.perfilId,
+      VERSION_CONSENTIMIENTO,
+    ).lean();
+    if (existente) {
+      return res.json({ message: 'El consentimiento ya estaba aceptado', aceptadoEn: existente.aceptadoEn });
+    }
+
+    const consentimiento = await ConsentimientoIA.create({
+      ...filtroDueño(req),
+      version: VERSION_CONSENTIMIENTO,
+    });
+
+    res.status(201).json({ message: 'Consentimiento aceptado', aceptadoEn: consentimiento.aceptadoEn });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// revocar también borra las conversaciones: es lo que promete el consentimiento
+export const revocarConsentimiento = async (req, res) => {
+  try {
+    const { modifiedCount } = await ConsentimientoIA.updateMany(
+      { ...filtroDueño(req), revocadoEn: null },
+      { revocadoEn: new Date() },
+    );
+    const { deletedCount } = await ConversacionIA.deleteMany(filtroDueño(req));
+
+    res.json({
+      message: modifiedCount ? 'Consentimiento revocado y conversaciones eliminadas' : 'No había un consentimiento activo',
+      conversacionesEliminadas: deletedCount,
+    });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Conversaciones ───────────────────────────────────────────────────────────
+
+export const getMisConversaciones = async (req, res) => {
+  try {
+    const conversaciones = await ConversacionIA.find(filtroDueño(req))
+      .select('titulo edadHijo ultimaActividad createdAt')
+      .sort({ ultimaActividad: -1 })
+      .lean();
+
+    res.json({ conversaciones });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const eliminarConversacion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de conversación inválido' });
+    }
+
+    // 404 tanto si no existe como si es de otro: no revelar que existe
+    const { deletedCount } = await ConversacionIA.deleteOne({ _id: id, ...filtroDueño(req) });
+    if (!deletedCount) {
+      return res.status(404).json({ message: 'Conversación no encontrada' });
+    }
+
+    res.json({ message: 'Conversación eliminada' });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const crearConversacion = async (req, res) => {
+  try {
+    const usuario = await User.findById(req.user.userId).select('institucionId').lean();
+    const conversacion = await ConversacionIA.create({
+      ...filtroDueño(req),
+      institucionId: await institucionDeLaConversacion(req.user.userId, usuario?.institucionId),
+    });
+
+    res.status(201).json({ conversacion });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const getConversacion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de conversación inválido' });
+    }
+
+    const conversacion = await ConversacionIA.findOne({ _id: id, ...filtroDueño(req) }).lean();
+    if (!conversacion) {
+      return res.status(404).json({ message: 'Conversación no encontrada' });
+    }
+
+    res.json({ conversacion });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const enviarMensaje = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const contenido = typeof req.body.contenido === 'string' ? req.body.contenido.trim() : '';
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de conversación inválido' });
+    }
+    if (!contenido || contenido.length > MAX_CARACTERES_MENSAJE) {
+      return res.status(400).json({ message: `El mensaje debe tener entre 1 y ${MAX_CARACTERES_MENSAJE} caracteres` });
+    }
+
+    const conversacion = await ConversacionIA.findOne({ _id: id, ...filtroDueño(req) });
+    if (!conversacion) {
+      return res.status(404).json({ message: 'Conversación no encontrada' });
+    }
+
+    const respuesta = await procesarMensaje(conversacion, contenido);
+
+    res.status(201).json({
+      mensajeUsuario: conversacion.mensajes[conversacion.mensajes.length - 2],
+      respuesta,
+      conversacion: {
+        _id: conversacion._id,
+        titulo: conversacion.titulo,
+        edadHijo: conversacion.edadHijo,
+      },
+    });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// nivel 2: la familia acepta que orientación y su docente la contacten
+export const pedirAyuda = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de conversación inválido' });
+    }
+    const conversacion = await ConversacionIA.findOne({ _id: id, ...filtroDueño(req) });
+    if (!conversacion) {
+      return res.status(404).json({ message: 'Conversación no encontrada' });
+    }
+
+    const mensaje = await solicitarAyuda(conversacion);
+    if (!mensaje) {
+      return res.status(409).json({ message: 'No hay una solicitud de ayuda pendiente en esta conversación' });
+    }
+    res.status(201).json({ mensaje });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Alertas de riesgo (admin, responsable de convivencia, docente del curso) ─
+
+// filtro de las alertas que el usuario puede ver y gestionar, o null si ninguna:
+// el admin y el responsable de convivencia, todas las de la institución; cualquier
+// otro docente, solo las de familias de sus cursos
+const filtroAlertasVisibles = async (req) => {
+  if (!req.user.institucionId) return null;
+  const institucionId = req.user.institucionId;
+  if (req.user.rol === 'administrador') return { institucionId };
+
+  const esResponsable = await Institucion.exists({
+    _id: institucionId,
+    responsableConvivenciaId: req.user.userId,
+  });
+  return esResponsable ? { institucionId } : { institucionId, docentesCurso: req.user.userId };
+};
+
+const SIN_INSTITUCION = 'No tienes una institución asignada';
+
+export const getAlertas = async (req, res) => {
+  try {
+    const visibles = await filtroAlertasVisibles(req);
+    if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
+
+    const filtro = { ...visibles };
+    if (['nueva', 'en_atencion', 'cerrada'].includes(req.query.estado)) filtro.estado = req.query.estado;
+
+    const alertas = await AlertaRiesgo.find(filtro)
+      .populate('usuarioId', 'nombre apellido telefono correo')
+      .populate('perfilId', 'nombre')
+      .populate('atendidaPor', 'nombre apellido')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ alertas });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const getAlerta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de alerta inválido' });
+    }
+
+    const visibles = await filtroAlertasVisibles(req);
+    if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
+
+    // 404 también si no le corresponde verla: no revelar que existe
+    const alerta = await AlertaRiesgo.findOne({ _id: id, ...visibles })
+      .populate('usuarioId', 'nombre apellido telefono correo')
+      .populate('perfilId', 'nombre')
+      .populate('atendidaPor', 'nombre apellido')
+      .populate('historial.por', 'nombre apellido rol')
+      .lean();
+    if (!alerta) {
+      return res.status(404).json({ message: 'Alerta no encontrada' });
+    }
+
+    res.json({ alerta });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+export const actualizarAlerta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado, notas } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'ID de alerta inválido' });
+    }
+    if (estado !== undefined && !['nueva', 'en_atencion', 'cerrada'].includes(estado)) {
+      return res.status(400).json({ message: 'Estado inválido' });
+    }
+    if (notas !== undefined && (typeof notas !== 'string' || notas.length > 2000)) {
+      return res.status(400).json({ message: 'Las notas deben ser texto de máximo 2000 caracteres' });
+    }
+
+    const visibles = await filtroAlertasVisibles(req);
+    if (!visibles) return res.status(403).json({ message: SIN_INSTITUCION });
+
+    const actual = await AlertaRiesgo.findOne({ _id: id, ...visibles }).select('estado notas atendidaEn').lean();
+    if (!actual) {
+      return res.status(404).json({ message: 'Alerta no encontrada' });
+    }
+
+    // cada cambio real queda en el historial (quién, cuándo, qué); nada se reescribe
+    const ahora = new Date();
+    const set = {};
+    const entradas = [];
+    const notaNueva = notas?.trim();
+    const cambiaEstado = estado !== undefined && estado !== actual.estado;
+    const cambiaNota = notas !== undefined && notaNueva !== (actual.notas ?? '');
+
+    if (cambiaNota) set.notas = notaNueva;
+    if (cambiaEstado) {
+      set.estado = estado;
+      if (estado !== 'nueva') set.atendidaPor = req.user.userId;
+      if (estado !== 'nueva' && !actual.atendidaEn) set.atendidaEn = ahora;
+      set.cerradaEn = estado === 'cerrada' ? ahora : null;
+      entradas.push({ accion: 'estado', estado, nota: cambiaNota ? notaNueva : '', por: req.user.userId, en: ahora });
+    } else if (cambiaNota && notaNueva) {
+      entradas.push({ accion: 'nota', nota: notaNueva, por: req.user.userId, en: ahora });
+    }
+
+    const actualizacion = { ...(Object.keys(set).length && { $set: set }), ...(entradas.length && { $push: { historial: { $each: entradas } } }) };
+    const alerta = await AlertaRiesgo.findOneAndUpdate({ _id: id, ...visibles }, actualizacion, { new: true })
+      .populate('usuarioId', 'nombre apellido telefono correo')
+      .populate('perfilId', 'nombre')
+      .populate('atendidaPor', 'nombre apellido')
+      .populate('historial.por', 'nombre apellido rol')
+      .lean();
+    if (!alerta) {
+      return res.status(404).json({ message: 'Alerta no encontrada' });
+    }
+
+    res.json({ message: 'Alerta actualizada', alerta });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Retos de escuela de padres ───────────────────────────────────────────
+
+export const getTemas = (req, res) => {
+  res.json({
+    ejes: EJES_CRIANZA.map((eje) => ({
+      valor: eje,
+      label: EJES_LABELS[eje],
+      subtemas: SUBTEMAS_POR_EJE[eje].map((s) => ({ valor: s, label: SUBTEMAS[s] })),
+    })),
+  });
+};
+
+// curso sobre el que el usuario puede crear contenido: el docente dueño o el admin de la institución
+const cursoGestionable = async (req, cursoId) => {
+  if (!cursoId || !mongoose.isValidObjectId(cursoId)) return null;
+  const curso = await Curso.findById(cursoId).select('nombre docenteId institucionId').lean();  if (!curso) return null;
+  const esDueño = req.user.rol === 'docente' && curso.docenteId?.toString() === req.user.userId;
+  const esAdmin = req.user.rol === 'administrador' && curso.institucionId?.toString() === req.user.institucionId;
+  return esDueño || esAdmin ? curso : null;
+};
+
+// borrador de reto de escuela de padres; el docente lo ajusta y lo publica como cualquier reto
+export const generarRetoBorrador = async (req, res) => {
+  try {
+    const { eje, subtema } = req.body;
+    const tema = typeof req.body.tema === 'string' ? req.body.tema.trim() : '';
+    const enfoque = typeof req.body.enfoque === 'string' ? req.body.enfoque.trim() : '';
+    const ajuste = typeof req.body.ajuste === 'string' ? req.body.ajuste.trim() : '';
+    const borradorAnterior = req.body.borradorAnterior && typeof req.body.borradorAnterior === 'object'
+      ? req.body.borradorAnterior : null;
+
+    if (ajuste.length > 300) {
+      return res.status(400).json({ message: 'El ajuste admite máximo 300 caracteres' });
+    }
+    if (eje && !EJES_CRIANZA.includes(eje)) {
+      return res.status(400).json({ message: 'Elige un eje válido del Decreto 459' });
+    }
+    if (subtema && (!eje || !SUBTEMAS_POR_EJE[eje].includes(subtema))) {
+      return res.status(400).json({ message: 'El subtema no pertenece a ese eje' });
+    }
+    if (tema.length > 150 || enfoque.length > 500) {
+      return res.status(400).json({ message: 'El tema admite 150 caracteres y el contexto 500' });
+    }
+
+    // contexto opcional: grado (curso) y módulo donde se va a publicar el reto
+    const curso = await cursoGestionable(req, req.body.cursoId);
+    const modulo = curso && mongoose.isValidObjectId(req.body.moduloId)
+      ? await Modulo.findOne({ _id: req.body.moduloId, cursoId: curso._id }).select('titulo').lean()
+      : null;
+    // sin módulo elegido, Edumon sugiere uno de los del curso
+    const modulos = curso && !modulo
+      ? await Modulo.find({ cursoId: curso._id }).select('titulo').sort({ createdAt: 1 }).lean()
+      : [];
+    // lo que rectoría pidió para este grupo (si ya publicó lineamientos)
+    const lineamientos = curso ? await contextoLineamientosDelCurso(curso) : null;
+
+    if (!tema && !eje && !lineamientos && !borradorAnterior) {
+      return res.status(400).json({ message: 'Escribe un tema o elige un eje' });
+    }
+
+    const borrador = await generarRetoEscuelaPadres({
+      tema: tema || undefined, eje: eje || undefined, subtema: subtema || undefined, enfoque: enfoque || undefined,
+      curso: curso?.nombre, modulo: modulo?.titulo, modulos, lineamientos,
+      ajuste: ajuste || undefined, borradorAnterior,
+    });
+    if (!borrador) {
+      return res.status(404).json({ message: 'Edumon no pudo diseñar el reto para ese tema. Intenta con otro tema o elige un eje.' });
+    }
+
+    res.json({ borrador });
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};
+
+// ─── Sugerencias de módulos de escuela de padres ──────────────────────────────
+export const sugerirModulosCurso = async (req, res) => {
+  try {
+    const contexto = typeof req.body.contexto === 'string' ? req.body.contexto.trim() : '';
+    if (contexto.length > 300) {
+      return res.status(400).json({ message: 'El contexto admite máximo 300 caracteres' });
+    }
+
+    const curso = await cursoGestionable(req, req.body.cursoId);
+    if (!curso) {
+      return res.status(404).json({ message: 'Curso no encontrado o sin permisos sobre él' });
+    }
+
+    const existentes = await Modulo.find({ cursoId: curso._id }).distinct('titulo');
+    const resultado = await sugerirModulos({ curso: curso.nombre, existentes, contexto: contexto || undefined });
+    res.json(resultado);
+  } catch (error) {
+    errorInterno(res, error);
+  }
+};

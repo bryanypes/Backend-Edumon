@@ -148,12 +148,12 @@ async function seed() {
   const padreA = await mk({
     nombre: "Sofía", apellido: "Ramírez Díaz", cedula: "100000020",
     correo: "padre.a@gmail.com", telefono: "+573000000020",
-    rol: "padre", institucionId: instA._id, esTitular: true, primerInicioSesion: false,
+    rol: "padre", institucionId: null, esTitular: true, primerInicioSesion: false,
   });
   const padreB = await mk({
     nombre: "Tomás", apellido: "Castro Rojas", cedula: "100000021",
     correo: "padre.b@gmail.com", telefono: "+573000000021",
-    rol: "padre", institucionId: instA._id, esTitular: true, primerInicioSesion: false,
+    rol: "padre", institucionId: null, esTitular: true, primerInicioSesion: false,
   });
 
   // ── 3. Perfiles familiares (1 por padre) ───────────────────────
@@ -164,8 +164,8 @@ async function seed() {
   //  curso1: docenteA · participantes = docenteA + padreA + padreB
   //  curso2: docenteB · participantes = docenteB + padreB   (padreA NO está → probar 403)
   const curso1 = await Curso.create({
-    nombre: "Matemáticas 5°",
-    descripcion: "Curso de Matemáticas de 5° grado: contenidos, tareas y foro de acompañamiento a familias.",
+    nombre: "Grado Quinto",
+    descripcion: "Familias de grado quinto: retos de escuela de padres, foros y eventos del curso.",
     color: "#3B82F6",
     docenteId: docenteA._id,
     institucionId: instA._id,
@@ -177,8 +177,8 @@ async function seed() {
     ],
   });
   const curso2 = await Curso.create({
-    nombre: "Lengua Castellana 5°",
-    descripcion: "Curso de Lengua Castellana de 5° grado: lectura, escritura y participación de las familias.",
+    nombre: "Grado Transición",
+    descripcion: "Familias de grado transición: retos de escuela de padres, foros y eventos del curso.",
     color: "#EF4444",
     docenteId: docenteB._id,
     institucionId: instA._id,
@@ -190,33 +190,33 @@ async function seed() {
   });
 
   // ── 5. Módulos (1 por curso) ──────────────────────────────────
-  const modulo1 = await Modulo.create({ cursoId: curso1._id, titulo: "Unidad 1 — Números y operaciones", descripcion: "Objetivos y materiales de la unidad 1.", estado: "activo" });
-  const modulo2 = await Modulo.create({ cursoId: curso2._id, titulo: "Unidad 1 — Comprensión lectora", descripcion: "Objetivos y materiales de la unidad 1.", estado: "activo" });
+  const modulo1 = await Modulo.create({ cursoId: curso1._id, titulo: "Crianza respetuosa", descripcion: "Retos para acompañar a los hijos con afecto y límites claros.", estado: "activo" });
+  const modulo2 = await Modulo.create({ cursoId: curso2._id, titulo: "Alimentación saludable", descripcion: "Retos para crear hábitos de alimentación en familia.", estado: "activo" });
 
   // ── 6. Tareas (1 por módulo: una vigente, una vencida) ─────────
   const tarea1 = await Tarea.create({
-    titulo: "Taller de fracciones",
-    descripcion: "Resolver el taller adjunto y subir la evidencia en PDF.",
+    titulo: "Reto: rutina de tareas sin peleas",
+    descripcion: "Organicen en familia un horario y un lugar fijo para hacer las tareas esta semana. Suban una foto o PDF del horario y cuéntennos cómo les fue.",
     fechaEntrega: dias(10),
     docenteId: docenteA._id,
-    etiquetas: ["práctica", "familia"],
+    etiquetas: ["escuela-de-padres", "familia"],
     tipoEntrega: "archivo",
     archivosAdjuntos: [
-      { tipo: "archivo", url: "https://res.cloudinary.com/demo/raw/upload/v1/edumon/demo/taller.pdf", nombre: "taller.pdf", publicId: "edumon/demo/taller", formato: "pdf", tamano: 240000 },
-      { tipo: "enlace", url: "https://es.khanacademy.org/math/arithmetic-home/arith-review-fractions", nombre: "Repaso de fracciones", descripcion: "Material de apoyo" },
+      { tipo: "archivo", url: "https://res.cloudinary.com/demo/raw/upload/v1/edumon/demo/taller.pdf", nombre: "guia-del-reto.pdf", publicId: "edumon/demo/guia-del-reto", formato: "pdf", tamano: 240000 },
+      { tipo: "enlace", url: "https://www.unicef.org/colombia", nombre: "UNICEF Colombia", descripcion: "Material de apoyo para familias" },
     ],
-    criterios: "Puntualidad, presentación y procedimiento completo.",
+    criterios: "Horario familiar y una reflexión corta sobre cómo les fue en la semana.",
     estado: "publicada",
     cursoId: curso1._id,
     moduloId: modulo1._id,
     asignacionTipo: "todos",
   });
   const tarea2 = await Tarea.create({
-    titulo: "Resumen de la lectura",
-    descripcion: "Escribir un resumen de media página sobre la lectura vista en clase.",
+    titulo: "Reto: lonchera saludable",
+    descripcion: "Preparen juntos una lonchera saludable para un día de clase y escriban qué aprendieron al hacerla.",
     fechaEntrega: dias(-3), // vencida, para probar estado 'tarde'
     docenteId: docenteB._id,
-    etiquetas: ["lectura"],
+    etiquetas: ["escuela-de-padres", "alimentacion"],
     tipoEntrega: "texto",
     estado: "publicada",
     cursoId: curso2._id,
@@ -237,11 +237,11 @@ async function seed() {
     padreId: padreA._id,
     fechaEntrega: dias(-1),
     archivosAdjuntos: [adjunto()],
-    textoRespuesta: "Adjunto el taller resuelto en casa con mi hijo.",
+    textoRespuesta: "Adjunto nuestro horario familiar de tareas. Esta semana hubo menos peleas.",
     estado: "enviada",
     calificacion: {
       valoracion: 5,
-      comentario: "Excelente trabajo, procedimiento claro.",
+      comentario: "¡Qué buen trabajo en familia! Sigan con la rutina.",
       fechaCalificacion: new Date(),
       docenteId: docenteA._id,
     },
@@ -258,8 +258,8 @@ async function seed() {
 
   // ── 8. Foros (1 por curso) ────────────────────────────────────
   const foro1 = await Foro.create({
-    titulo: "Dudas de la Unidad 1",
-    descripcion: "Espacio para que las familias de Matemáticas 5° compartan inquietudes y aportes.",
+    titulo: "Dudas sobre los retos de crianza",
+    descripcion: "Espacio para que las familias de grado quinto compartan inquietudes y aportes.",
     docenteId: docenteA._id,
     cursoId: curso1._id,
     estado: "abierto",
@@ -267,7 +267,7 @@ async function seed() {
   });
   const foro2 = await Foro.create({
     titulo: "Acompañamiento en casa",
-    descripcion: "Ideas y recursos para reforzar la lectura en casa.",
+    descripcion: "Ideas y recursos para reforzar hábitos saludables en casa.",
     docenteId: docenteB._id,
     cursoId: curso2._id,
     estado: "abierto",
@@ -278,26 +278,26 @@ async function seed() {
   const msgRaiz = await MensajeForo.create({
     foroId: foro1._id,
     usuarioId: padreA._id,
-    contenido: "¿El taller de fracciones se entrega individual o en familia?",
+    contenido: "¿El reto de la rutina de tareas se entrega individual o en familia?",
     likes: 1,
     likedBy: [padreB._id],
   });
   await MensajeForo.create({
     foroId: foro1._id,
     usuarioId: docenteA._id,
-    contenido: "Puede ser en familia. Lo importante es que se vea el procedimiento.",
+    contenido: "En familia. Lo importante es contarnos cómo les fue durante la semana.",
     respuestaA: msgRaiz._id,
   });
   await MensajeForo.create({
     foroId: foro2._id,
     usuarioId: docenteB._id,
-    contenido: "Les comparto una guía corta de preguntas para conversar la lectura en casa.",
+    contenido: "Les comparto una guía corta con ideas de loncheras saludables y económicas.",
   });
 
   // ── 10. Eventos (1 por curso; dueño = docente del curso, fecha futura) ──
   const evento1 = await Evento.create({
     titulo: "Escuela de Padres: acompañamiento en tareas",
-    descripcion: "Encuentro para las familias de Matemáticas 5°. Se solicita puntualidad y confirmación de asistencia.",
+    descripcion: "Encuentro para las familias de grado quinto. Se solicita puntualidad y confirmación de asistencia.",
     fechaInicio: dias(7),
     fechaFin: new Date(dias(7).getTime() + 2 * 60 * 60 * 1000),
     hora: "17:00",
@@ -308,7 +308,7 @@ async function seed() {
   });
   const evento2 = await Evento.create({
     titulo: "Entrega de informes del periodo",
-    descripcion: "Atención a padres de Lengua Castellana 5° para la entrega de informes académicos.",
+    descripcion: "Atención a padres de grado transición para la entrega de informes del periodo.",
     fechaInicio: dias(14),
     fechaFin: new Date(dias(14).getTime() + 3 * 60 * 60 * 1000),
     hora: "08:00",
@@ -320,10 +320,10 @@ async function seed() {
 
   // ── 11. Notificaciones (una por cada tipo del enum) ───────────
   await Notificacion.insertMany([
-    { usuarioId: padreA._id, tipo: "tarea", mensaje: "Nueva tarea en Matemáticas 5°: Taller de fracciones.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
-    { usuarioId: docenteA._id, tipo: "entrega", mensaje: "Sofía Ramírez realizó una entrega en Taller de fracciones.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
-    { usuarioId: padreA._id, tipo: "calificacion", mensaje: "Tu entrega de Taller de fracciones fue calificada con 5 estrellas.", referenciaModelo: "Tarea", referenciaId: tarea1._id, leido: true, prioridad: "alta", canalEnviado: { websocket: true, email: true } },
-    { usuarioId: padreB._id, tipo: "foro", mensaje: "Nuevo mensaje en el foro 'Dudas de la Unidad 1'.", referenciaModelo: "Foro", referenciaId: foro1._id, prioridad: "baja", canalEnviado: { websocket: true } },
+    { usuarioId: padreA._id, tipo: "tarea", mensaje: "Nuevo reto en Grado Quinto: Reto: rutina de tareas sin peleas.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
+    { usuarioId: docenteA._id, tipo: "entrega", mensaje: "Sofía Ramírez realizó una entrega en Reto: rutina de tareas sin peleas.", referenciaModelo: "Tarea", referenciaId: tarea1._id, prioridad: "media", canalEnviado: { websocket: true } },
+    { usuarioId: padreA._id, tipo: "calificacion", mensaje: "Tu entrega de Reto: rutina de tareas sin peleas fue calificada con 5 estrellas.", referenciaModelo: "Tarea", referenciaId: tarea1._id, leido: true, prioridad: "alta", canalEnviado: { websocket: true, email: true } },
+    { usuarioId: padreB._id, tipo: "foro", mensaje: "Nuevo mensaje en el foro 'Dudas sobre los retos de crianza'.", referenciaModelo: "Foro", referenciaId: foro1._id, prioridad: "baja", canalEnviado: { websocket: true } },
     { usuarioId: padreA._id, tipo: "evento", mensaje: "Nuevo evento: Escuela de Padres (en 7 días).", referenciaModelo: "Evento", referenciaId: evento1._id, prioridad: "media", canalEnviado: { websocket: true } },
     { usuarioId: docenteB._id, tipo: "sistema", mensaje: "Bienvenido a Edumon. Revisa tu perfil y tus cursos.", prioridad: "baja", canalEnviado: { websocket: true } },
   ]);
@@ -347,11 +347,11 @@ async function seed() {
   console.log(L(adminA, `${instA.nombre} [${instA.codigo}]`));
   console.log(L(adminB, `${instB.nombre} [${instB.codigo}] — sin cursos (aislamiento)`));
   console.log("\nDOCENTES  (institución: " + instA.nombre + ")");
-  console.log(L(docenteA, "dicta 'Matemáticas 5°'"));
-  console.log(L(docenteB, "dicta 'Lengua Castellana 5°'"));
+  console.log(L(docenteA, "docente de 'Grado Quinto'"));
+  console.log(L(docenteB, "docente de 'Grado Transición'"));
   console.log("\nPADRES / ACUDIENTES");
-  console.log(L(padreA, "en 'Matemáticas 5°'  (NO en 'Lengua' → probar 403)"));
-  console.log(L(padreB, "en 'Matemáticas 5°' y 'Lengua Castellana 5°'"));
+  console.log(L(padreA, "en 'Grado Quinto'  (NO en 'Transición' → probar 403)"));
+  console.log(L(padreB, "en 'Grado Quinto' y 'Grado Transición'"));
   console.log("\nDATOS RELACIONADOS");
   console.log(`    2 cursos · 2 módulos · 2 tareas (1 vigente, 1 vencida) · 2 entregas (1 calificada, 1 pendiente)`);
   console.log(`    2 foros · 3 mensajes · 2 eventos · 6 notificaciones (1 por tipo) · 2 mensajes de buzón · 2 perfiles familiares`);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import escuelaPadresSchema from "./schemas/escuelaPadresSchema.js";
 
 const archivoAdjuntoSchema = new mongoose.Schema({
   tipo: {
@@ -101,6 +102,11 @@ const tareaSchema = new mongoose.Schema({
     },
     default: "todos",
     required: [true, 'El tipo de asignación es obligatorio']
+  },
+  // reto de escuela de padres: Edumon lo recomienda en el chat (ver escuelaPadresSchema)
+  escuelaPadres: {
+    type: escuelaPadresSchema,
+    default: null
   },
   participantesSeleccionados: {
     type: [{

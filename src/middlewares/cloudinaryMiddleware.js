@@ -77,6 +77,22 @@ export const uploadApk = multer({
   }
 });
 
+// circular del Ministerio o la Secretaría para los lineamientos de escuela de
+// padres: solo se lee su texto, no se guarda
+export const uploadPdfComunicado = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')) {
+      cb(null, true);
+    } else {
+      cb(crearErrorDeArchivo('Solo se permiten archivos PDF'), false);
+    }
+  }
+});
+
 export const uploadCSVCloudinary = multer({
   storage: storage,
   limits: {

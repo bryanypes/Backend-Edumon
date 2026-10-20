@@ -9,7 +9,8 @@ import {
   cancelarEvento,
   getEventosHoy
 } from '../controllers/eventoController.js';
-import { authMiddleware } from '../middlewares/authMiddleware.js';
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
+import { getAsistencia, marcarAsistencia } from '../controllers/asistenciaController.js';
 import {
   createEventoValidator,
   updateEventoValidator,
@@ -51,6 +52,11 @@ const uploadEventoArchivos = multer({
 router.get('/', authMiddleware, getEventos);
 router.get('/hoy', authMiddleware, getEventosHoy);
 router.get('/:id', authMiddleware, eventoIdValidator, getEventoById);
+
+// asistencia a encuentros de escuela de padres (la marca el docente del grupo o el admin)
+const docenteOAdmin = requireRole(['docente', 'administrador']);
+router.get('/:id/asistencia', authMiddleware, docenteOAdmin, getAsistencia);
+router.put('/:id/asistencia', authMiddleware, docenteOAdmin, marcarAsistencia);
 
 router.post(
   '/',

@@ -38,6 +38,7 @@ import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
 import buzonRoutes from './routes/buzonRoutes.js';
 import apkRoutes from './routes/apkRoutes.js';
+import iaRoutes from './routes/iaRoutes.js';
 
 // Solo construye app + server + io. server.js conecta Mongo y arranca el
 // scheduler; los tests importan este archivo directo con su propia BD en memoria.
@@ -287,6 +288,7 @@ export const crearApp = () => {
   app.use('/api/perfiles',      perfilFamiliarRoutes);
   app.use('/api/buzon',         buzonRoutes);
   app.use('/api/apk',           apkRoutes);
+  app.use('/api/ia',            iaRoutes);
 
   // Health check
   app.get('/', (req, res) => {
