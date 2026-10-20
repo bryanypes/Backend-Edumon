@@ -1,4 +1,4 @@
-import { completarJSON, iaDisponible } from './groqClient.js';
+import { respond, iaDisponible } from './proveedorIA.js';
 import { normalizar } from './reglas.js';
 
 const SYSTEM_EDUMON = `Eres Edumon IA, el asistente con inteligencia artificial de la plataforma Edumon. Hablas con madres, padres y cuidadores de estudiantes de colegios colombianos.
@@ -134,8 +134,8 @@ export async function generarRespuesta({ fichas: fichasEncontradas, edad, histor
   const fichas = ordenarPorNovedad(fichasEncontradas, yaUsadas);
   const noUsadas = fichas.filter((f) => !yaUsadas.includes(String(f._id)));
   // sin IA, en un seguimiento se responde con una ficha que aún no se usó
-  const simulada = () => respuestaSimulada(noUsadas.length ? noUsadas : fichas, textoActual);
-  if (!iaDisponible()) return simulada();
+  const simulada = (ia) => ({ ...respuestaSimulada(noUsadas.length ? noUsadas : fichas, textoActual), ia });
+  if (!iaDisponible()) return simulada({ modo: 'simulado' });
 
   try {
     const nuevas = noUsadas.map((f) => f._id);
@@ -152,13 +152,13 @@ export async function generarRespuesta({ fichas: fichasEncontradas, edad, histor
       { role: 'user', content: `${contexto}\n\n${textoActual}` },
     ];
 
-    const r = await completarJSON({
+    const llamada = await respond({
       system: SYSTEM_EDUMON,
       messages: mensajes,
       schema: SCHEMA,
       nombre: 'respuesta_edumon',
-      esfuerzo: 'medium',
     });
+    const r = llamada.datos;
 
     // solo se aceptan ids de fichas que realmente se le pasaron
     const usadas = fichas.filter((f) => r.fichasUsadas.includes(String(f._id)));
@@ -170,9 +170,22 @@ export async function generarRespuesta({ fichas: fichasEncontradas, edad, histor
       fichasIds: base.map((f) => f._id),
       fuentes: fuentesDe(base),
       recursos: armarRecursos(base, r.busquedas),
+      ia: {
+        modo: 'llm',
+        proveedor: llamada.proveedor,
+        modelo: llamada.modelo,
+        latenciaMs: llamada.latenciaMs,
+        huboFallback: llamada.huboFallback,
+        proveedoresFallidos: [...new Set(llamada.intentos.map((i) => i.proveedor))],
+      },
     };
   } catch (error) {
-    console.error('[Edumon] Generador IA falló, uso la ficha directa:', error.message);
-    return simulada();
+    console.error('[Edumon] Ningún proveedor de IA respondió, uso la ficha directa:', error.message);
+    // el respaldo queda registrado en la respuesta: no es silencioso
+    return simulada({
+      modo: 'fichas_fallback',
+      huboFallback: true,
+      proveedoresFallidos: [...new Set((error.intentos ?? []).map((i) => i.proveedor))],
+    });
   }
 }

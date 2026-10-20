@@ -1,5 +1,6 @@
-import { completarJSONConModelo, iaDisponible } from './groqClient.js';
-import { analizarRiesgo, requiereAtencion, detectarTema, extraerEdad, pideHacerTarea } from './reglas.js';
+import { createHash } from 'node:crypto';
+import { classify, iaDisponible } from './proveedorIA.js';
+import { analizarRiesgo, requiereAtencion, detectarTema, extraerEdad, pideHacerTarea, normalizar } from './reglas.js';
 import { EJES_CRIANZA, CATEGORIAS_RIESGO, SUBTEMAS, SUBTEMAS_DESCRIPCION, SUBTEMAS_POR_EJE } from '../../config/edumonIA.js';
 
 const listaSubtemas = Object.entries(SUBTEMAS_POR_EJE)
@@ -88,18 +89,48 @@ const clasificarPorReglas = (textoActual, textoContexto) => {
 // por qué no respondió la IA, en claro y sin datos de la cuenta del proveedor
 // (se guarda en la alerta y lo ve el colegio)
 export const motivoFalloIA = (mensaje = '') => {
-  if (/tokens per day|requests per day/i.test(mensaje)) return 'Se agotó la cuota diaria del proveedor de IA (Groq)';
-  if (/429|rate limit/i.test(mensaje)) return 'Límite de uso por minuto del proveedor de IA (Groq)';
+  if (/tokens per day|requests per day/i.test(mensaje)) return 'Se agotó la cuota diaria del proveedor de IA';
+  if (/No hay proveedor/i.test(mensaje)) return 'No hay proveedor de IA configurado';
+  if (/429|rate limit/i.test(mensaje)) return 'Límite de uso por minuto del proveedor de IA';
+  if (/ 40[13]\b|llave/i.test(mensaje)) return 'Llave del proveedor de IA inválida o vencida';
   if (/timeout|aborted/i.test(mensaje)) return 'El proveedor de IA no respondió a tiempo';
-  if (/fetch failed|ENOTFOUND|ECONN/i.test(mensaje)) return 'Sin conexión con el proveedor de IA';
+  if (/ 5\d\d\b/.test(mensaje)) return 'El proveedor de IA tuvo un error interno';
+  if (/cooldown/i.test(mensaje)) return 'Proveedores de IA en pausa por fallos recientes (cooldown)';
+  if (/fetch failed|ENOTFOUND|ECONN| red:/i.test(mensaje)) return 'Sin conexión con el proveedor de IA';
   return 'Error del proveedor de IA';
 };
 
+// caché de clasificaciones del LLM por hash del mensaje normalizado (más el
+// contexto reciente, que cambia el tema de un seguimiento). Solo guarda
+// resultados del LLM: si el proveedor se recupera, no se repite un fallback.
+const cache = new Map();
+const MAX_CACHE = 500;
+const ttlCacheMs = () => (Number(process.env.LLM_CACHE_TTL_SECONDS) > 0 ? Number(process.env.LLM_CACHE_TTL_SECONDS) : 600) * 1000;
+const claveCache = (texto, contexto) => createHash('sha256').update(`${normalizar(texto)}\u0000${normalizar(contexto)}`).digest('hex');
+const leerCache = (clave) => {
+  const item = cache.get(clave);
+  if (!item) return null;
+  if (item.vence < Date.now()) { cache.delete(clave); return null; }
+  return item.valor;
+};
+const guardarCache = (clave, valor) => {
+  if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value);
+  cache.set(clave, { valor, vence: Date.now() + ttlCacheMs() });
+};
+// solo para pruebas
+export const _limpiarCacheClasificaciones = () => cache.clear();
+
 // qué se detectó y quién decidió: queda guardado en el mensaje y en la alerta
 // para poder explicar (y auditar) cada clasificación
-const armarDeteccion = ({ fuente, riesgoReglas, llm = null, riesgo, dudosoConfirmado = null, errorIA = null, modeloUsado = null }) => ({
+const armarDeteccion = ({ fuente, riesgoReglas, llm = null, riesgo, dudosoConfirmado = null, errorIA = null, modeloUsado = null, llamada = null }) => ({
   fuente,
   modelo: fuente === 'ia' ? modeloUsado : null,
+  // qué proveedor respondió, cuánto tardó y si antes falló otro
+  proveedor: llamada?.proveedor ?? null,
+  latenciaMs: llamada?.latenciaMs ?? null,
+  huboFallback: Boolean(llamada?.huboFallback),
+  proveedoresFallidos: [...new Set((llamada?.intentos ?? []).map((i) => i.proveedor))],
+  desdeCache: false,
   reglaSegura: riesgoReglas.seguro,
   reglaDudosa: riesgoReglas.dudoso,
   llm,
@@ -123,11 +154,20 @@ export async function clasificar(textoActual, historial = []) {
     .join(' ');
 
   const { riesgoReglas, ...porReglas } = clasificarPorReglas(textoActual, textoContexto);
-  const soloReglas = (errorIA = null) => ({
+  const soloReglas = (errorIA = null, intentos = []) => ({
     ...porReglas,
-    deteccion: armarDeteccion({ fuente: 'reglas', riesgoReglas, riesgo: riesgoReglas.seguro, errorIA }),
+    // con intentos fallidos el respaldo por reglas queda explícito, nunca en silencio
+    huboFallback: intentos.length > 0,
+    deteccion: armarDeteccion({
+      fuente: 'reglas', riesgoReglas, riesgo: riesgoReglas.seguro, errorIA,
+      llamada: intentos.length ? { huboFallback: true, intentos } : null,
+    }),
   });
   if (!iaDisponible()) return soloReglas();
+
+  const clave = claveCache(textoActual, textoContexto);
+  const enCache = leerCache(clave);
+  if (enCache) return { ...enCache, deteccion: { ...enCache.deteccion, desdeCache: true, latenciaMs: 0 } };
 
   try {
     const mensajes = [
@@ -137,14 +177,13 @@ export async function clasificar(textoActual, historial = []) {
       })),
       { role: 'user', content: textoActual },
     ];
-    const { datos: r, modelo: modeloUsado } = await completarJSONConModelo({
+    const llamada = await classify({
       system: SYSTEM_CLASIFICADOR,
       messages: mensajes,
       schema: SCHEMA,
       nombre: 'clasificacion_edumon',
-      esfuerzo: 'low',
-      maxTokens: 2000,
     });
+    const { datos: r, modelo: modeloUsado } = llamada;
 
     const llmVeRiesgo = r.nivelRiesgo === 'riesgo';
     const categoriaLLM = llmVeRiesgo && r.categoriaRiesgo !== 'ninguna' ? r.categoriaRiesgo : null;
@@ -161,7 +200,7 @@ export async function clasificar(textoActual, historial = []) {
       ? { eje: r.eje, subtema: r.subtema }
       : null;
 
-    return {
+    const resultado = {
       categoriaRiesgo: riesgo?.categoria ?? null,
       gravedad: riesgo?.gravedad ?? null,
       atencion: requiereAtencion(textoActual) || r.nivelRiesgo === 'atencion' || (llmVeRiesgo && !riesgo),
@@ -170,6 +209,8 @@ export async function clasificar(textoActual, historial = []) {
       edad: r.edad ?? porReglas.edad,
       pideHacerTarea: porReglas.pideHacerTarea || r.pideResolverTarea,
       fuente: 'ia',
+      proveedor: llamada.proveedor,
+      huboFallback: llamada.huboFallback,
       deteccion: armarDeteccion({
         fuente: 'ia',
         riesgoReglas,
@@ -177,10 +218,13 @@ export async function clasificar(textoActual, historial = []) {
         riesgo,
         dudosoConfirmado,
         modeloUsado,
+        llamada,
       }),
     };
+    guardarCache(clave, resultado);
+    return resultado;
   } catch (error) {
-    console.error('[Edumon] Clasificador IA falló, uso reglas:', error.message);
-    return soloReglas(motivoFalloIA(error.message));
+    console.error('[Edumon] Ningún proveedor de IA clasificó, uso reglas:', error.message);
+    return soloReglas(motivoFalloIA(error.message), error.intentos ?? []);
   }
 }

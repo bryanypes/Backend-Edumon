@@ -26,6 +26,13 @@ const deteccionIASchema = new mongoose.Schema({
   decidio: { type: String, enum: ['regla', 'regla_confirmada_por_ia', 'ia', null], default: null },
   // si el LLM falló y se usaron solo reglas
   errorIA: { type: String, default: null },
+  // proveedor que clasificó, latencia y si antes falló otro (opcionales: los
+  // documentos anteriores siguen siendo válidos)
+  proveedor: { type: String, default: null },
+  latenciaMs: { type: Number, default: null },
+  huboFallback: { type: Boolean, default: false },
+  proveedoresFallidos: { type: [String], default: undefined },
+  desdeCache: { type: Boolean, default: false },
 }, { _id: false });
 
 export default deteccionIASchema;

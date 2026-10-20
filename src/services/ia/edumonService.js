@@ -167,6 +167,8 @@ export async function procesarMensaje(conversacion, textoActual) {
     conversacion.titulo = SUBTEMAS[clasificacion.tema.subtema] || conversacion.titulo;
   }
 
+  // las respuestas fijas (riesgo, charla, límites) no las redacta ningún modelo
+  respuesta.ia ??= { modo: 'plantilla' };
   conversacion.mensajes.push({ rol: 'edumon', ...respuesta });
   conversacion.ultimaActividad = new Date();
   await conversacion.save();
@@ -198,7 +200,7 @@ export async function solicitarAyuda(conversacion) {
 
   oferta.ofrecerAyuda.solicitada = true;
   conversacion.markModified('mensajes');
-  conversacion.mensajes.push({ rol: 'edumon', contenido: RESPUESTA_AYUDA_SOLICITADA, tipo: 'apoyo' });
+  conversacion.mensajes.push({ rol: 'edumon', contenido: RESPUESTA_AYUDA_SOLICITADA, tipo: 'apoyo', ia: { modo: 'plantilla' } });
   conversacion.ultimaActividad = new Date();
   await conversacion.save();
   return conversacion.mensajes[conversacion.mensajes.length - 1];

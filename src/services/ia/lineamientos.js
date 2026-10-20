@@ -5,7 +5,7 @@ import Evento from '../../models/Evento.js';
 import Entrega from '../../models/Entrega.js';
 import User from '../../models/User.js';
 import AsistenciaEncuentro from '../../models/AsistenciaEncuentro.js';
-import { completarJSON, iaDisponible } from './groqClient.js';
+import { completarJSON, iaDisponible } from './proveedorIA.js';
 import { EJES_CRIANZA, EJES_LABELS } from '../../config/edumonIA.js';
 
 // el comunicado se recorta para no pasarse del límite de tokens por minuto de Groq

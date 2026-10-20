@@ -4,6 +4,7 @@ import connectDB from './config/database.js';
 import { iniciarSchedulerTareas } from './schedulers/tareaScheduler.js';
 import { registrarObservers } from './events/NotificacionObservers.js';
 import { bootstrapAdmins } from './scripts/bootstrapAdmins.js';
+import { registrarProveedoresAlArrancar } from './services/ia/proveedorIA.js';
 
 const { app, server } = crearApp();
 const isDev = process.env.NODE_ENV === 'development';
@@ -23,6 +24,7 @@ server.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log(`Entorno: ${process.env.NODE_ENV || 'development'}`);
   console.log('WebSocket habilitado');
+  registrarProveedoresAlArrancar();
   if (isDev) console.log('CORS: abierto para desarrollo');
 });
 

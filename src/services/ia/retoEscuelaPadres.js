@@ -1,5 +1,5 @@
 import FichaCrianza from '../../models/FichaCrianza.js';
-import { completarJSON, iaDisponible } from './groqClient.js';
+import { completarJSON, iaDisponible } from './proveedorIA.js';
 import { detectarTema, normalizar } from './reglas.js';
 import { armarRecursos } from './generador.js';
 import { clasificar } from './clasificador.js';
