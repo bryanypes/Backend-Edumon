@@ -67,12 +67,12 @@ Los modos `proveedor` y `fallback` usan **proveedores de IA falsos** locales (`t
 
 | Rol | Nombre | Teléfono |
 |---|---|---|
-| administrador (rectora) | Rectora Demo | `+573009990001` |
-| docente, responsable de convivencia | Orientadora Convivencia | `+573009990002` |
-| docente de Grado Quinto A | Docente Quinto | `+573009990003` |
-| docente de Grado Tercero B | Docente Tercero | `+573009990004` |
-| docente de Grado Noveno A | Docente Noveno | `+573009990005` |
-| familias (padre) | Familia1 … Familia20 | `+573009990006` … `+573009990025` |
+| administrador (rectora) | Marcela Ríos Castaño | `+573009990001` |
+| docente, responsable de convivencia | Diana Patricia Muñoz | `+573009990002` |
+| docente de Grado Quinto A | Andrés Felipe Ramírez | `+573009990003` |
+| docente de Grado Tercero B | Paola Andrea Vélez | `+573009990004` |
+| docente de Grado Noveno A | Juan Camilo Ortiz | `+573009990005` |
+| familias (padre) | Laura Gómez, Carlos Herrera … Wilson Ruiz (20) | `+573009990006` … `+573009990025` |
 
 Todos usan la contraseña `EdumonDemo2026*`, ya aceptaron el consentimiento de IA y tienen `primerInicioSesion: false`.
 
@@ -91,6 +91,19 @@ Todos usan la contraseña `EdumonDemo2026*`, ya aceptaron el consentimiento de I
 | "el profe le dijo bruto delante del salón" | escolar | I | pedida por la familia |
 | "creo que abusaron de mi hija" | hogar | — | automática, ya en atención y con 2 eventos en la bitácora |
 | "me kiero matar ya no puedo mas" | personal | — | automática, detectada con coincidencia aproximada |
+
+### Contenido de uso real (`npm run seed:contenido`)
+
+Se corre después de `seed:demo` (o los dos juntos con `npm run seed:demo:completo`). Llena la demo como si el colegio llevara semanas usándola:
+
+- **Cursos** con portada, color y descripción; **8 módulos** según la edad de cada grado.
+- **12 retos** de escuela de padres con instrucciones y criterios: cerrados, activos y próximos.
+- **49 entregas** con la reflexión de cada familia y **fotos de evidencia** (carteles, horarios, cartas), guardadas como archivos privados igual que una entrega real; algunas tarde; calificadas con estrellas y comentario del docente.
+- **4 foros** con conversación entre familias y docentes, respuestas, "me gusta" y una imagen.
+- **5 eventos**: encuentros pasados con asistencia tomada, talleres próximos (Edumon los recomienda en el chat) y un evento institucional.
+- **Perfiles familiares** y **notificaciones** de retos, entregas, calificaciones, foros y eventos.
+
+Las imágenes salen de `src/data/demo-imagenes/` (ilustraciones ficticias). Es idempotente: borra y vuelve a crear solo lo que él mismo creó, incluidos los archivos. `seed:demo` solo, sin este paso, deja la demo mínima que usan las pruebas.
 
 ## 3. Evaluación de la IA
 
@@ -208,7 +221,7 @@ Respuesta esperada:
 
 Sobre la respuesta del paso 1: `decidio` es `"regla"` en simulado o `"modelo"` con LLM, con `fichas[1]` (título, edades, fuente) y `respuesta.modo`.
 
-**6. Ciclo Edumon** (Docente Quinto)
+**6. Ciclo Edumon** (Andrés Felipe Ramírez, docente de Quinto)
 
 ```bash
 login docente +573009990003

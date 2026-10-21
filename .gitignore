@@ -23,3 +23,6 @@ build/
 # Cobertura de tests
 coverage/
 .env.render
+
+# Archivos subidos en local (UPLOAD_DIR por defecto)
+/uploads/
