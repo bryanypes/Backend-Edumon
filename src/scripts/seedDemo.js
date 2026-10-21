@@ -31,6 +31,14 @@ import { cargarFichas } from './seedFichas.js';
 import { procesarMensaje, solicitarAyuda, institucionDeLaConversacion } from '../services/ia/edumonService.js';
 import { encadenar } from '../services/ia/bitacora.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
+import { limpiarContenido } from './seedContenido.js';
+
+const FAMILIAS = [
+  ['Laura', 'Gómez'], ['Carlos', 'Herrera'], ['Natalia', 'Restrepo'], ['Jorge', 'Castillo'], ['Viviana', 'Torres'],
+  ['Sebastián', 'Morales'], ['Catalina', 'Ospina'], ['Mauricio', 'Rincón'], ['Paula', 'Jiménez'], ['Andrés', 'Cárdenas'],
+  ['Luisa Fernanda', 'Cruz'], ['Diego', 'Salazar'], ['Yolanda', 'Pérez'], ['Fabián', 'Quintero'], ['Marcela', 'Arango'],
+  ['Óscar', 'Giraldo'], ['Sandra', 'Londoño'], ['Hernán', 'Valencia'], ['Angélica', 'Mejía'], ['Wilson', 'Ruiz'],
+];
 
 export const NIT_DEMO = 'DEMO-EDUMON-IA';
 export const DOMINIO_DEMO = '@demo.edumon.example';
@@ -53,6 +61,7 @@ async function limpiarDemo() {
   const inst = await Institucion.findOne({ nit: NIT_DEMO }).select('_id').lean();
   const usuarios = await User.find({ correo: { $regex: `${DOMINIO_DEMO.replace(/\./g, '\\.')}$` } }).distinct('_id');
   const cursos = inst ? await Curso.find({ institucionId: inst._id }).distinct('_id') : [];
+  await limpiarContenido({ institucionId: inst?._id, cursosIds: cursos, usuariosIds: usuarios });
   await Promise.all([
     Tarea.deleteMany({ cursoId: { $in: cursos } }),
     Modulo.deleteMany({ cursoId: { $in: cursos } }),
@@ -97,23 +106,23 @@ export async function sembrarDemo({ log = console.log } = {}) {
   };
 
   const inst = await Institucion.create({
-    nombre: 'Colegio Demo Edumon (ficticio)', nit: NIT_DEMO, direccion: 'Dirección ficticia', telefono: '+573009990000',
+    nombre: 'Colegio Valle Verde', nit: NIT_DEMO, direccion: 'Calle 12 # 8-45, Popayán', telefono: '+573009990000',
     correo: `rectoria${DOMINIO_DEMO}`, activo: true,
   });
-  const rectora = await mk('administrador', 'Rectora', 'Demo', { institucionId: inst._id });
-  const orientadora = await mk('docente', 'Orientadora', 'Convivencia', { institucionId: inst._id });
+  const rectora = await mk('administrador', 'Marcela', 'Ríos Castaño', { institucionId: inst._id });
+  const orientadora = await mk('docente', 'Diana Patricia', 'Muñoz', { institucionId: inst._id });
   inst.adminId = rectora._id;
   inst.responsableConvivenciaId = orientadora._id;
   await inst.save();
 
   const docentes = await Promise.all([
-    mk('docente', 'Docente', 'Quinto', { institucionId: inst._id }),
-    mk('docente', 'Docente', 'Tercero', { institucionId: inst._id }),
-    mk('docente', 'Docente', 'Noveno', { institucionId: inst._id }),
+    mk('docente', 'Andrés Felipe', 'Ramírez', { institucionId: inst._id }),
+    mk('docente', 'Paola Andrea', 'Vélez', { institucionId: inst._id }),
+    mk('docente', 'Juan Camilo', 'Ortiz', { institucionId: inst._id }),
   ]);
   // 7 familias por curso; la familia 1 de Quinto también está en Tercero
   const familias = [];
-  for (let i = 1; i <= 20; i += 1) familias.push(await mk('padre', `Familia${i}`, 'Demo'));
+  for (const [nombre, apellido] of FAMILIAS) familias.push(await mk('padre', nombre, apellido));
 
   const NOMBRES = ['Grado Quinto A', 'Grado Tercero B', 'Grado Noveno A'];
   const grupos = [familias.slice(0, 7), [familias[0], ...familias.slice(7, 13)], familias.slice(13, 20)];
