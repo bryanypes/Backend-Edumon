@@ -8,6 +8,8 @@ import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { enviarCorreoRecuperacion } from '../services/mailService.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
+import { formasDeCorreo } from '../utils/correo.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -153,7 +155,7 @@ export const register = async (req, res) => {
     // restrinja a 'padre' -- así una futura relajación del validator no vuelve
     // a abrir la puerta a autoregistrarse como docente/administrador sin sesión.
     const newUser = new User({
-      nombre, apellido, cedula, correo, contraseña, rol: 'padre',
+      nombre, apellido, cedula, correo: correo || undefined, contraseña, rol: 'padre',
       telefono:     telefonoNormalizado,
       institucionId: null,
       fechaRegistro: new Date(),
@@ -183,6 +185,7 @@ export const register = async (req, res) => {
       user:    publicUser(savedUser),
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en registro:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -418,7 +421,8 @@ export const forgotPassword = async (req, res) => {
       return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { correo } = req.body;
-    const user       = await User.findOne({ correo });
+    // también la forma antigua (normalizeEmail quitaba puntos en Gmail): ver formasDeCorreo
+    const user       = await User.findOne({ correo: { $in: formasDeCorreo(correo) } });
 
     // Respuesta genérica siempre (anti-enumeración)
     const RESPUESTA_GENERICA = {
@@ -457,7 +461,7 @@ export const resetPassword = async (req, res) => {
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
 
     const user = await User.findOne({
-      correo,
+      correo: { $in: formasDeCorreo(correo) },
       resetPasswordToken:   codigoHash,
       resetPasswordExpires: { $gt: new Date() },
     });
