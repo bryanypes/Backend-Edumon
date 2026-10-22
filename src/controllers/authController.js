@@ -14,7 +14,17 @@ import { formasDeCorreo } from '../utils/correo.js';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 const ACCESS_TOKEN_TTL  = '15m';
-const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+// Duración de la sesión desde el ÚLTIMO uso: cada renovación la vuelve a extender.
+// Padres y docentes: un año (en la práctica no se les cierra nunca mientras usen la
+// app; se puede ajustar con SESION_DIAS_PADRES_DOCENTES). Administradores: 7 días.
+// No se usa un token sin vencimiento: así una sesión se puede revocar (cerrar sesión,
+// cambio de contraseña, usuario suspendido).
+export const duracionSesionMs = (rol) => {
+  const diasLargos = Number(process.env.SESION_DIAS_PADRES_DOCENTES) || 365;
+  return (['padre', 'docente'].includes(rol) ? diasLargos : 7) * DIA_MS;
+};
 
 const COOKIE_BASE = {
   httpOnly: true,
@@ -55,7 +65,7 @@ export const setAccessTokenCookie = (res, accessToken) => {
   });
 };
 
-const setSessionCookies = (res, accessToken, refreshToken) => {
+const setSessionCookies = (res, accessToken, refreshToken, duracionMs) => {
   setAccessTokenCookie(res, accessToken);
 
   // path: '/api/auth' (no '/api/auth/refresh') para que también llegue a
@@ -63,7 +73,7 @@ const setSessionCookies = (res, accessToken, refreshToken) => {
   res.cookie('refresh_token', refreshToken, {
     ...COOKIE_BASE,
     path:   '/api/auth',
-    maxAge: REFRESH_TOKEN_TTL,
+    maxAge: duracionMs,
   });
 };
 
@@ -166,7 +176,7 @@ export const register = async (req, res) => {
 
     const accessToken    = generarAccessToken(savedUser);
     const { raw, hash }  = generarRefreshToken();
-    const expiraEn       = new Date(Date.now() + REFRESH_TOKEN_TTL);
+    const expiraEn       = new Date(Date.now() + duracionSesionMs(savedUser.rol));
 
     // refreshTokens tiene select:false, pero savedUser ya lo trae en memoria
     savedUser.refreshTokens.push({
@@ -177,7 +187,7 @@ export const register = async (req, res) => {
     });
     await savedUser.save();
 
-    setSessionCookies(res, accessToken, raw);
+    setSessionCookies(res, accessToken, raw, expiraEn.getTime() - Date.now());
     eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, savedUser);
 
     return res.status(201).json({
@@ -234,7 +244,7 @@ export const login = async (req, res) => {
 
     const accessToken   = generarAccessToken(user);
     const { raw, hash } = generarRefreshToken();
-    const expiraEn      = new Date(Date.now() + REFRESH_TOKEN_TTL);
+    const expiraEn      = new Date(Date.now() + duracionSesionMs(user.rol));
 
     user.refreshTokens.push({
       tokenHash: hash,
@@ -244,7 +254,7 @@ export const login = async (req, res) => {
     });
 
     await user.save();
-    setSessionCookies(res, accessToken, raw);
+    setSessionCookies(res, accessToken, raw, expiraEn.getTime() - Date.now());
 
     return res.json({
       message:            'Login exitoso',
@@ -285,7 +295,7 @@ export const refresh = async (req, res) => {
     const contextoPerfil = await resolverPerfilActivo(req, user._id);
     const accessToken      = generarAccessToken(user, contextoPerfil);
     const { raw, hash: newHash } = generarRefreshToken();
-    const expiraEn         = new Date(Date.now() + REFRESH_TOKEN_TTL);
+    const expiraEn         = new Date(Date.now() + duracionSesionMs(user.rol));
 
     user.refreshTokens.push({
       tokenHash: newHash,
@@ -295,7 +305,7 @@ export const refresh = async (req, res) => {
     });
 
     await user.save();
-    setSessionCookies(res, accessToken, raw);
+    setSessionCookies(res, accessToken, raw, expiraEn.getTime() - Date.now());
 
     return res.json({ message: 'Token renovado' });
   } catch (error) {
