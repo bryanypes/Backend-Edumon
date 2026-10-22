@@ -1,5 +1,6 @@
 import { body } from 'express-validator';
 import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+import { campoCorreo } from './correoValidator.js';
 
 // normaliza a +57XXXXXXXXXX así el login funciona con o sin el +57
 const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
@@ -20,10 +21,7 @@ export const registerValidator = [
     .trim()
     .matches(/^\d{6,10}$/).withMessage('La cédula debe contener entre 6 y 10 dígitos numéricos'),
 
-  body('correo')
-    .notEmpty().withMessage('El correo es requerido')
-    .isEmail().withMessage('El correo electrónico no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo', { requerido: true }),
 
   body('contraseña')
     .notEmpty().withMessage('La contraseña es requerida')
@@ -71,17 +69,11 @@ export const changePasswordValidator = [
 
 // Recuperación por CORREO
 export const forgotPasswordValidator = [
-  body('correo')
-    .notEmpty().withMessage('El correo es requerido')
-    .isEmail().withMessage('El correo electrónico no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo', { requerido: true }),
 ];
 
 export const resetPasswordValidator = [
-  body('correo')
-    .notEmpty().withMessage('El correo es requerido')
-    .isEmail().withMessage('El correo electrónico no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo', { requerido: true }),
 
   body('codigo')
     .notEmpty().withMessage('El código es requerido')

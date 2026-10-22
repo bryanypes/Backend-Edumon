@@ -1,6 +1,7 @@
 import { body } from 'express-validator';
 import rateLimit from 'express-rate-limit';
 import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+import { campoCorreo } from './correoValidator.js';
 
 // Mismo saneador que auth/user/curso validators: acepta "3001234567",
 // "57 300 123 4567" o "+573001234567" y siempre deja "+57XXXXXXXXXX".
@@ -15,10 +16,7 @@ export const buzonValidator = [
     .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
     .withMessage('El nombre solo puede contener letras, espacios, guiones y apóstrofes'),
 
-  body('correo')
-    .notEmpty().withMessage('El correo es requerido')
-    .isEmail().withMessage('El correo no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo', { requerido: true, mensaje: 'El correo no es válido' }),
 
   // opcional: el formulario público lo manda sin +57, y notEmpty() + regex estricto lo rechazaba siempre
   body('telefono')
