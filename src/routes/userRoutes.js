@@ -13,7 +13,8 @@ import {
   updateFcmToken,
   updateModoOscuro,
   getUltimasSesiones,
-  getPadreInfo
+  getPadreInfo,
+  cambiarContrasenaUsuario
 } from '../controllers/userController.js';
 import { authMiddleware, requireRole } from "../middlewares/authMiddleware.js";
 import { uploadImagenCloudinary } from '../middlewares/cloudinaryMiddleware.js';
@@ -23,7 +24,8 @@ import {
   updateOwnProfileValidator,
   userIdValidator,
   updateFcmTokenValidator,
-  updateModoOscuroValidator
+  updateModoOscuroValidator,
+  cambiarContrasenaValidator
 } from '../middlewares/validators/userValidator.js';
 import { param } from 'express-validator';
 
@@ -77,5 +79,6 @@ router.get('/:id', authMiddleware, requireRole(['administrador', 'superadmin']),
 router.put('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), updateUserValidator, updateUser);
 router.delete('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, deleteUser);
 router.patch('/:id/reactivar', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, reactivateUser);
+router.patch('/:id/contrasena', authMiddleware, requireRole(['administrador', 'superadmin']), cambiarContrasenaValidator, cambiarContrasenaUsuario);
 
 export default router;
