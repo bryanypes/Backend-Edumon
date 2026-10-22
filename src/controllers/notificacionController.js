@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import { emitirNotificacion } from '../socket/socketHandlers.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 export const createNotificacion = async (req, res) => {
   try {
@@ -41,6 +42,7 @@ export const createNotificacion = async (req, res) => {
       notificacion
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear notificación:', error);
     res.status(500).json({ 
       message: 'Error al crear la notificación', 
@@ -110,6 +112,7 @@ export const getMisNotificaciones = async (req, res) => {
       noLeidas
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener notificaciones:', error);
     res.status(500).json({
       message: 'Error al obtener las notificaciones',
@@ -144,6 +147,7 @@ export const getNotificacionById = async (req, res) => {
 
     res.status(200).json(notificacion);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener notificación:', error);
     res.status(500).json({ 
       message: 'Error al obtener la notificación', 
@@ -191,6 +195,7 @@ export const marcarComoLeida = async (req, res) => {
       noLeidas
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar notificación:', error);
     res.status(500).json({ 
       message: 'Error al actualizar la notificación', 
@@ -236,6 +241,7 @@ export const marcarVariasLeidas = async (req, res) => {
       noLeidas
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
@@ -266,6 +272,7 @@ export const marcarTodasLeidas = async (req, res) => {
       noLeidas: 0
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar todas las notificaciones:', error);
     res.status(500).json({ 
       message: 'Error al actualizar las notificaciones', 
@@ -308,6 +315,7 @@ export const deleteNotificacion = async (req, res) => {
       noLeidas
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar notificación:', error);
     res.status(500).json({ 
       message: 'Error al eliminar la notificación', 
@@ -339,6 +347,7 @@ export const eliminarLeidasAntiguas = async (req, res) => {
       eliminadas: resultado.deletedCount
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar notificaciones antiguas:', error);
     res.status(500).json({ 
       message: 'Error al eliminar notificaciones', 
@@ -362,6 +371,7 @@ export const getConteoNoLeidas = async (req, res) => {
 
     res.status(200).json({ noLeidas });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener conteo:', error);
     res.status(500).json({ 
       message: 'Error al obtener el conteo', 

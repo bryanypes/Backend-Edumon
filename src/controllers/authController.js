@@ -262,6 +262,7 @@ export const login = async (req, res) => {
       user:               publicUser(user),
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en login:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -309,6 +310,7 @@ export const refresh = async (req, res) => {
 
     return res.json({ message: 'Token renovado' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en refresh:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -330,6 +332,7 @@ export const logout = async (req, res) => {
     clearSessionCookies(res);
     return res.json({ message: 'Logout exitoso' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en logout:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -342,6 +345,7 @@ export const logoutAll = async (req, res) => {
     clearSessionCookies(res);
     return res.json({ message: 'Todas las sesiones cerradas' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en logoutAll:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -388,6 +392,7 @@ export const getProfile = async (req, res) => {
       perfilActivo,
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener perfil:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -418,6 +423,7 @@ export const changePassword = async (req, res) => {
 
     return res.json({ message: 'Contraseña cambiada exitosamente' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cambiar contraseña:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -452,6 +458,7 @@ export const forgotPassword = async (req, res) => {
 
     return res.status(200).json(RESPUESTA_GENERICA);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en forgotPassword:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -485,6 +492,7 @@ export const resetPassword = async (req, res) => {
 
     return res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en resetPassword:', error);
     return res.status(500).json({ message: 'Error interno del servidor' });
   }

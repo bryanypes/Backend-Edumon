@@ -8,6 +8,7 @@ import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 
 import { parseFilasUsuarios } from '../utils/parseExcelUsuarios.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // Admin del colegio: preregistrar docentes masivamente desde Excel (.xlsx/.xlsm)
 export const preregistrarDocentesCSV = async (req, res) => {
@@ -126,6 +127,7 @@ export const preregistrarDocentesCSV = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('[preregistrarDocentesCSV]', error);
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
@@ -229,6 +231,7 @@ export const getInstituciones = async (req, res) => {
 
     res.json({ instituciones });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
@@ -247,6 +250,7 @@ export const getMiInstitucion = async (req, res) => {
 
     res.json({ institucion });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
@@ -316,6 +320,7 @@ export const updateInstitucion = async (req, res) => {
 
     res.json({ message: 'Institución actualizada', institucion });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
@@ -345,6 +350,7 @@ export const cambiarEstadoInstitucion = async (req, res) => {
       institucion
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
@@ -420,6 +426,7 @@ export const deleteInstitucion = async (req, res) => {
       },
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar institución:', error);
     res.status(500).json({
       message: 'Error interno del servidor',
