@@ -364,6 +364,48 @@ export const updateOwnProfile = async (req, res) => {
   }
 };
 
+// El administrador cambia la contraseña de un usuario: una nueva, o la cédula
+// ("restablecer", la contraseña inicial de todo el sistema). Solo toca la
+// contraseña y las sesiones: tareas, entregas, cursos y mensajes siguen ligados al
+// mismo usuario. Se cierran sus sesiones abiertas para que entre con la nueva.
+export const cambiarContrasenaUsuario = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+    }
+
+    const usuario = await User.findById(req.params.id).select('+refreshTokens');
+    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (req.user.rol === 'administrador' && !['padre', 'docente'].includes(usuario.rol)) {
+      return res.status(403).json({ message: "Un administrador solo puede cambiar la contraseña de padres y docentes" });
+    }
+    if (!(await adminPuedeGestionarUsuario(req.user, usuario))) {
+      return res.status(403).json({ message: "No puedes modificar usuarios de otra institución" });
+    }
+
+    const restablecer = req.body.restablecer === true;
+    usuario.contraseña = restablecer ? String(usuario.cedula) : req.body.contraseña;
+    // con la cédula se obliga a cambiarla al entrar (igual que una cuenta nueva);
+    // con una contraseña elegida por el admin, solo si lo pide
+    usuario.primerInicioSesion = restablecer ? true : req.body.exigirCambio === true;
+    usuario.refreshTokens = [];
+    await usuario.save();
+
+    res.json({
+      message: restablecer
+        ? "Contraseña restablecida: ahora es la cédula del usuario"
+        : "Contraseña actualizada",
+      primerInicioSesion: usuario.primerInicioSesion,
+    });
+  } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
+    console.error('Error al cambiar la contraseña:', error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
 // Eliminar usuario (soft delete → estado: suspendido)
 export const deleteUser = async (req, res) => {
   try {
