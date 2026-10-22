@@ -101,6 +101,8 @@ const entregaSchema = new mongoose.Schema({
 entregaSchema.index({ tareaId: 1, padreId: 1 }, { unique: true });
 entregaSchema.index({ padreId: 1, estado: 1 });
 entregaSchema.index({ 'calificacion.valoracion': 1 });
+// permiso de cada archivo privado que se abre (archivoPrivadoMiddleware)
+entregaSchema.index({ 'archivosAdjuntos.publicId': 1 });
 
 // Virtual: ¿está valorada?
 entregaSchema.virtual('estaCalificada').get(function() {
