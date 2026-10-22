@@ -127,6 +127,8 @@ const tareaSchema = new mongoose.Schema({
 tareaSchema.index({ cursoId: 1, moduloId: 1, fechaEntrega: -1 });
 tareaSchema.index({ docenteId: 1, estado: 1 });
 tareaSchema.index({ participantesSeleccionados: 1 });
+// listar las tareas de un módulo (el índice anterior empieza por cursoId y no sirve)
+tareaSchema.index({ moduloId: 1, fechaEntrega: 1 });
 
 tareaSchema.virtual('estaVencida').get(function() {
   return this.fechaEntrega < new Date() && this.estado === 'publicada';

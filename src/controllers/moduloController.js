@@ -5,18 +5,22 @@ import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
-// Adjunta las tareas correspondientes a cada módulo de un array
+// Adjunta las tareas correspondientes a cada módulo de un array. Una sola consulta
+// para todos los módulos (antes era una por módulo, y cada abrir curso hacía N viajes).
 const poblarTareas = async (modulos) => {
-  return Promise.all(
-    modulos.map(async (modulo) => {
-      const tareas = await Tarea.find({ moduloId: modulo._id })
-        .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos')
-        .sort({ fechaEntrega: 1 })
-        .lean();
+  if (!modulos.length) return [];
+  const tareas = await Tarea.find({ moduloId: { $in: modulos.map((m) => m._id) } })
+    .select('titulo descripcion fechaEntrega tipoEntrega estado etiquetas asignacionTipo criterios archivosAdjuntos moduloId')
+    .sort({ fechaEntrega: 1 })
+    .lean();
 
-      return { ...modulo.toObject(), tareas };
-    })
-  );
+  const porModulo = new Map();
+  for (const { moduloId, ...tarea } of tareas) {
+    const clave = String(moduloId);
+    if (!porModulo.has(clave)) porModulo.set(clave, []);
+    porModulo.get(clave).push(tarea);
+  }
+  return modulos.map((modulo) => ({ ...modulo.toObject(), tareas: porModulo.get(String(modulo._id)) ?? [] }));
 };
 
 // Verifica que el usuario pertenezca al curso (mismo criterio usado en cursoController/calendarioController)
