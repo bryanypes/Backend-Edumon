@@ -6,6 +6,7 @@ import { subirImagenCloudinary, eliminarArchivoCloudinary } from '../utils/cloud
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 import { AVATARES_DIR, AVATARES_PREFIX } from '../config/almacenamiento.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { responderErrorDeDatos, conCorreoVacioComoUnset } from '../utils/erroresDatos.js';
 
 // Un administrador solo puede gestionar/ver usuarios de SU institución; el
 // superadmin no tiene restricción. Antes cualquier admin operaba sobre usuarios
@@ -94,7 +95,7 @@ export const createUser = async (req, res) => {
       nombre,
       apellido,
       cedula,
-      correo,
+      correo: correo || undefined,
       contraseña: contraseñaInicial,
       rol,
       telefono,
@@ -109,6 +110,7 @@ export const createUser = async (req, res) => {
       user: savedUser
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear usuario:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -279,7 +281,7 @@ export const updateUser = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      updateData,
+      conCorreoVacioComoUnset(updateData),
       { new: true, runValidators: true }
     );
 
@@ -292,6 +294,7 @@ export const updateUser = async (req, res) => {
       user: updatedUser
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar usuario:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -339,7 +342,7 @@ export const updateOwnProfile = async (req, res) => {
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      updateData,
+      conCorreoVacioComoUnset(updateData),
       { new: true, runValidators: true }
     );
 
@@ -352,6 +355,7 @@ export const updateOwnProfile = async (req, res) => {
       user: updatedUser
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar el propio perfil:', error);
     res.status(500).json({
       message: "Error interno del servidor",
