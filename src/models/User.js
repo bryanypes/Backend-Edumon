@@ -110,6 +110,9 @@ const userSchema = new mongoose.Schema(
 
 // Índice TTL: Mongo limpia automáticamente los refresh tokens expirados
 userSchema.index({ 'refreshTokens.expiraEn': 1 }, { expireAfterSeconds: 0 });
+// lista de usuarios del administrador (por institución y rol) y búsquedas por rol
+userSchema.index({ institucionId: 1, rol: 1 });
+userSchema.index({ rol: 1 });
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("contraseña")) return next();
