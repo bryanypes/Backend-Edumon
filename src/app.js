@@ -9,9 +9,11 @@ import cookieParser from 'cookie-parser';
 import timeout from 'connect-timeout';
 import compression from 'compression';
 import multer from 'multer';
+import jwt from 'jsonwebtoken';
 
 import { setupSocketIO } from './socket/socketHandlers.js';
 import { authMiddleware } from './middlewares/authMiddleware.js';
+import { extractAccessToken } from './controllers/authController.js';
 import { verificarAccesoArchivoPrivado } from './middlewares/archivoPrivadoMiddleware.js';
 import { normalizarTelefono } from './utils/normalizarTelefono.js';
 import {
@@ -38,6 +40,19 @@ import institucionRoutes from './routes/institucionRoutes.js';
 import perfilFamiliarRoutes from './routes/perfilFamiliarRoutes.js';
 import buzonRoutes from './routes/buzonRoutes.js';
 import apkRoutes from './routes/apkRoutes.js';
+
+// usuario del token (firma verificada: un id inventado no sirve para multiplicar el
+// cupo) o, sin sesión válida, la IP
+export const claveLimiteGlobal = (req) => {
+  const token = extractAccessToken(req);
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+      if (userId) return `usuario:${userId}`;
+    } catch { /* token vencido o inválido: cuenta como anónimo */ }
+  }
+  return `ip:${ipKeyGenerator(req.ip)}`;
+};
 
 // Solo construye app + server + io. server.js conecta Mongo y arranca el
 // scheduler; los tests importan este archivo directo con su propia BD en memoria.
@@ -137,8 +152,9 @@ export const crearApp = () => {
     next();
   });
 
-  // 500/15min por IP: con wifi institucional muchas familias comparten IP,
-  // un límite más bajo tumbaba a todo el colegio por el tráfico de unos pocos
+  // 500/15min por USUARIO con sesión (y por IP solo sin sesión): en el piloto todas
+  // las familias del colegio salen por la misma IP (wifi institucional) y con un
+  // límite por IP compartían un solo cupo, así que la app "se caía" para todos.
   const makeRateLimitHandler = (mensaje) =>
     rateLimit({
       windowMs:         15 * 60 * 1000,
@@ -146,6 +162,7 @@ export const crearApp = () => {
       standardHeaders:  true,
       legacyHeaders:    false,
       skipFailedRequests: false,
+      keyGenerator:     claveLimiteGlobal,
       handler: (req, res) => {
         const retryAfter = Math.ceil(
           (req.rateLimit.resetTime - Date.now()) / 1000,
