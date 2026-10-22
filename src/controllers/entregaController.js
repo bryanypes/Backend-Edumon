@@ -6,6 +6,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary, firmarUrlArchivo, re
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { parseJSONArray } from '../utils/parseJSONArray.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // la url guardada de un adjunto privado no sirve tal cual; se cambia por una
 // url firmada de 2h antes de responder (solo llega a quien pasó la autorización)
@@ -178,6 +179,7 @@ export const getEntregasByPadreAndTarea = async (req, res) => {
 
     res.json({ entregas: firmarLista(entregas), total: entregas.length });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener entregas del padre:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -268,6 +270,7 @@ export const updateEntrega = async (req, res) => {
 
     res.json({ message: "Entrega actualizada exitosamente", entrega: firmarAdjuntos(updatedEntrega) });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -317,6 +320,7 @@ export const enviarEntrega = async (req, res) => {
       entrega: firmarAdjuntos(entregaCompleta)
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al enviar entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -352,6 +356,7 @@ export const deleteEntrega = async (req, res) => {
     await Entrega.findByIdAndDelete(id);
     res.json({ message: "Entrega eliminada exitosamente" });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -387,6 +392,7 @@ export const eliminarArchivoEntrega = async (req, res) => {
 
     res.json({ message: "Archivo eliminado exitosamente", entrega: firmarAdjuntos(entrega) });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar archivo:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -437,6 +443,7 @@ export const getAllEntregas = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener entregas:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -498,6 +505,7 @@ export const getEntregasByTarea = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener entregas por tarea:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -547,6 +555,7 @@ export const getEntregasByPadre = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener entregas por padre:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -609,6 +618,7 @@ export const calificarEntrega = async (req, res) => {
       esActualizacion
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al valorar entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -630,6 +640,7 @@ export const getEntregaById = async (req, res) => {
 
     res.json(firmarAdjuntos(entrega));
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener entrega:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }

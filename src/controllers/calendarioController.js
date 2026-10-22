@@ -2,6 +2,7 @@ import Tarea from '../models/Tarea.js';
 import Evento from '../models/Evento.js';
 import Curso from '../models/Curso.js';
 import { rangoDiaBogotaDesdeISO, rangoMesBogota } from '../utils/fechaColombia.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 export const obtenerCalendarioCurso = async (req, res) => {
   try {
@@ -106,6 +107,7 @@ export const obtenerCalendarioCurso = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener calendario:', error);
     res.status(500).json({ 
       error: 'Error al obtener el calendario del curso',
@@ -171,6 +173,7 @@ export const obtenerEventosDia = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener eventos del día:', error);
     res.status(500).json({ 
       error: 'Error al obtener eventos del día',
@@ -244,6 +247,7 @@ export const obtenerProximosEventos = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener próximos eventos:', error);
     res.status(500).json({
       error: 'Error al obtener próximos eventos',
@@ -446,6 +450,7 @@ export const obtenerCalendarioUsuario = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener calendario:', error);
     res.status(500).json({
       error: 'Error al obtener el calendario',
@@ -519,6 +524,7 @@ export const obtenerProximosEventosUsuario = async (req, res) => {
     res.status(200).json({ success: true, proximosEventos });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener próximos eventos:', error);
     res.status(500).json({
       error: 'Error al obtener próximos eventos',

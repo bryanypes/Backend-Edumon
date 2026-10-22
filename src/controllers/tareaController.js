@@ -6,6 +6,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { parseJSONArray } from '../utils/parseJSONArray.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 function resourceTypeDeFormato(formato) {
   const IMAGENES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
@@ -305,6 +306,7 @@ export const getTareas = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener tareas:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -344,6 +346,7 @@ export const getTareaById = async (req, res) => {
 
     res.json(tarea);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener tarea:', error);
     res.status(500).json({
       message: "Error interno del servidor"
@@ -555,6 +558,7 @@ export const closeTarea = async (req, res) => {
       tarea: updatedTarea
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cerrar tarea:', error);
     res.status(500).json({
       message: "Error interno del servidor"
@@ -601,6 +605,7 @@ export const deleteTarea = async (req, res) => {
       tarea: updatedTarea
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar tarea:', error);
     res.status(500).json({
       message: "Error interno del servidor"

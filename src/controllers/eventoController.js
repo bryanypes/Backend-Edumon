@@ -6,6 +6,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { rangoDiaBogota } from '../utils/fechaColombia.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // docente y padre ya se acotan a sus propios cursos/eventos en este archivo; a
 // administrador nunca se le restringía a su propia institución, por lo que podía
@@ -106,6 +107,7 @@ export const createEvento = async (req, res) => {
 
     res.status(201).json({ message: "Evento creado exitosamente", evento: eventoCompleto });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear evento:', error);
     res.status(500).json({ message: "Error interno del servidor", error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -158,6 +160,7 @@ export const getEventos = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener eventos:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -207,6 +210,7 @@ export const getEventoById = async (req, res) => {
 
     res.json(evento);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener evento:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -316,6 +320,7 @@ export const updateEvento = async (req, res) => {
 
     res.json({ message: "Evento actualizado exitosamente", evento: eventoActualizado });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar evento:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -358,6 +363,7 @@ export const deleteEvento = async (req, res) => {
     await Evento.findByIdAndDelete(id);
     res.json({ message: "Evento eliminado exitosamente" });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar evento:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -405,6 +411,7 @@ export const cancelarEvento = async (req, res) => {
 
     res.json({ message: "Evento cancelado exitosamente", evento: eventoCancelado });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cancelar evento:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -438,6 +445,7 @@ export const getEventosHoy = async (req, res) => {
 
     res.json({ eventos, total: eventos.length });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener eventos de hoy:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }

@@ -3,6 +3,7 @@ import Tarea from '../models/Tarea.js';
 import Curso from '../models/Curso.js';
 import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // Adjunta las tareas correspondientes a cada módulo de un array
 const poblarTareas = async (modulos) => {
@@ -74,6 +75,7 @@ export const createModulo = async (req, res) => {
       modulo: savedModulo
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear módulo:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -150,6 +152,7 @@ export const getModulos = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener módulos:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -188,6 +191,7 @@ export const getModuloById = async (req, res) => {
 
     res.json({ ...modulo.toObject(), tareas });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener módulo:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -233,6 +237,7 @@ export const getModulosByCurso = async (req, res) => {
       total: modulosConTareas.length
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener módulos por curso:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -279,6 +284,7 @@ export const updateModulo = async (req, res) => {
       modulo: updatedModulo
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar módulo:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -325,6 +331,7 @@ export const deleteModulo = async (req, res) => {
       modulo: updatedModulo
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al desactivar módulo:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -372,6 +379,7 @@ export const restoreModulo = async (req, res) => {
       modulo
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al reactivar módulo:', error);
     res.status(500).json({
       message: "Error interno del servidor",

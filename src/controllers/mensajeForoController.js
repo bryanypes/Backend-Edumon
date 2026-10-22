@@ -5,6 +5,7 @@ import Curso from '../models/Curso.js';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
@@ -135,6 +136,7 @@ export const crearMensaje = async (req, res) => {
 
     res.status(201).json(respuesta);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear mensaje:', error);
     res.status(500).json({ message: 'Error al crear el mensaje', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -186,6 +188,7 @@ export const obtenerMensajesPorForo = async (req, res) => {
 
     res.status(200).json({ mensajes: mensajesConRespuestas });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener mensajes:', error);
     res.status(500).json({ message: 'Error al obtener los mensajes' });
   }
@@ -222,6 +225,7 @@ export const toggleLikeMensaje = async (req, res) => {
       yaLeDioLike: mensaje.yaLeDioLike(usuarioId)
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al dar like:', error);
     res.status(500).json({ message: 'Error al actualizar like' });
   }
@@ -291,6 +295,7 @@ export const eliminarMensaje = async (req, res) => {
 
     res.status(200).json({ message: 'Mensaje eliminado exitosamente' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar mensaje:', error);
     res.status(500).json({ message: 'Error al eliminar el mensaje' });
   }
@@ -325,6 +330,7 @@ export const actualizarMensaje = async (req, res) => {
 
     res.status(200).json({ message: 'Mensaje actualizado exitosamente', mensaje });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar mensaje:', error);
     res.status(500).json({ message: 'Error al actualizar el mensaje' });
   }

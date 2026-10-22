@@ -2,6 +2,7 @@ import Buzon from '../models/Buzon.js';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';
 import { eventBus, EVENTOS } from '../events/EventBus.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 export const enviarMensaje = async (req, res) => {
   try {
@@ -35,6 +36,7 @@ export const enviarMensaje = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al enviar mensaje al buzón:', error);
     res.status(500).json({ error: 'Error al enviar el mensaje' });
   }
@@ -72,6 +74,7 @@ export const obtenerMensajes = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener mensajes del buzón:', error);
     res.status(500).json({ error: 'Error al obtener los mensajes' });
   }
@@ -94,6 +97,7 @@ export const marcarLeido = async (req, res) => {
     res.status(200).json({ success: true, mensaje });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar mensaje como leído:', error);
     res.status(500).json({ error: 'Error al actualizar el mensaje' });
   }

@@ -4,6 +4,7 @@ import Apk from '../models/Apk.js';
 import { eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { UPLOAD_DIR, PUBLIC_PREFIX, CARPETA_PUBLICA } from '../config/almacenamiento.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // el handler estático ya fuerza la descarga (Content-Disposition) para los .apk
 const urlDescarga = (url) => url;
@@ -39,6 +40,7 @@ export const getApkActual = async (req, res) => {
     }
     res.json({ apk: publico(apk) });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener el APK actual:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -49,6 +51,7 @@ export const listarApks = async (req, res) => {
     const apks = await Apk.find().sort({ createdAt: -1 }).populate('subidaPor', 'nombre apellido correo');
     res.json({ apks: apks.map((a) => ({ ...publico(a), subidaPor: a.subidaPor || null })) });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al listar APKs:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -109,6 +112,7 @@ export const subirApk = async (req, res) => {
 
     res.status(201).json({ message: 'APK subido correctamente', apk: publico(guardada) });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al subir el APK:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -164,6 +168,7 @@ export const eliminarApk = async (req, res) => {
 
     res.json({ message: 'Versión eliminada' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar el APK:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
