@@ -100,9 +100,9 @@ export async function bootstrapAdmins() {
         continue;
       }
 
-      // rol "administrador" queda atado a la institución del bootstrap (si hay);
-      // "superadmin" no la necesita, no está limitado a una sola institución
-      const institucionId = datos.rol === 'administrador' && institucion ? institucion._id : null;
+      // "administrador" y "docente" quedan atados a la institución del bootstrap (si hay):
+      // una docente sin institución no puede crear cursos. "superadmin" no la necesita.
+      const institucionId = ['administrador', 'docente'].includes(datos.rol) && institucion ? institucion._id : null;
 
       const nuevoUsuario = await User.create({
         ...datos,
@@ -111,7 +111,7 @@ export async function bootstrapAdmins() {
         primerInicioSesion: true, // fuerza a cambiar la contraseña temporal en el primer login
       });
 
-      if (institucionId && !institucion.adminId) {
+      if (datos.rol === 'administrador' && institucionId && !institucion.adminId) {
         institucion.adminId = nuevoUsuario._id;
         await institucion.save();
       }
