@@ -9,6 +9,7 @@ import { eventBus, EVENTOS } from '../events/EventBus.js';
 import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // acepta un ObjectId, un string o un doc poblado ({ _id })
 const idStr = (v) => (v && v._id ? v._id.toString() : v?.toString());
@@ -287,6 +288,7 @@ export const createCurso = async (req, res) => {
     res.status(201).json(respuesta);
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear curso:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -335,6 +337,7 @@ export const getCursos = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener cursos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -364,6 +367,7 @@ export const getCursoById = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener curso:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -409,6 +413,7 @@ export const getMisCursos = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener mis cursos:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -485,6 +490,7 @@ export const updateCurso = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar curso:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -528,6 +534,7 @@ export const archivarCurso = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al archivar curso:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -577,6 +584,7 @@ export const restaurarCurso = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al restaurar curso:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -740,6 +748,7 @@ export const removerParticipante = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al remover participante:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -773,6 +782,7 @@ export const registrarUsuariosMasivo = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en registro masivo:', error);
     res.status(500).json({
       message: "Error interno del servidor",
@@ -856,6 +866,7 @@ export const getParticipantesCurso = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener participantes del curso:', error);
     res.status(500).json({
       message: "Error interno del servidor",

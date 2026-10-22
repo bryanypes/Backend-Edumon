@@ -163,6 +163,7 @@ export const getUsers = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener usuarios:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -190,6 +191,7 @@ export const getUserById = async (req, res) => {
 
     res.json(user);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener usuario:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -206,6 +208,7 @@ export const getProfile = async (req, res) => {
 
     res.json(user);
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener perfil:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -453,6 +456,7 @@ export const deleteUser = async (req, res) => {
       user: updatedUser
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al suspender usuario:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -490,6 +494,7 @@ export const reactivateUser = async (req, res) => {
       user
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al reactivar usuario:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }
@@ -513,6 +518,7 @@ export const getFotosPredeterminadas = async (req, res) => {
       fotos
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener fotos predeterminadas:', error);
     res.status(500).json({ message: "Error al obtener fotos predeterminadas" });
   }
@@ -564,6 +570,7 @@ export const updateFotoPerfil = async (req, res) => {
       fotoPerfilUrl: nuevaFotoUrl
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar foto de perfil:', error);
     res.status(500).json({
       message: "Error al actualizar foto de perfil",
@@ -604,6 +611,7 @@ export const updateFcmToken = async (req, res) => {
       actualizadoEn: user.fcmTokenActualizadoEn
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar FCM token:', error);
     res.status(500).json({
       message: "Error al actualizar el token FCM",
@@ -646,6 +654,7 @@ export const updateModoOscuro = async (req, res) => {
       modoOscuro: user.modoOscuro
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar modo de pantalla:', error);
     res.status(500).json({
       message: "Error al actualizar el modo de pantalla",
@@ -696,6 +705,7 @@ export const getUltimasSesiones = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener últimas sesiones:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
@@ -764,6 +774,7 @@ export const getPadreInfo = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener info del padre:', error);
     res.status(500).json({ message: "Error interno del servidor" });
   }

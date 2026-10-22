@@ -5,6 +5,7 @@ import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/clou
 import MensajeForo from '../models/MensajeForo.js'; 
 import mongoose from 'mongoose';  
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
@@ -151,6 +152,7 @@ export const crearForo = async (req, res) => {
     res.status(201).json(respuesta);
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error(' Error al crear foro:', error);
     res.status(500).json({ 
       message: 'Error al crear el foro', 
@@ -188,6 +190,7 @@ export const obtenerForosPorCurso = async (req, res) => {
     res.status(200).json({ foros });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener foros:', error);
     res.status(500).json({ message: 'Error al obtener los foros', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -218,6 +221,7 @@ export const obtenerForoPorId = async (req, res) => {
     res.status(200).json({ foro });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener foro:', error);
     res.status(500).json({ message: 'Error al obtener el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -259,6 +263,7 @@ export const actualizarForo = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar foro:', error);
     res.status(500).json({ message: 'Error al actualizar el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -301,6 +306,7 @@ export const eliminarForo = async (req, res) => {
     res.status(200).json({ message: 'Foro eliminado exitosamente' });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar foro:', error);
     res.status(500).json({ message: 'Error al eliminar el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -341,6 +347,7 @@ export const cambiarEstadoForo = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cambiar estado:', error);
     res.status(500).json({ message: 'Error al cambiar el estado', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -468,6 +475,7 @@ export const getDashboardForo = async (req, res) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener dashboard del foro:', error);
     res.status(500).json({
       message: 'Error al obtener el dashboard del foro',

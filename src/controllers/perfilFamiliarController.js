@@ -1,6 +1,7 @@
 import PerfilFamiliar from '../models/PerfilFamiliar.js';
 import User from '../models/User.js';
 import { generarAccessToken, setAccessTokenCookie } from './authController.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 export const crearPerfil = async (req, res) => {
   try {
@@ -36,6 +37,7 @@ export const crearPerfil = async (req, res) => {
       perfil
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('[crearPerfil]', error);
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -64,6 +66,7 @@ export const getMisPerfiles = async (req, res) => {
       perfiles
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -120,6 +123,7 @@ export const seleccionarPerfil = async (req, res) => {
       }
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('[seleccionarPerfil]', error);
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
@@ -143,6 +147,7 @@ export const actualizarPerfil = async (req, res) => {
 
     res.json({ message: 'Perfil actualizado', perfil });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -165,6 +170,7 @@ export const eliminarPerfil = async (req, res) => {
 
     res.json({ message: 'Perfil eliminado' });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -200,6 +206,7 @@ export const guardarFCMTokenPerfil = async (req, res) => {
 
     res.json({ message: `FCM token del perfil "${perfil.nombre}" guardado` });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
