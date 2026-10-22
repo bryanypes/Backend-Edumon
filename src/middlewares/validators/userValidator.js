@@ -173,3 +173,14 @@ export const updateModoOscuroValidator = [
     .notEmpty()
     .withMessage('modoOscuro es obligatorio')
 ];
+
+// el administrador cambia la contraseña de otro usuario: una nueva, o la cédula (restablecer)
+export const cambiarContrasenaValidator = [
+  param('id').isMongoId().withMessage('ID de usuario inválido'),
+  body('restablecer').optional().isBoolean().withMessage('restablecer debe ser verdadero o falso').toBoolean(),
+  body('exigirCambio').optional().isBoolean().withMessage('exigirCambio debe ser verdadero o falso').toBoolean(),
+  body('contraseña')
+    .if(body('restablecer').not().equals('true'))
+    .isString().withMessage('La contraseña nueva es requerida').bail()
+    .isLength({ min: 6, max: 100 }).withMessage('La contraseña debe tener entre 6 y 100 caracteres'),
+];
