@@ -10,6 +10,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
+    "piloto:restablecer": "node src/scripts/restablecerPiloto.js",
     "bootstrap:reset-passwords": "node src/scripts/resetBootstrapPasswords.js --confirmar",
     "correos:prueba": "node src/scripts/enviarCorreosDePrueba.js",
     "telefonos:normalizar": "node src/scripts/normalizarTelefonos.js",
