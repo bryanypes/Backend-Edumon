@@ -1,5 +1,6 @@
 import { body } from 'express-validator';
 import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+import { campoCorreo } from './correoValidator.js';
 
 const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
@@ -17,10 +18,7 @@ export const crearInstitucionValidator = [
     .notEmpty().withMessage('El NIT es requerido')
     .trim(),
 
-  body('correo')
-    .optional({ checkFalsy: true })
-    .isEmail().withMessage('El correo de la institución no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo', { mensaje: 'El correo de la institución no es válido' }),
 
   body('telefono')
     .optional({ checkFalsy: true })
@@ -41,10 +39,7 @@ export const crearInstitucionValidator = [
     .trim()
     .matches(/^\d{6,10}$/).withMessage('La cédula del administrador debe tener entre 6 y 10 dígitos numéricos'),
 
-  body('adminCorreo')
-    .optional({ checkFalsy: true })
-    .isEmail().withMessage('El correo del administrador no es válido')
-    .normalizeEmail(),
+  campoCorreo('adminCorreo', { mensaje: 'El correo del administrador no es válido' }),
 
   body('adminTelefono')
     .notEmpty().withMessage('El teléfono del administrador es requerido')

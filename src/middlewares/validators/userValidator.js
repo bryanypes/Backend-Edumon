@@ -1,5 +1,6 @@
 import { body, param } from 'express-validator';
 import { normalizarTelefono } from '../../utils/normalizarTelefono.js';
+import { campoCorreo } from './correoValidator.js';
 
 // normaliza a +57XXXXXXXXXX; si es inválido deja el valor original para que .matches() falle con el mensaje correcto
 const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
@@ -30,12 +31,7 @@ export const createUserValidator = [
     .matches(/^\d{6,10}$/)
     .withMessage('La cédula debe contener entre 6 y 10 dígitos numéricos'),
 
-  body('correo')
-    .notEmpty()
-    .withMessage('El correo es requerido')
-    .isEmail()
-    .withMessage('El correo electrónico no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo', { requerido: true }),
 
   // opcional: si no viene, el controlador la fija a la cédula (regla única del sistema);
   // la política fuerte de contraseña solo aplica a las que el usuario elige
@@ -94,11 +90,7 @@ export const updateUserValidator = [
     .matches(/^\d{6,10}$/)
     .withMessage('La cédula debe contener entre 6 y 10 dígitos numéricos'),
 
-  body('correo')
-    .optional()
-    .isEmail()
-    .withMessage('El correo electrónico no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo'),
 
   body('rol')
     .optional()
@@ -148,11 +140,7 @@ export const updateOwnProfileValidator = [
     .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]+$/)
     .withMessage('El apellido solo puede contener letras, espacios, guiones y apóstrofes'),
 
-  body('correo')
-    .optional()
-    .isEmail()
-    .withMessage('El correo electrónico no es válido')
-    .normalizeEmail(),
+  campoCorreo('correo'),
 
   body('telefono')
     .optional()

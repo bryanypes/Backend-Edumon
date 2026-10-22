@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { AVATAR_PREDETERMINADO } from "../utils/avatarPredeterminado.js";
+import { normalizarCorreo, esCorreoValido } from "../utils/correo.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -22,12 +23,10 @@ const userSchema = new mongoose.Schema(
       required: false,
       sparse: true,
       unique: true,
-      lowercase: true,
+      // limpia espacios y mayúsculas; "" queda sin correo (si no, chocaría con el índice único)
+      set: normalizarCorreo,
       validate: {
-        validator: function (v) {
-          if (!v) return true;
-          return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/.test(v);
-        },
+        validator: (v) => !v || esCorreoValido(v),
         message: "El correo electrónico no es válido",
       },
     },
