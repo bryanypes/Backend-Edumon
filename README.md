@@ -84,7 +84,7 @@ src/
 
 ## Seguridad (resumen)
 
-- JWT en cookies `httpOnly` (no `localStorage`), access token de 15 min + refresh token rotado de 7 días (hash SHA-256 en BD, máx. 5 sesiones simultáneas).
+- JWT en cookies `httpOnly` (no `localStorage`), access token de 15 min y refresh token rotado (hash SHA-256 en BD, máx. 5 sesiones simultáneas). La sesión se renueva con el uso: dura 365 días desde la última actividad para padres y docentes (configurable con `SESION_DIAS_PADRES_DOCENTES`) y 7 días para administradores.
 - Contraseñas con `bcrypt`.
 - Rate limiting global y reforzado en `/api/auth/login` y `/api/auth/register`.
 - Helmet (CSP, HSTS, Permissions-Policy) y sanitización de payloads contra NoSQL injection.
