@@ -32,3 +32,14 @@ export function formasDeCorreo(valor) {
   const antigua = validator.normalizeEmail(normal) || normal;
   return [...new Set([normal, antigua])];
 }
+
+/**
+ * Correos de relleno que el sistema genera cuando la persona no tiene uno:
+ * "<cédula>@temp.com" (padres y docentes) y "<cédula>@<código del colegio>.edu"
+ * (administradores). No existen: enviarles correo solo demora la notificación y
+ * daña la reputación del remitente.
+ */
+export function esCorreoFicticio(valor) {
+  const c = normalizarCorreo(valor);
+  return !c || /@temp\.com$/.test(c) || /@edu-[a-z0-9]+\.edu$/.test(c);
+}
