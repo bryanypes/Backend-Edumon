@@ -21,6 +21,12 @@ export const AVATARES_DIR = path.join(
 );
 export const AVATARES_PREFIX = '/static/avatares';
 
+// Imágenes de los correos (logo y mascota livianos): también van con la imagen.
+export const CORREO_IMG_DIR = path.join(
+  fileURLToPath(new URL('../uploads/correo/', import.meta.url)),
+);
+export const CORREO_IMG_PREFIX = '/static/correo';
+
 // No debe ser fatal: esto corre al importar el módulo, antes de app.listen().
 // Si UPLOAD_DIR (el volumen montado) tiene permisos incorrectos, un mkdirSync
 // que lanza aquí tumba TODO el proceso antes de abrir el puerto — nginx ve

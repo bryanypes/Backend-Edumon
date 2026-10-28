@@ -1,5 +1,6 @@
 import { getTransportSMTP } from './smtpTransport.js';
 import { esCorreoFicticio } from '../utils/correo.js';
+import { correoNotificacion } from './plantillaCorreo.js';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import admin from 'firebase-admin';
@@ -182,8 +183,7 @@ export const enviarEmail = async (usuario, notificacion) => {
       address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
     },
     to: { name: `${usuario.nombre} ${usuario.apellido}`, address: usuario.correo },
-    subject: obtenerTitulo(notificacion.tipo),
-    html: generarHTMLEmail(usuario, notificacion)
+    ...correoNotificacion(usuario, notificacion),
   });
 };
 
@@ -265,44 +265,6 @@ function obtenerUrl(notificacion) {
     sistema: '/notificaciones'
   };
   return urls[notificacion.tipo] || '/notificaciones';
-}
-
-function generarHTMLEmail(usuario, notificacion) {
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8">
-<style>
-  body { font-family: Arial, sans-serif; background: #F8FAFC; color: #333; }
-  .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-  .header { background: #ffffff; text-align: center; padding: 25px; border-radius: 12px 12px 0 0; position: relative; overflow: hidden; }
-  .bubble { position: absolute; border-radius: 50%; filter: blur(40px); opacity: 0.55; }
-  .bubble1 { width: 140px; height: 140px; top: -30px; left: -20px; background: linear-gradient(135deg, #00B9F0, #0082B3); }
-  .bubble2 { width: 110px; height: 110px; top: 20px; right: -25px; background: linear-gradient(135deg, #FE327B, #D91E5B); }
-  .bubble3 { width: 120px; height: 120px; bottom: -40px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FA6D00, #FE327B); }
-  .title { margin-top: 18px; color: #0082B3; font-size: 22px; font-weight: bold; position: relative; z-index: 2; }
-  .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
-  .footer { background: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 12px 12px; }
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="header">
-    <div class="bubble bubble1"></div>
-    <div class="bubble bubble2"></div>
-    <div class="bubble bubble3"></div>
-    <h1 class="title">${obtenerTitulo(notificacion.tipo)}</h1>
-  </div>
-  <div class="content">
-    <p>Hola <strong>${usuario.nombre}</strong>,</p>
-    <p>${notificacion.mensaje}</p>
-  </div>
-  <div class="footer">
-    <p>Correo automático de <strong>Edumon</strong>. No responder.</p>
-    <p>&copy; ${new Date().getFullYear()} Edumon.</p>
-  </div>
-</div>
-</body>
-</html>`;
 }
 
 export default {
