@@ -1,12 +1,14 @@
 import { getTransportSMTP } from '../../services/smtpTransport.js';
 import { NotificacionStrategy } from './NotificacionStrategy.js';
+import { esCorreoFicticio } from '../../utils/correo.js';
 
 
 export class EmailStrategy extends NotificacionStrategy {
   nombre() { return 'email'; }
 
   async enviar(usuario, notificacion) {
-    if (!usuario.correo) return false;
+    // sin correo real (los de relleno como "<cédula>@temp.com" no existen)
+    if (esCorreoFicticio(usuario.correo)) return false;
     if (!process.env.SMTP_HOST) return false;
 
     const titulos = {
