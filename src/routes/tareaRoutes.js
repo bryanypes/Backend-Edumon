@@ -62,7 +62,7 @@ const upload = multer({
 router.post(
   '/',
   authMiddleware,
-  requireRole(['administrador', 'docente']),
+  requireRole(['administrador', 'superadmin', 'docente']),
   upload.array('archivos', 10),
   normalizeMultipartArrays(['enlaces', 'participantesSeleccionados', 'etiquetas', 'criterios']),
   createTareaValidator,

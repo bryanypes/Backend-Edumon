@@ -175,8 +175,11 @@ export const createTarea = async (req, res) => {
 
     req.body.archivosAdjuntos = archivosAdjuntos;
 
-    // docenteId explícito otra vez para que nada en req.body lo pueda pisar
-    const newTarea = new Tarea({ ...req.body, docenteId: req.user.userId });
+    // docenteId explícito otra vez para que nada en req.body lo pueda pisar. Si la crea
+    // el administrador (o superadmin) en un curso del colegio, queda a nombre de la
+    // docente del curso: así ella la ve en "Retos" y recibe las entregas para valorar.
+    const autorId = ['administrador', 'superadmin'].includes(req.user.rol) ? curso.docenteId : req.user.userId;
+    const newTarea = new Tarea({ ...req.body, docenteId: autorId });
     let savedTarea;
     try {
       savedTarea = await newTarea.save();
