@@ -23,6 +23,8 @@ import {
   CARPETA_PRIVADA,
   AVATARES_DIR,
   AVATARES_PREFIX,
+  CORREO_IMG_DIR,
+  CORREO_IMG_PREFIX,
 } from './config/almacenamiento.js';
 
 import authRoutes from './routes/authRoutes.js';
@@ -273,6 +275,13 @@ export const crearApp = () => {
   );
   // avatares predeterminados (empaquetados con la imagen, no en el volumen)
   app.use(AVATARES_PREFIX, express.static(AVATARES_DIR, { index: false, maxAge: '7d' }));
+  // imágenes de los correos: los clientes de correo las piden sin sesión
+  app.use(CORREO_IMG_PREFIX, express.static(CORREO_IMG_DIR, {
+    index: false,
+    maxAge: '30d',
+    // helmet pone same-origin: el correo web (otro dominio) no podría mostrarlas
+    setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'),
+  }));
 
   // Socket.IO
   const io = new Server(server, {
