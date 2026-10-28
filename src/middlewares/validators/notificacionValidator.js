@@ -106,3 +106,16 @@ export const notificacionIdValidator = [
       return true;
     })
 ];
+
+// aviso manual del colegio (POST /notificaciones/enviar)
+export const enviarManualValidator = [
+  body('alcance').isIn(['curso', 'colegio']).withMessage('alcance debe ser "curso" o "colegio"'),
+  body('cursoId').if(body('alcance').equals('curso')).isMongoId().withMessage('Selecciona un curso válido'),
+  body('institucionId').optional({ values: 'falsy' }).isMongoId().withMessage('Institución inválida'),
+  body('destinatarios').optional().isIn(['familias', 'docentes', 'todos']).withMessage('destinatarios debe ser familias, docentes o todos'),
+  body('tareaId').optional({ values: 'falsy' }).isMongoId().withMessage('Reto inválido'),
+  body('eventoId').optional({ values: 'falsy' }).isMongoId().withMessage('Evento inválido'),
+  body('titulo').optional({ values: 'falsy' }).isString().trim().isLength({ max: 80 }).withMessage('El título admite máximo 80 caracteres'),
+  body('mensaje').optional({ values: 'falsy' }).isString().trim().isLength({ min: 3, max: 500 }).withMessage('El mensaje debe tener entre 3 y 500 caracteres'),
+  body('correo').optional().isBoolean().withMessage('correo debe ser verdadero o falso').toBoolean(),
+];
