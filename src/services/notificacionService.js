@@ -1,4 +1,5 @@
 import { getTransportSMTP } from './smtpTransport.js';
+import { esCorreoFicticio } from '../utils/correo.js';
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import admin from 'firebase-admin';
@@ -27,7 +28,7 @@ if (!admin.apps.length) {
 const TIPOS_EMAIL_DOCENTE = new Set(['entrega', 'sistema']);
 
 function debeRecibirEmail(usuario, tipo) {
-  if (!usuario.correo) return false;
+  if (esCorreoFicticio(usuario.correo)) return false;
   if (usuario.rol === 'docente') return TIPOS_EMAIL_DOCENTE.has(tipo);
   return true;
 }
@@ -41,7 +42,9 @@ export const crearYEnviarNotificacion = async (datos) => {
       prioridad = 'critica',
       referenciaId,
       referenciaModelo,
-      metadata = {}
+      metadata = {},
+      agrupacionId,          // envíos masivos: mismo id para todas las del lote
+      omitirCorreo = false,  // envío manual: solo push y aviso en la app, sin correo
     } = datos;
 
     const usuario = await User.findById(usuarioId);
@@ -54,7 +57,8 @@ export const crearYEnviarNotificacion = async (datos) => {
       prioridad,
       referenciaId,
       referenciaModelo,
-      metadata
+      metadata,
+      agrupacionId
     });
     await notificacion.save();
 
@@ -68,7 +72,7 @@ export const crearYEnviarNotificacion = async (datos) => {
     if (usuario.fcmToken) {
       try {
         await enviarFCM(usuario.fcmToken, {
-          title: obtenerTitulo(tipo),
+          title: metadata.titulo || obtenerTitulo(tipo),
           body: mensaje,
           data: {
             notificacionId: notificacion._id.toString(),
@@ -85,7 +89,7 @@ export const crearYEnviarNotificacion = async (datos) => {
       }
     }
 
-    if (debeRecibirEmail(usuario, tipo)) {
+    if (!omitirCorreo && debeRecibirEmail(usuario, tipo)) {
       try {
         await enviarEmail(usuario, notificacion);
         notificacion.canalEnviado.email = true;
