@@ -16,8 +16,10 @@ import {
   updateNotificacionValidator,
   marcarVariasLeidasValidator,
   getNotificacionesValidator,
-  notificacionIdValidator
+  notificacionIdValidator,
+  enviarManualValidator
 } from '../middlewares/validators/notificacionValidator.js';
+import { enviarNotificacionManual } from '../controllers/envioManualController.js';
 
 const router = express.Router();
 
@@ -39,6 +41,15 @@ router.get(
   authMiddleware,
   notificacionIdValidator,
   getNotificacionById
+);
+
+// el colegio envía un aviso (push + app) a un curso o a todo el colegio
+router.post(
+  '/enviar',
+  authMiddleware,
+  requireRole(['administrador', 'superadmin']),
+  enviarManualValidator,
+  enviarNotificacionManual
 );
 
 // uso interno/admin: el body fija el usuarioId destino, requireRole evita que
