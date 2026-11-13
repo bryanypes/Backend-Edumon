@@ -98,6 +98,9 @@ const cursoSchema = new mongoose.Schema({
 cursoSchema.index({ docenteId: 1 });
 cursoSchema.index({ estado: 1 });
 cursoSchema.index({ 'participantes.usuarioId': 1 });
+// listado de cursos de la institución (GET /cursos): filtra por institución y
+// estado y ordena por fecha de creación
+cursoSchema.index({ institucionId: 1, estado: 1, fechaCreacion: -1 });
 
 cursoSchema.virtual('totalParticipantes').get(function () {
   return Array.isArray(this.participantes) ? this.participantes.length : 0;
