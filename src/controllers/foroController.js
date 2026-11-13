@@ -6,6 +6,7 @@ import MensajeForo from '../models/MensajeForo.js';
 import mongoose from 'mongoose';  
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { responderErrorDeDatos } from '../utils/erroresDatos.js';
+import { rangoDiaBogota, diaBogotaISO } from '../utils/fechaColombia.js';
 
 const TIPOS_ARCHIVO_PERMITIDOS = {
   'image/jpeg': 'imagen',
@@ -438,23 +439,20 @@ export const getDashboardForo = async (req, res) => {
         : 0
     };
 
-    // actividad por día, últimos 7 días
-    const hace7Dias = new Date();
-    hace7Dias.setDate(hace7Dias.getDate() - 6);
-    hace7Dias.setHours(0, 0, 0, 0);
+    // actividad por día, últimos 7 días (días de Bogotá; el servidor corre en UTC)
+    const DIA_MS = 24 * 60 * 60 * 1000;
+    const hace7Dias = new Date(rangoDiaBogota().inicio.getTime() - 6 * DIA_MS);
 
     const mapaActividad = {};
     for (let i = 0; i < 7; i++) {
-      const fecha = new Date(hace7Dias);
-      fecha.setDate(hace7Dias.getDate() + i);
-      const key = fecha.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+      const key = diaBogotaISO(hace7Dias.getTime() + i * DIA_MS); // 'YYYY-MM-DD'
       mapaActividad[key] = 0;
     }
 
     for (const msg of todosLosMensajes) {
       const fechaMsg = new Date(msg.fechaCreacion);
       if (fechaMsg >= hace7Dias) {
-        const key = fechaMsg.toISOString().split('T')[0];
+        const key = diaBogotaISO(fechaMsg);
         if (mapaActividad[key] !== undefined) {
           mapaActividad[key] += 1;
         }

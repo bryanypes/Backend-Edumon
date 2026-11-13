@@ -269,3 +269,22 @@ describe('NotificacionObservers — BUZON_MENSAJE_RECIBIDO', () => {
     expect(datos.mensaje).toContain('Interesado');
   });
 });
+
+describe('NotificacionObservers — fechas en hora de Colombia', () => {
+  it('el mensaje de un reto nuevo muestra la fecha y hora de Bogotá, no las del servidor (UTC)', async () => {
+    const curso = await crearCurso();
+    const padre = await crearPadre();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+    // 1 de marzo de 2030 a las 20:00 en Colombia = 2 de marzo 01:00 UTC
+    const tarea = await crearTarea({ cursoId: curso._id, docenteId: curso.docenteId, asignacionTipo: 'todos', fechaEntrega: new Date('2030-03-02T01:00:00Z') });
+
+    eventBus.publicar(EVENTOS.TAREA_CREADA, tarea);
+    await esperarLlamada(notificarFamiliasMock);
+
+    const [, datos] = notificarFamiliasMock.mock.calls[0];
+    expect(datos.mensaje).toContain('01 de marzo de 2030');
+    expect(datos.mensaje).toMatch(/08:00\s?p/);
+  });
+});
+

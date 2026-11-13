@@ -1,7 +1,7 @@
 import Tarea from '../models/Tarea.js';
 import Evento from '../models/Evento.js';
 import Curso from '../models/Curso.js';
-import { rangoDiaBogotaDesdeISO, rangoMesBogota } from '../utils/fechaColombia.js';
+import { rangoDiaBogotaDesdeISO, rangoMesBogota, diaBogotaISO } from '../utils/fechaColombia.js';
 import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 export const obtenerCalendarioCurso = async (req, res) => {
@@ -291,7 +291,7 @@ function obtenerIconoEvento(categoria) {
 
 function agruparPorFecha(items) {
   return items.reduce((grupos, item) => {
-    const fecha = new Date(item.fecha).toISOString().split('T')[0];
+    const fecha = diaBogotaISO(item.fecha); // día de Bogotá, no el UTC
     if (!grupos[fecha]) {
       grupos[fecha] = [];
     }
@@ -363,9 +363,9 @@ export const obtenerCalendarioUsuario = async (req, res) => {
 
     let filtroFechas = {};
     if (mes && anio) {
-      const inicioMes = new Date(anio, mes - 1, 1);
-      const finMes = new Date(anio, mes, 0, 23, 59, 59);
-      filtroFechas = { $gte: inicioMes, $lte: finMes };
+      // mes de Bogotá, no del servidor (los contenedores corren en UTC)
+      const { inicio: inicioMes, fin: finMes } = rangoMesBogota(Number(anio), Number(mes));
+      filtroFechas = { $gte: inicioMes, $lt: finMes };
     }
 
     const [tareas, eventos] = await Promise.all([

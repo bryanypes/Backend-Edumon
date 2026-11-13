@@ -97,3 +97,27 @@ describe('GET /api/calendario/calendario — vista agregada del usuario', () => 
     expect(res.body.items).toEqual([]);
   });
 });
+
+describe('calendario del usuario en hora de Colombia (servidor en UTC)', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('el filtro por mes y la agrupación por día usan el día de Bogotá', async () => {
+    const padre = await crearPadre();
+    const curso = await crearCurso();
+    curso.agregarParticipante(padre._id, 'padre');
+    await curso.save();
+    const modulo = await crearModulo({ cursoId: curso._id });
+    // 28 de febrero de 2030 a las 22:00 en Colombia = 1 de marzo 03:00 UTC
+    await crearTarea({ cursoId: curso._id, moduloId: modulo._id, docenteId: curso.docenteId, fechaEntrega: new Date('2030-03-01T03:00:00Z') });
+
+    const agent = await loginComo(app, padre);
+    const marzo = await agent.get('/api/calendario/calendario').query({ mes: 3, anio: 2030 });
+    const febrero = await agent.get('/api/calendario/calendario').query({ mes: 2, anio: 2030 });
+
+    expect(marzo.body.items).toHaveLength(0);
+    expect(febrero.body.items).toHaveLength(1);
+    expect(Object.keys(febrero.body.itemsAgrupados)).toEqual(['2030-02-28']);
+  });
+});
+
