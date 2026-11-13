@@ -1,6 +1,7 @@
 import Tarea from '../models/Tarea.js';
 import Entrega from '../models/Entrega.js';
 import Curso from '../models/Curso.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 export const canCreateEntrega = async (req, res, next) => {
   try {
@@ -53,6 +54,7 @@ export const canCreateEntrega = async (req, res, next) => {
     next();
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error("Error en canCreateEntrega:", error);
     res.status(500).json({ message: "Error interno al validar la entrega" });
   }
@@ -88,6 +90,7 @@ export const canModifyEntrega = async (req, res, next) => {
     next();
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canModifyEntrega:', error);
     return res.status(500).json({
       message: "Error al verificar permisos para modificar entrega",
@@ -139,6 +142,7 @@ export const canViewEntrega = async (req, res, next) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canViewEntrega:', error);
     return res.status(500).json({
       message: "Error al verificar permisos para ver entrega",
@@ -175,6 +179,7 @@ export const canCalificarEntrega = async (req, res, next) => {
     next();
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canCalificarEntrega:', error);
     return res.status(500).json({
       message: "Error al verificar permisos para calificar entrega",
@@ -202,6 +207,7 @@ export const filterEntregasForUser = async (req, res, next) => {
     next();
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en filterEntregasForUser:', error);
     return res.status(500).json({
       message: "Error al filtrar entregas",
