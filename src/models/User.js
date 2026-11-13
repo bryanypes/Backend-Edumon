@@ -133,6 +133,9 @@ userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.contraseña;
   delete obj.refreshTokens;
+  // hash del código de recuperación: con él se prueba el código de 6 dígitos al instante
+  delete obj.resetPasswordToken;
+  delete obj.resetPasswordExpires;
   return obj;
 };
 

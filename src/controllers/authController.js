@@ -447,7 +447,8 @@ export const forgotPassword = async (req, res) => {
 
     if (!user) return res.status(200).json(RESPUESTA_GENERICA);
 
-    const codigo     = Math.floor(100000 + Math.random() * 900000).toString();
+    // generador criptográfico (Math.random es predecible)
+    const codigo     = crypto.randomInt(100000, 1000000).toString();
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
 
     user.resetPasswordToken   = codigoHash;
