@@ -436,3 +436,27 @@ describe('/api/users/padre/:padreId/info', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('datos sensibles en respuestas de usuarios', () => {
+  let app;
+  beforeEach(() => { ({ app } = crearApp()); });
+
+  it('CRÍTICO: el hash del código de recuperación nunca sale en las respuestas', async () => {
+    // con el hash (SHA-256 de 6 dígitos, sin sal) se prueba el código en milisegundos
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const docente = await crearDocente({ institucionId: institucion._id, correo: 'docente.reset@colegio.edu.co' });
+    const pedido = await request(app).post('/api/auth/forgot-password').send({ correo: 'docente.reset@colegio.edu.co' });
+    expect(pedido.status).toBe(200);
+    expect((await User.findById(docente._id)).resetPasswordToken).toBeTruthy();
+
+    const agente = await loginComo(app, admin);
+    const lista = await agente.get('/api/users').query({ rol: 'docente' });
+    const detalle = await agente.get(`/api/users/${docente._id}`);
+    const propio = await (await loginComo(app, docente)).get('/api/users/me/profile');
+    for (const res of [lista, detalle, propio]) {
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).not.toMatch(/resetPassword/);
+    }
+  });
+});
