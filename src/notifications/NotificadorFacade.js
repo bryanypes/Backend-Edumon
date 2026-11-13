@@ -75,7 +75,6 @@ class NotificadorFacade {
 
     if (perfiles.length === 0) return;
 
-    console.log(`[Facade] Enviando push a ${perfiles.length} perfil(es) adicional(es)`);
 
     // perfiles adicionales solo reciben push, no se guardan en BD
     const { FCMStrategy } = await import('./strategies/FCMStrategy.js');

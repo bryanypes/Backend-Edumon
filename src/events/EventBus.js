@@ -18,11 +18,9 @@ class EventBus extends EventEmitter {
         console.error(`[Observer] Error en handler de "${evento}":`, error);
       }
     });
-    console.log(`[Observer] Suscrito a evento: "${evento}"`);
   }
 
   publicar(evento, datos) {
-    console.log(`[Observer] Evento publicado: "${evento}"`);
     this.emit(evento, datos);
   }
 

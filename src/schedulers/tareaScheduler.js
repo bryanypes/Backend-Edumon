@@ -7,7 +7,6 @@ import { notificarTareaProximaVencer } from '../services/notificacionService.js'
 // exportada aparte del cron para poder invocarla directo desde los tests.
 export const verificarTareasProximasAVencer = async () => {
   try {
-    console.log(' Verificando tareas próximas a vencer...');
 
     const ahora = new Date();
     const en23Horas = new Date(ahora.getTime() + 23 * 60 * 60 * 1000);
@@ -21,12 +20,10 @@ export const verificarTareasProximasAVencer = async () => {
       }
     }).lean();
 
-    console.log(` ${tareas.length} tareas próximas a vencer encontradas`);
 
     // notificarTareaProximaVencer ya atrapa sus propios errores internamente
     await Promise.all(tareas.map(tarea => notificarTareaProximaVencer(tarea)));
 
-    console.log(' Notificaciones de recordatorio enviadas');
     return tareas;
   } catch (error) {
     console.error('Error en scheduler de tareas:', error);
