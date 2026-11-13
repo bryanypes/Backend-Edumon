@@ -39,15 +39,23 @@ describe('WebSocketStrategy', () => {
 
     expect(resultado).toBe(true);
     expect(toMock).toHaveBeenCalledWith(`user:${usuario._id}`);
-    expect(emitMock).toHaveBeenCalledWith('notificaciones:nueva', expect.objectContaining({
-      notificacion: expect.objectContaining({ mensaje: 'Nueva tarea' }),
-    }));
-    expect(emitMock).toHaveBeenCalledWith('notificaciones:conteo', expect.objectContaining({ noLeidas: expect.any(Number) }));
+    expect(emitMock).toHaveBeenCalledWith(
+      'notificaciones:nueva',
+      expect.objectContaining({
+        notificacion: expect.objectContaining({ mensaje: 'Nueva tarea' }),
+      }),
+    );
+    expect(emitMock).toHaveBeenCalledWith(
+      'notificaciones:conteo',
+      expect.objectContaining({ noLeidas: expect.any(Number) }),
+    );
   });
 
   it('devuelve false (sin lanzar) si io.to() lanza un error', async () => {
     global.io = {
-      to: () => { throw new Error('socket roto'); },
+      to: () => {
+        throw new Error('socket roto');
+      },
       emit: vi.fn(),
     };
     const usuario = await crearPadre();

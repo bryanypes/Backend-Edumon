@@ -72,10 +72,12 @@ describe('Autenticación del handshake de Socket.IO', () => {
 
   it('rechaza la conexión sin token', async () => {
     const socket = conectar(null);
-    await expect(new Promise((resolve, reject) => {
-      socket.on('connect_error', (err) => resolve(err));
-      socket.on('connect', () => reject(new Error('no debería conectar')));
-    })).resolves.toBeTruthy();
+    await expect(
+      new Promise((resolve, reject) => {
+        socket.on('connect_error', (err) => resolve(err));
+        socket.on('connect', () => reject(new Error('no debería conectar')));
+      }),
+    ).resolves.toBeTruthy();
   });
 
   it('rechaza la conexión con un token inválido', async () => {
@@ -116,7 +118,12 @@ describe('Eventos de notificaciones sobre el socket', () => {
 
   it('notificaciones:marcar-leida actualiza el conteo y emite la notificación actualizada', async () => {
     const padre = await crearPadre();
-    const notif = await Notificacion.create({ usuarioId: padre._id, tipo: 'sistema', mensaje: 'Por leer', leido: false });
+    const notif = await Notificacion.create({
+      usuarioId: padre._id,
+      tipo: 'sistema',
+      mensaje: 'Por leer',
+      leido: false,
+    });
 
     const socket = conectar(generarAccessToken(padre));
     await esperarEvento(socket, 'notificaciones:conteo');
@@ -131,7 +138,12 @@ describe('Eventos de notificaciones sobre el socket', () => {
   it('un usuario no puede marcar como leída la notificación de otro (no la encuentra, no rompe)', async () => {
     const padre = await crearPadre();
     const otro = await crearPadre();
-    const notifDeOtro = await Notificacion.create({ usuarioId: otro._id, tipo: 'sistema', mensaje: 'Ajena', leido: false });
+    const notifDeOtro = await Notificacion.create({
+      usuarioId: otro._id,
+      tipo: 'sistema',
+      mensaje: 'Ajena',
+      leido: false,
+    });
 
     const socket = conectar(generarAccessToken(padre));
     await esperarEvento(socket, 'notificaciones:conteo');
@@ -157,7 +169,12 @@ describe('Eventos de notificaciones sobre el socket', () => {
 
   it('notificaciones:eliminar borra la notificación y actualiza el conteo', async () => {
     const padre = await crearPadre();
-    const notif = await Notificacion.create({ usuarioId: padre._id, tipo: 'sistema', mensaje: 'A borrar', leido: false });
+    const notif = await Notificacion.create({
+      usuarioId: padre._id,
+      tipo: 'sistema',
+      mensaje: 'A borrar',
+      leido: false,
+    });
 
     const socket = conectar(generarAccessToken(padre));
     await esperarEvento(socket, 'notificaciones:conteo');

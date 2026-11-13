@@ -37,7 +37,9 @@ describe('FCMStrategy', () => {
 
   it('si el token está expirado (registration-token-not-registered), lo limpia en el usuario y devuelve false', async () => {
     const usuario = await crearPadre({ fcmToken: 'token-vencido' });
-    fcmSendMock.mockRejectedValueOnce(Object.assign(new Error('vencido'), { code: 'messaging/registration-token-not-registered' }));
+    fcmSendMock.mockRejectedValueOnce(
+      Object.assign(new Error('vencido'), { code: 'messaging/registration-token-not-registered' }),
+    );
 
     const resultado = await new FCMStrategy().enviar(usuario, { _id: 'x', tipo: 'sistema', mensaje: 'hola' });
 

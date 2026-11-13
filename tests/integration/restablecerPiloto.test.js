@@ -41,7 +41,9 @@ const ENTORNO = {
 };
 
 describe('npm run piloto:restablecer', () => {
-  beforeEach(() => { for (const [k, v] of Object.entries(ENTORNO)) vi.stubEnv(k, v); });
+  beforeEach(() => {
+    for (const [k, v] of Object.entries(ENTORNO)) vi.stubEnv(k, v);
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   it('borra todo menos las APK y deja el curso, el reto y el foro a nombre de la docente', async () => {

@@ -12,7 +12,10 @@ describe('errorDeDatos', () => {
   });
 
   it('un valor repetido es 409 con el campo correcto', () => {
-    expect(errorDeDatos({ code: 11000, keyPattern: { correo: 1 } })).toEqual({ status: 409, body: { message: 'Ya existe un usuario con este correo electrónico' } });
+    expect(errorDeDatos({ code: 11000, keyPattern: { correo: 1 } })).toEqual({
+      status: 409,
+      body: { message: 'Ya existe un usuario con este correo electrónico' },
+    });
     expect(errorDeDatos({ code: 11000, keyPattern: { cedula: 1 } }).body.message).toMatch(/cédula/);
     expect(errorDeDatos({ code: 11000, keyPattern: { otro: 1 } }).body.message).toMatch(/Ya existe un registro/);
   });

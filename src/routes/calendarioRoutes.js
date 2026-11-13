@@ -4,7 +4,7 @@ import {
   obtenerEventosDia,
   obtenerProximosEventos,
   obtenerCalendarioUsuario,
-  obtenerProximosEventosUsuario
+  obtenerProximosEventosUsuario,
 } from '../controllers/calendarioController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 

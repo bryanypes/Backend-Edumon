@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   enviarEmail,
   crearYEnviarNotificacion,
-  notificarTareaProximaVencer
+  notificarTareaProximaVencer,
 } from '../../../src/services/notificacionService.js';
 import Notificacion from '../../../src/models/Notificacion.js';
 import Entrega from '../../../src/models/Entrega.js';
@@ -57,7 +57,7 @@ describe('crearYEnviarNotificacion', () => {
     const notificacion = await crearYEnviarNotificacion({
       usuarioId: padre._id,
       tipo: 'tarea',
-      mensaje: 'Nueva tarea: "Ensayo sobre el agua"'
+      mensaje: 'Nueva tarea: "Ensayo sobre el agua"',
     });
 
     const guardada = await Notificacion.findById(notificacion._id);
@@ -74,7 +74,7 @@ describe('crearYEnviarNotificacion', () => {
     const notificacion = await crearYEnviarNotificacion({
       usuarioId: docente._id,
       tipo: 'tarea',
-      mensaje: 'Aviso de prueba'
+      mensaje: 'Aviso de prueba',
     });
 
     const guardada = await Notificacion.findById(notificacion._id);
@@ -88,7 +88,7 @@ describe('crearYEnviarNotificacion', () => {
     const notificacion = await crearYEnviarNotificacion({
       usuarioId: docente._id,
       tipo: 'entrega',
-      mensaje: 'Un padre entregó la tarea'
+      mensaje: 'Un padre entregó la tarea',
     });
 
     const guardada = await Notificacion.findById(notificacion._id);

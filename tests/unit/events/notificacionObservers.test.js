@@ -16,7 +16,8 @@ vi.mock('../../../src/notifications/NotificadorFacade.js', () => ({
 // registrarObservers() ya corre en el beforeAll global de vitest.setup.js, enlazada
 // al mock de arriba — no volver a registrar aquí o cada suscripción queda duplicada
 const { eventBus, EVENTOS } = await import('../../../src/events/EventBus.js');
-const { crearCurso, crearPadre, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento } = await import('../../helpers/factories.js');
+const { crearCurso, crearPadre, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento } =
+  await import('../../helpers/factories.js');
 
 beforeEach(() => {
   notificarMock.mockClear();
@@ -258,7 +259,13 @@ describe('NotificacionObservers — EVENTO_CREADO / EVENTO_ACTUALIZADO / EVENTO_
 describe('NotificacionObservers — BUZON_MENSAJE_RECIBIDO', () => {
   it('notifica al destinatario (superadmin) con los datos del mensaje de contacto', async () => {
     const superadmin = await crearSuperadmin();
-    const mensaje = { _id: '507f1f77bcf86cd799439099', nombre: 'Interesado', correo: 'x@test.com', telefono: '+573000000000', mensaje: 'Hola, quiero información' };
+    const mensaje = {
+      _id: '507f1f77bcf86cd799439099',
+      nombre: 'Interesado',
+      correo: 'x@test.com',
+      telefono: '+573000000000',
+      mensaje: 'Hola, quiero información',
+    };
 
     eventBus.publicar(EVENTOS.BUZON_MENSAJE_RECIBIDO, { destinatario: superadmin, mensaje });
     await esperarLlamada(notificarMock);
@@ -277,7 +284,12 @@ describe('NotificacionObservers — fechas en hora de Colombia', () => {
     curso.agregarParticipante(padre._id, 'padre');
     await curso.save();
     // 1 de marzo de 2030 a las 20:00 en Colombia = 2 de marzo 01:00 UTC
-    const tarea = await crearTarea({ cursoId: curso._id, docenteId: curso.docenteId, asignacionTipo: 'todos', fechaEntrega: new Date('2030-03-02T01:00:00Z') });
+    const tarea = await crearTarea({
+      cursoId: curso._id,
+      docenteId: curso.docenteId,
+      asignacionTipo: 'todos',
+      fechaEntrega: new Date('2030-03-02T01:00:00Z'),
+    });
 
     eventBus.publicar(EVENTOS.TAREA_CREADA, tarea);
     await esperarLlamada(notificarFamiliasMock);
@@ -287,4 +299,3 @@ describe('NotificacionObservers — fechas en hora de Colombia', () => {
     expect(datos.mensaje).toMatch(/08:00\s?p/);
   });
 });
-

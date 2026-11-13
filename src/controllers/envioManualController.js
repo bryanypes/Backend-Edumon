@@ -10,7 +10,8 @@ import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 // Envíos simultáneos al proveedor de push: suficiente para un colegio sin saturar FCM
 const LOTE = 10;
 
-const fechaCorta = (f) => new Date(f).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', timeZone: 'America/Bogota' });
+const fechaCorta = (f) =>
+  new Date(f).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', timeZone: 'America/Bogota' });
 
 /** Institución sobre la que actúa: la del administrador, o la que indique el superadmin. */
 function institucionDelActor(req, institucionIdBody) {
@@ -25,7 +26,8 @@ async function resolverDestinatarios({ cursos, destinatarios, institucionId }) {
   const quiereDocentes = destinatarios !== 'familias';
   for (const curso of cursos) {
     for (const p of curso.participantes ?? []) {
-      if ((p.etiqueta === 'padre' && quiereFamilias) || (p.etiqueta === 'docente' && quiereDocentes)) ids.add(String(p.usuarioId));
+      if ((p.etiqueta === 'padre' && quiereFamilias) || (p.etiqueta === 'docente' && quiereDocentes))
+        ids.add(String(p.usuarioId));
     }
     if (quiereDocentes && curso.docenteId) ids.add(String(curso.docenteId));
   }
@@ -34,7 +36,9 @@ async function resolverDestinatarios({ cursos, destinatarios, institucionId }) {
     docentes.forEach((d) => ids.add(String(d._id)));
   }
   if (!ids.size) return [];
-  const activos = await User.find({ _id: { $in: [...ids] }, estado: { $ne: 'suspendido' } }).select('_id').lean();
+  const activos = await User.find({ _id: { $in: [...ids] }, estado: { $ne: 'suspendido' } })
+    .select('_id')
+    .lean();
   return activos.map((u) => u._id);
 }
 
@@ -67,7 +71,9 @@ export const enviarNotificacionManual = async (req, res) => {
       }
       cursos = [curso];
     } else {
-      cursos = await Curso.find({ institucionId, estado: { $ne: 'archivado' } }).select('participantes docenteId institucionId nombre').lean();
+      cursos = await Curso.find({ institucionId, estado: { $ne: 'archivado' } })
+        .select('participantes docenteId institucionId nombre')
+        .lean();
     }
     const idsCursos = cursos.map((c) => String(c._id));
 
@@ -80,19 +86,27 @@ export const enviarNotificacionManual = async (req, res) => {
       if (!tarea || !idsCursos.includes(String(tarea.cursoId))) {
         return res.status(404).json({ message: 'El reto no existe o no es de ese curso' });
       }
-      tipo = 'tarea'; referenciaId = tarea._id; referenciaModelo = 'Tarea';
+      tipo = 'tarea';
+      referenciaId = tarea._id;
+      referenciaModelo = 'Tarea';
       mensaje ||= `Recordatorio: el reto «${tarea.titulo}» se entrega el ${fechaCorta(tarea.fechaEntrega)}.`;
     } else if (eventoId) {
       const evento = await Evento.findById(eventoId).select('titulo fechaInicio hora cursosIds').lean();
       if (!evento || !(evento.cursosIds ?? []).some((c) => idsCursos.includes(String(c)))) {
         return res.status(404).json({ message: 'El evento no existe o no es de ese curso' });
       }
-      tipo = 'evento'; referenciaId = evento._id; referenciaModelo = 'Evento';
+      tipo = 'evento';
+      referenciaId = evento._id;
+      referenciaModelo = 'Evento';
       mensaje ||= `Recordatorio: «${evento.titulo}» es el ${fechaCorta(evento.fechaInicio)}${evento.hora ? ` a las ${evento.hora}` : ''}.`;
     }
     if (!mensaje) return res.status(400).json({ message: 'Escribe el mensaje del aviso' });
 
-    const usuarios = await resolverDestinatarios({ cursos, destinatarios, institucionId: alcance === 'colegio' ? institucionId : null });
+    const usuarios = await resolverDestinatarios({
+      cursos,
+      destinatarios,
+      institucionId: alcance === 'colegio' ? institucionId : null,
+    });
     if (!usuarios.length) {
       return res.status(400).json({ message: 'No hay destinatarios activos para ese aviso' });
     }
@@ -100,11 +114,21 @@ export const enviarNotificacionManual = async (req, res) => {
     const agrupacionId = new mongoose.Types.ObjectId().toString();
     const resultado = { destinatarios: usuarios.length, enviadas: 0, conPush: 0, fallidas: 0 };
     for (let i = 0; i < usuarios.length; i += LOTE) {
-      const lote = await Promise.allSettled(usuarios.slice(i, i + LOTE).map((usuarioId) => crearYEnviarNotificacion({
-        usuarioId, tipo, mensaje, prioridad: 'alta', referenciaId, referenciaModelo, agrupacionId,
-        omitirCorreo: !correo,
-        metadata: { manual: true, enviadoPor: req.user.userId, ...(titulo ? { titulo } : {}) },
-      })));
+      const lote = await Promise.allSettled(
+        usuarios.slice(i, i + LOTE).map((usuarioId) =>
+          crearYEnviarNotificacion({
+            usuarioId,
+            tipo,
+            mensaje,
+            prioridad: 'alta',
+            referenciaId,
+            referenciaModelo,
+            agrupacionId,
+            omitirCorreo: !correo,
+            metadata: { manual: true, enviadoPor: req.user.userId, ...(titulo ? { titulo } : {}) },
+          }),
+        ),
+      );
       for (const r of lote) {
         if (r.status === 'fulfilled') {
           resultado.enviadas += 1;

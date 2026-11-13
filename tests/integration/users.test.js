@@ -2,12 +2,23 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import crearApp from '../../src/app.js';
 import User from '../../src/models/User.js';
-import { crearPadre, crearDocente, crearAdministrador, crearSuperadmin, crearInstitucion, crearCurso, cedulaDePrueba, telefonoDePrueba } from '../helpers/factories.js';
+import {
+  crearPadre,
+  crearDocente,
+  crearAdministrador,
+  crearSuperadmin,
+  crearInstitucion,
+  crearCurso,
+  cedulaDePrueba,
+  telefonoDePrueba,
+} from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un padre no puede listar usuarios (403)', async () => {
     const padre = await crearPadre();
@@ -47,9 +58,13 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
 
     for (const rol of ['administrador', 'superadmin']) {
       const res = await agent.post('/api/users').send({
-        nombre: 'Escalado', apellido: 'Test', cedula: cedulaDePrueba(),
+        nombre: 'Escalado',
+        apellido: 'Test',
+        cedula: cedulaDePrueba(),
         correo: `esc${rol}${Date.now()}${Math.random()}@test.edumon.com`,
-        contraseña: 'ClaveNueva123', rol, telefono: telefonoDePrueba(),
+        contraseña: 'ClaveNueva123',
+        rol,
+        telefono: telefonoDePrueba(),
         institucionId: institucion._id.toString(),
       });
       expect(res.status).toBe(403);
@@ -62,9 +77,13 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     const agent = await loginComo(app, admin);
 
     const res = await agent.post('/api/users').send({
-      nombre: 'Doc', apellido: 'Test', cedula: cedulaDePrueba(),
+      nombre: 'Doc',
+      apellido: 'Test',
+      cedula: cedulaDePrueba(),
       correo: `doc${Date.now()}${Math.random()}@test.edumon.com`,
-      contraseña: 'ClaveNueva123', rol: 'docente', telefono: telefonoDePrueba(),
+      contraseña: 'ClaveNueva123',
+      rol: 'docente',
+      telefono: telefonoDePrueba(),
       institucionId: instB._id.toString(), // intenta colocarlo en otra institución
     });
 
@@ -145,7 +164,9 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     const agent = await loginComo(app, superadmin);
     const padre = await crearPadre();
 
-    const res = await agent.put(`/api/users/${padre._id}`).send({ rol: 'administrador', institucionId: institucion._id.toString() });
+    const res = await agent
+      .put(`/api/users/${padre._id}`)
+      .send({ rol: 'administrador', institucionId: institucion._id.toString() });
 
     expect(res.status).toBe(200);
     const enBD = await User.findById(padre._id);
@@ -221,9 +242,13 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
     const agent = await loginComo(app, superadmin);
 
     const res = await agent.post('/api/users').send({
-      nombre: 'Otro', apellido: 'Super', cedula: cedulaDePrueba(),
+      nombre: 'Otro',
+      apellido: 'Super',
+      cedula: cedulaDePrueba(),
       correo: `otrosuper${Date.now()}${Math.random()}@test.edumon.com`,
-      contraseña: 'ClaveNueva123', rol: 'superadmin', telefono: telefonoDePrueba(),
+      contraseña: 'ClaveNueva123',
+      rol: 'superadmin',
+      telefono: telefonoDePrueba(),
     });
 
     expect(res.status).toBe(409);
@@ -286,7 +311,9 @@ describe('CRUD de usuarios (/api/users) — solo administrador/superadmin', () =
 
 describe('/api/users/me — perfil propio', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('GET /me/profile devuelve el perfil propio', async () => {
     const padre = await crearPadre();
@@ -352,7 +379,9 @@ describe('/api/users/me — perfil propio', () => {
 
 describe('/api/users/sesiones/ultimas', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un usuario normal solo ve su propio último acceso', async () => {
     const padre = await crearPadre({ ultimoAcceso: new Date() });
@@ -379,7 +408,9 @@ describe('/api/users/sesiones/ultimas', () => {
 
 describe('/api/users/padre/:padreId/info', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un docente que comparte curso con el padre ve su info', async () => {
     const curso = await crearCurso();
@@ -439,14 +470,18 @@ describe('/api/users/padre/:padreId/info', () => {
 
 describe('datos sensibles en respuestas de usuarios', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('CRÍTICO: el hash del código de recuperación nunca sale en las respuestas', async () => {
     // con el hash (SHA-256 de 6 dígitos, sin sal) se prueba el código en milisegundos
     const institucion = await crearInstitucion();
     const admin = await crearAdministrador({ institucionId: institucion._id });
     const docente = await crearDocente({ institucionId: institucion._id, correo: 'docente.reset@colegio.edu.co' });
-    const pedido = await request(app).post('/api/auth/forgot-password').send({ correo: 'docente.reset@colegio.edu.co' });
+    const pedido = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ correo: 'docente.reset@colegio.edu.co' });
     expect(pedido.status).toBe(200);
     expect((await User.findById(docente._id)).resetPasswordToken).toBeTruthy();
 

@@ -48,7 +48,9 @@ async function bootstrapInstitucion() {
 
   const nit = process.env.BOOTSTRAP_INSTITUCION_NIT?.trim();
   if (!nit) {
-    console.error('[bootstrap] BOOTSTRAP_INSTITUCION_NOMBRE está configurado pero falta BOOTSTRAP_INSTITUCION_NIT; se omite la institución.');
+    console.error(
+      '[bootstrap] BOOTSTRAP_INSTITUCION_NOMBRE está configurado pero falta BOOTSTRAP_INSTITUCION_NIT; se omite la institución.',
+    );
     return null;
   }
 
@@ -63,8 +65,10 @@ async function bootstrapInstitucion() {
       nombre,
       nit,
       direccion: process.env.BOOTSTRAP_INSTITUCION_DIRECCION?.trim() || undefined,
-      telefono: normalizarTelefono(process.env.BOOTSTRAP_INSTITUCION_TELEFONO)
-        || process.env.BOOTSTRAP_INSTITUCION_TELEFONO?.trim() || undefined,
+      telefono:
+        normalizarTelefono(process.env.BOOTSTRAP_INSTITUCION_TELEFONO) ||
+        process.env.BOOTSTRAP_INSTITUCION_TELEFONO?.trim() ||
+        undefined,
       correo: process.env.BOOTSTRAP_INSTITUCION_CORREO?.trim() || undefined,
     });
     console.log(`[bootstrap] Institución creada: "${institucion.nombre}" (código ${institucion.codigo})`);
@@ -81,13 +85,10 @@ export async function bootstrapAdmins() {
   if (admins.length === 0) return;
 
   for (const { indice, ...datos } of admins) {
-    const faltantes = ['nombre', 'apellido', 'cedula', 'telefono', 'contraseña']
-      .filter((campo) => !datos[campo]);
+    const faltantes = ['nombre', 'apellido', 'cedula', 'telefono', 'contraseña'].filter((campo) => !datos[campo]);
 
     if (faltantes.length > 0) {
-      console.error(
-        `[bootstrap] BOOTSTRAP_ADMIN_${indice}_* incompleto (faltan: ${faltantes.join(', ')}); se omite.`,
-      );
+      console.error(`[bootstrap] BOOTSTRAP_ADMIN_${indice}_* incompleto (faltan: ${faltantes.join(', ')}); se omite.`);
       continue;
     }
 

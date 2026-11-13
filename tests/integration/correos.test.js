@@ -18,7 +18,12 @@ describe('regla de correo', () => {
   });
 
   it('acepta correos reales que antes se rechazaban', () => {
-    for (const c of ['maria.perez+colegio@gmail.com', 'ana-maria@uniautonoma.edu.co', 'jose_luis@hotmail.com', 'ñandú@correo.com']) {
+    for (const c of [
+      'maria.perez+colegio@gmail.com',
+      'ana-maria@uniautonoma.edu.co',
+      'jose_luis@hotmail.com',
+      'ñandú@correo.com',
+    ]) {
       expect(esCorreoValido(c)).toBe(true);
     }
     for (const c of ['sin-arroba.com', 'a@b', 'a @b.co', 'a@b.c']) expect(esCorreoValido(c)).toBe(false);
@@ -33,7 +38,9 @@ describe('regla de correo', () => {
 
 describe('guardar correos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el propio perfil acepta un correo con espacio al final y lo guarda limpio', async () => {
     const padre = await crearPadre();
@@ -86,6 +93,8 @@ describe('límite global de solicitudes', () => {
   it('cuenta por usuario con sesión, no por la IP compartida del colegio', () => {
     const token = jwt.sign({ userId: 'abc' }, process.env.JWT_SECRET);
     expect(claveLimiteGlobal({ ip: '10.0.0.1', headers: {}, cookies: { access_token: token } })).toBe('usuario:abc');
-    expect(claveLimiteGlobal({ ip: '10.0.0.1', headers: {}, cookies: { access_token: jwt.sign({ userId: 'x' }, 'otra') } })).toBe('ip:10.0.0.1');
+    expect(
+      claveLimiteGlobal({ ip: '10.0.0.1', headers: {}, cookies: { access_token: jwt.sign({ userId: 'x' }, 'otra') } }),
+    ).toBe('ip:10.0.0.1');
   });
 });

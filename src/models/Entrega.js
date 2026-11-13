@@ -1,101 +1,116 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-const entregaSchema = new mongoose.Schema({
-  tareaId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Tarea',
-    required: [true, 'El ID de la tarea es obligatorio']
-  },
-  padreId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User',
-    required: [true, 'El ID del padre es obligatorio']
-  },
-  fechaEntrega: { 
-    type: Date, 
-    default: Date.now 
-  },
-  archivosAdjuntos: [{
-    url: { type: String, required: true },
-    publicId: { type: String, required: true },
-    nombreOriginal: { type: String, required: true },
-    tipoArchivo: { type: String, required: true },
-    tamano: { type: Number, required: true },
-    // subido como `authenticated`: la url solo sirve firmada y con caducidad
-    privado: { type: Boolean, default: false }
-  }],
-  // enlaces externos que el acudiente adjunta como respuesta (Drive, YouTube, etc.)
-  enlaces: {
-    type: [{
-      _id: false,
-      url: {
-        type: String,
-        required: true,
-        trim: true,
-        validate: {
-          validator: (v) => /^https?:\/\/.+/i.test(v),
-          message: 'El enlace debe ser una URL válida (http/https)'
-        }
+const entregaSchema = new mongoose.Schema(
+  {
+    tareaId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tarea',
+      required: [true, 'El ID de la tarea es obligatorio'],
+    },
+    padreId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'El ID del padre es obligatorio'],
+    },
+    fechaEntrega: {
+      type: Date,
+      default: Date.now,
+    },
+    archivosAdjuntos: [
+      {
+        url: { type: String, required: true },
+        publicId: { type: String, required: true },
+        nombreOriginal: { type: String, required: true },
+        tipoArchivo: { type: String, required: true },
+        tamano: { type: Number, required: true },
+        // subido como `authenticated`: la url solo sirve firmada y con caducidad
+        privado: { type: Boolean, default: false },
       },
-      titulo: { type: String, trim: true, maxlength: [200, 'El título del enlace no puede exceder 200 caracteres'] },
-      descripcion: { type: String, trim: true, maxlength: [500, 'La descripción del enlace no puede exceder 500 caracteres'] }
-    }],
-    default: [],
-    validate: {
-      validator: (v) => v.length <= 10,
-      message: 'No se pueden adjuntar más de 10 enlaces'
-    }
-  },
-  textoRespuesta: {
-    type: String,
-    trim: true,
-    maxlength: [5000, 'El texto de respuesta no puede exceder 5000 caracteres']
-  },
-  estado: { 
-    type: String, 
-    enum: {
-      values: ["borrador", "enviada", "tarde"],
-      message: '{VALUE} no es un estado válido'
-    },
-    default: "borrador" 
-  },
-  calificacion: {
-    // valoracion: 1-5 estrellas — reemplaza "nota" (0-100)
-    valoracion: { 
-      type: Number,
-      min: [1, 'La valoración mínima es 1 estrella'],
-      max: [5, 'La valoración máxima es 5 estrellas'],
+    ],
+    // enlaces externos que el acudiente adjunta como respuesta (Drive, YouTube, etc.)
+    enlaces: {
+      type: [
+        {
+          _id: false,
+          url: {
+            type: String,
+            required: true,
+            trim: true,
+            validate: {
+              validator: (v) => /^https?:\/\/.+/i.test(v),
+              message: 'El enlace debe ser una URL válida (http/https)',
+            },
+          },
+          titulo: {
+            type: String,
+            trim: true,
+            maxlength: [200, 'El título del enlace no puede exceder 200 caracteres'],
+          },
+          descripcion: {
+            type: String,
+            trim: true,
+            maxlength: [500, 'La descripción del enlace no puede exceder 500 caracteres'],
+          },
+        },
+      ],
+      default: [],
       validate: {
-        validator: Number.isInteger,
-        message: 'La valoración debe ser un número entero'
-      }
+        validator: (v) => v.length <= 10,
+        message: 'No se pueden adjuntar más de 10 enlaces',
+      },
     },
-    comentario: { 
+    textoRespuesta: {
       type: String,
       trim: true,
-      maxlength: [1000, 'El comentario no puede exceder 1000 caracteres']
+      maxlength: [5000, 'El texto de respuesta no puede exceder 5000 caracteres'],
     },
-    fechaCalificacion: { 
-      type: Date
+    estado: {
+      type: String,
+      enum: {
+        values: ['borrador', 'enviada', 'tarde'],
+        message: '{VALUE} no es un estado válido',
+      },
+      default: 'borrador',
     },
-    fechaUltimaModificacion: {
-      type: Date
+    calificacion: {
+      // valoracion: 1-5 estrellas — reemplaza "nota" (0-100)
+      valoracion: {
+        type: Number,
+        min: [1, 'La valoración mínima es 1 estrella'],
+        max: [5, 'La valoración máxima es 5 estrellas'],
+        validate: {
+          validator: Number.isInteger,
+          message: 'La valoración debe ser un número entero',
+        },
+      },
+      comentario: {
+        type: String,
+        trim: true,
+        maxlength: [1000, 'El comentario no puede exceder 1000 caracteres'],
+      },
+      fechaCalificacion: {
+        type: Date,
+      },
+      fechaUltimaModificacion: {
+        type: Date,
+      },
+      valoracionAnterior: {
+        type: Number,
+        min: 1,
+        max: 5,
+      },
+      docenteId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
     },
-    valoracionAnterior: {
-      type: Number,
-      min: 1,
-      max: 5
-    },
-    docenteId: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: 'User'
-    }
-  }
-}, { 
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
+);
 
 // Índices
 entregaSchema.index({ tareaId: 1, padreId: 1 }, { unique: true });
@@ -105,15 +120,15 @@ entregaSchema.index({ 'calificacion.valoracion': 1 });
 entregaSchema.index({ 'archivosAdjuntos.publicId': 1 });
 
 // Virtual: ¿está valorada?
-entregaSchema.virtual('estaCalificada').get(function() {
+entregaSchema.virtual('estaCalificada').get(function () {
   return this.calificacion?.valoracion !== undefined && this.calificacion.valoracion !== null;
 });
 
 // Virtual: representación en estrellas
-entregaSchema.virtual('estrellas').get(function() {
+entregaSchema.virtual('estrellas').get(function () {
   if (!this.calificacion?.valoracion) return null;
   const n = this.calificacion.valoracion;
   return '⭐'.repeat(n) + '☆'.repeat(5 - n);
 });
 
-export default mongoose.model("Entrega", entregaSchema);
+export default mongoose.model('Entrega', entregaSchema);

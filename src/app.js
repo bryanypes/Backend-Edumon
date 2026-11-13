@@ -51,7 +51,9 @@ export const claveLimiteGlobal = (req) => {
     try {
       const { userId } = jwt.verify(token, process.env.JWT_SECRET);
       if (userId) return `usuario:${userId}`;
-    } catch { /* token vencido o inválido: cuenta como anónimo */ }
+    } catch {
+      /* token vencido o inválido: cuenta como anónimo */
+    }
   }
   return `ip:${ipKeyGenerator(req.ip)}`;
 };
@@ -59,9 +61,9 @@ export const claveLimiteGlobal = (req) => {
 // Solo construye app + server + io. server.js conecta Mongo y arranca el
 // scheduler; los tests importan este archivo directo con su propia BD en memoria.
 export const crearApp = () => {
-  const app    = express();
+  const app = express();
   const server = http.createServer(app);
-  const isDev  = process.env.NODE_ENV === 'development';
+  const isDev = process.env.NODE_ENV === 'development';
 
   app.set('trust proxy', 1);
 
@@ -88,20 +90,20 @@ export const crearApp = () => {
   app.use(
     helmet({
       hsts: {
-        maxAge:            31536000,
+        maxAge: 31536000,
         includeSubDomains: true,
       },
       contentSecurityPolicy: {
         directives: {
-          defaultSrc:     ["'self'"],
-          scriptSrc:      ["'self'"],
-          styleSrc:       ["'self'", "'unsafe-inline'"],
-          imgSrc:         ["'self'", 'data:', 'blob:'],
-          connectSrc:     ["'self'", ...allowedOrigins],
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'", ...allowedOrigins],
           frameAncestors: ["'none'"],
-          formAction:     ["'self'"],
-          objectSrc:      ["'none'"],
-          baseUri:        ["'self'"],
+          formAction: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
           upgradeInsecureRequests: isDev ? null : [],
         },
       },
@@ -159,19 +161,17 @@ export const crearApp = () => {
   // límite por IP compartían un solo cupo, así que la app "se caía" para todos.
   const makeRateLimitHandler = (mensaje) =>
     rateLimit({
-      windowMs:         15 * 60 * 1000,
-      max:              500,
-      standardHeaders:  true,
-      legacyHeaders:    false,
+      windowMs: 15 * 60 * 1000,
+      max: 500,
+      standardHeaders: true,
+      legacyHeaders: false,
       skipFailedRequests: false,
-      keyGenerator:     claveLimiteGlobal,
+      keyGenerator: claveLimiteGlobal,
       handler: (req, res) => {
-        const retryAfter = Math.ceil(
-          (req.rateLimit.resetTime - Date.now()) / 1000,
-        );
+        const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
         res.set('Retry-After', retryAfter);
         res.status(429).json({
-          message:    mensaje,
+          message: mensaje,
           retryAfter,
         });
       },
@@ -191,29 +191,27 @@ export const crearApp = () => {
   // cupo real de intentos permitidos
   const makeAuthLimiter = (campo, normalizar) =>
     rateLimit({
-      windowMs:        15 * 60 * 1000,
-      max:             10,
+      windowMs: 15 * 60 * 1000,
+      max: 10,
       standardHeaders: true,
-      legacyHeaders:   false,
+      legacyHeaders: false,
       keyGenerator: (req) => {
         const crudo = req.body?.[campo];
         const valor = typeof crudo === 'string' ? normalizar(crudo) : null;
         return valor ? `${campo}:${valor}` : ipKeyGenerator(req.ip, false);
       },
       handler: (req, res) => {
-        const retryAfter = Math.ceil(
-          (req.rateLimit.resetTime - Date.now()) / 1000,
-        );
+        const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
         res.set('Retry-After', retryAfter);
         res.status(429).json({
-          message:    'Demasiados intentos de autenticación',
+          message: 'Demasiados intentos de autenticación',
           retryAfter,
         });
       },
     });
 
   const limiterAuth = makeAuthLimiter('telefono', (v) => normalizarTelefono(v) ?? v);
-  app.use('/api/auth/login',    limiterAuth);
+  app.use('/api/auth/login', limiterAuth);
   app.use('/api/auth/register', limiterAuth);
 
   // recuperación de contraseña: el código es de 6 dígitos, sin este límite se
@@ -221,24 +219,24 @@ export const crearApp = () => {
   // 'correo' (no 'telefono', que estos dos endpoints no reciben) y con su
   // propio contador, separado del de login/registro.
   const limiterRecuperacion = makeAuthLimiter('correo', (v) => v.trim().toLowerCase());
-  app.use('/api/auth/forgot-password',       limiterRecuperacion);
-  app.use('/api/auth/reset-password',        limiterRecuperacion);
+  app.use('/api/auth/forgot-password', limiterRecuperacion);
+  app.use('/api/auth/reset-password', limiterRecuperacion);
 
   // CORS
   const corsAbiertoTemporalmente = !isDev && frontendUrls.length === 0;
   if (corsAbiertoTemporalmente) {
     console.warn(
       'CORS abierto a cualquier origen: FRONTEND_URL no está configurado. ' +
-      'Esto es temporal mientras no haya frontend desplegado — configúralo en cuanto lo despliegues.',
+        'Esto es temporal mientras no haya frontend desplegado — configúralo en cuanto lo despliegues.',
     );
   }
 
   app.use(
     cors({
-      origin:           isDev || corsAbiertoTemporalmente ? true : allowedOrigins,
-      credentials:      true,
-      methods:          ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders:   ['Content-Type', 'Authorization'],
+      origin: isDev || corsAbiertoTemporalmente ? true : allowedOrigins,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
 
@@ -276,21 +274,24 @@ export const crearApp = () => {
   // avatares predeterminados (empaquetados con la imagen, no en el volumen)
   app.use(AVATARES_PREFIX, express.static(AVATARES_DIR, { index: false, maxAge: '7d' }));
   // imágenes de los correos: los clientes de correo las piden sin sesión
-  app.use(CORREO_IMG_PREFIX, express.static(CORREO_IMG_DIR, {
-    index: false,
-    maxAge: '30d',
-    // helmet pone same-origin: el correo web (otro dominio) no podría mostrarlas
-    setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'),
-  }));
+  app.use(
+    CORREO_IMG_PREFIX,
+    express.static(CORREO_IMG_DIR, {
+      index: false,
+      maxAge: '30d',
+      // helmet pone same-origin: el correo web (otro dominio) no podría mostrarlas
+      setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'),
+    }),
+  );
 
   // Socket.IO
   const io = new Server(server, {
     cors: {
-      origin:      isDev ? true : allowedOrigins,
-      methods:     ['GET', 'POST'],
+      origin: isDev ? true : allowedOrigins,
+      methods: ['GET', 'POST'],
       credentials: true,
     },
-    pingTimeout:  60000,
+    pingTimeout: 60000,
     pingInterval: 25000,
   });
 
@@ -298,28 +299,28 @@ export const crearApp = () => {
   setupSocketIO(io);
 
   // Rutas
-  app.use('/api/auth',          authRoutes);
-  app.use('/api/users',         userRoutes);
-  app.use('/api/cursos',        cursoRoutes);
-  app.use('/api/modulos',       moduloRoutes);
-  app.use('/api/tareas',        tareaRoutes);
-  app.use('/api/entregas',      entregaRoutes);
-  app.use('/api/notificaciones',notificacionRoutes);
-  app.use('/api/eventos',       eventoRoutes);
-  app.use('/api/calendario',    calendarioRoutes);
-  app.use('/api/foros',         foroRoutes);
+  app.use('/api/auth', authRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/cursos', cursoRoutes);
+  app.use('/api/modulos', moduloRoutes);
+  app.use('/api/tareas', tareaRoutes);
+  app.use('/api/entregas', entregaRoutes);
+  app.use('/api/notificaciones', notificacionRoutes);
+  app.use('/api/eventos', eventoRoutes);
+  app.use('/api/calendario', calendarioRoutes);
+  app.use('/api/foros', foroRoutes);
   app.use('/api/mensajes-foro', mensajeForoRoutes);
   app.use('/api/instituciones', institucionRoutes);
-  app.use('/api/perfiles',      perfilFamiliarRoutes);
-  app.use('/api/buzon',         buzonRoutes);
-  app.use('/api/apk',           apkRoutes);
+  app.use('/api/perfiles', perfilFamiliarRoutes);
+  app.use('/api/buzon', buzonRoutes);
+  app.use('/api/apk', apkRoutes);
 
   // Health check
   app.get('/', (req, res) => {
     res.json({
-      message:   'API funcionando correctamente',
+      message: 'API funcionando correctamente',
       websocket: 'Socket.IO habilitado',
-      entorno:   process.env.NODE_ENV || 'development',
+      entorno: process.env.NODE_ENV || 'development',
     });
   });
 
@@ -336,7 +337,7 @@ export const crearApp = () => {
     // ejemplo) termina en un 500 con el mensaje crudo de multer en inglés.
     if (err instanceof multer.MulterError) {
       const mensajes = {
-        LIMIT_FILE_SIZE:  'El archivo es demasiado grande para subir. Intenta con uno más liviano.',
+        LIMIT_FILE_SIZE: 'El archivo es demasiado grande para subir. Intenta con uno más liviano.',
         LIMIT_FILE_COUNT: 'Adjuntaste demasiados archivos a la vez.',
         LIMIT_UNEXPECTED_FILE: 'No se pudo subir el archivo: el tipo o el campo no es el esperado.',
       };

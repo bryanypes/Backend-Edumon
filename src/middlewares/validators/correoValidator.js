@@ -9,24 +9,35 @@ import { esCorreoValido } from '../../utils/correo.js';
  *
  * requerido: false → vacío se acepta y significa "sin correo".
  */
-export const campoCorreo = (campo = 'correo', {
-  requerido = false,
-  mensaje = 'El correo electrónico no es válido',
-  mensajeRequerido = 'El correo es requerido',
-} = {}) => {
+export const campoCorreo = (
+  campo = 'correo',
+  {
+    requerido = false,
+    mensaje = 'El correo electrónico no es válido',
+    mensajeRequerido = 'El correo es requerido',
+  } = {},
+) => {
   const regla = body(campo);
   if (!requerido) {
     return regla
       .optional({ values: 'null' })
-      .isString().withMessage(mensaje).bail()
+      .isString()
+      .withMessage(mensaje)
+      .bail()
       .trim()
       .toLowerCase()
-      .custom((v) => v === '' || esCorreoValido(v)).withMessage(mensaje);
+      .custom((v) => v === '' || esCorreoValido(v))
+      .withMessage(mensaje);
   }
   return regla
-    .isString().withMessage(mensajeRequerido).bail()
+    .isString()
+    .withMessage(mensajeRequerido)
+    .bail()
     .trim()
-    .notEmpty().withMessage(mensajeRequerido).bail()
+    .notEmpty()
+    .withMessage(mensajeRequerido)
+    .bail()
     .toLowerCase()
-    .custom(esCorreoValido).withMessage(mensaje);
+    .custom(esCorreoValido)
+    .withMessage(mensaje);
 };

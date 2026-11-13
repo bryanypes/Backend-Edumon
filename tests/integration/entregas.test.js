@@ -4,7 +4,16 @@ import request from 'supertest';
 import crearApp from '../../src/app.js';
 import Entrega from '../../src/models/Entrega.js';
 import User from '../../src/models/User.js';
-import { crearCurso, crearTarea, crearEntrega, crearPadre, crearDocente, crearAdministrador, crearSuperadmin, crearInstitucion } from '../helpers/factories.js';
+import {
+  crearCurso,
+  crearTarea,
+  crearEntrega,
+  crearPadre,
+  crearDocente,
+  crearAdministrador,
+  crearSuperadmin,
+  crearInstitucion,
+} from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 const FIXTURES = path.resolve(__dirname, '../fixtures');
@@ -14,20 +23,29 @@ async function tareaConPadreParticipante(overrides = {}) {
   const curso = await crearCurso();
   curso.agregarParticipante(padre._id, 'padre');
   await curso.save();
-  const tarea = await crearTarea({ cursoId: curso._id, docenteId: curso.docenteId, asignacionTipo: 'todos', ...overrides });
+  const tarea = await crearTarea({
+    cursoId: curso._id,
+    docenteId: curso.docenteId,
+    asignacionTipo: 'todos',
+    ...overrides,
+  });
   return { padre, curso, tarea };
 }
 
 describe('POST /api/entregas', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el padre participante crea una entrega en borrador para sí mismo', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
     const res = await agent.post('/api/entregas').send({
-      tareaId: tarea._id.toString(), padreId: padre._id.toString(), textoRespuesta: 'Mi respuesta',
+      tareaId: tarea._id.toString(),
+      padreId: padre._id.toString(),
+      textoRespuesta: 'Mi respuesta',
     });
 
     expect(res.status).toBe(201);
@@ -40,7 +58,9 @@ describe('POST /api/entregas', () => {
     const agent = await loginComo(app, otroPadre);
 
     const res = await agent.post('/api/entregas').send({
-      tareaId: tarea._id.toString(), padreId: (await crearPadre())._id.toString(), textoRespuesta: 'x',
+      tareaId: tarea._id.toString(),
+      padreId: (await crearPadre())._id.toString(),
+      textoRespuesta: 'x',
     });
     // canCreateEntrega corta con 403 antes de que el controlador se ejecute
     expect(res.status).toBe(403);
@@ -52,7 +72,9 @@ describe('POST /api/entregas', () => {
     const agent = await loginComo(app, padreAjeno);
 
     const res = await agent.post('/api/entregas').send({
-      tareaId: tarea._id.toString(), padreId: padreAjeno._id.toString(), textoRespuesta: 'x',
+      tareaId: tarea._id.toString(),
+      padreId: padreAjeno._id.toString(),
+      textoRespuesta: 'x',
     });
     expect(res.status).toBe(403);
   });
@@ -63,7 +85,9 @@ describe('POST /api/entregas', () => {
     const agent = await loginComo(app, padre);
 
     const res = await agent.post('/api/entregas').send({
-      tareaId: tarea._id.toString(), padreId: padre._id.toString(), textoRespuesta: 'x',
+      tareaId: tarea._id.toString(),
+      padreId: padre._id.toString(),
+      textoRespuesta: 'x',
     });
     expect(res.status).toBe(409);
   });
@@ -73,7 +97,9 @@ describe('POST /api/entregas', () => {
     const agent = await loginComo(app, padre);
 
     const res = await agent.post('/api/entregas').send({
-      tareaId: tarea._id.toString(), padreId: padre._id.toString(), textoRespuesta: 'x',
+      tareaId: tarea._id.toString(),
+      padreId: padre._id.toString(),
+      textoRespuesta: 'x',
     });
     expect(res.status).toBe(400);
   });
@@ -83,7 +109,10 @@ describe('POST /api/entregas', () => {
     const agent = await loginComo(app, padre);
 
     const res = await agent.post('/api/entregas').send({
-      tareaId: tarea._id.toString(), padreId: padre._id.toString(), textoRespuesta: 'x', estado: 'enviada',
+      tareaId: tarea._id.toString(),
+      padreId: padre._id.toString(),
+      textoRespuesta: 'x',
+      estado: 'enviada',
     });
     expect(res.status).toBe(201);
     expect(res.body.entrega.estado).toBe('tarde');
@@ -93,7 +122,8 @@ describe('POST /api/entregas', () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
-    const res = await agent.post('/api/entregas')
+    const res = await agent
+      .post('/api/entregas')
       .field('tareaId', tarea._id.toString())
       .field('padreId', padre._id.toString())
       .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
@@ -106,7 +136,8 @@ describe('POST /api/entregas', () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
-    const res = await agent.post('/api/entregas')
+    const res = await agent
+      .post('/api/entregas')
       .field('tareaId', tarea._id.toString())
       .field('padreId', padre._id.toString())
       .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
@@ -125,7 +156,8 @@ describe('POST /api/entregas', () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
-    const creada = await agent.post('/api/entregas')
+    const creada = await agent
+      .post('/api/entregas')
       .field('tareaId', tarea._id.toString())
       .field('padreId', padre._id.toString())
       .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
@@ -142,7 +174,8 @@ describe('POST /api/entregas', () => {
     const { padre, tarea, curso } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
-    const creada = await agent.post('/api/entregas')
+    const creada = await agent
+      .post('/api/entregas')
       .field('tareaId', tarea._id.toString())
       .field('padreId', padre._id.toString())
       .attach('archivos', path.join(FIXTURES, 'mini.pdf'));
@@ -193,7 +226,8 @@ describe('POST /api/entregas', () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const agent = await loginComo(app, padre);
 
-    const res = await agent.post('/api/entregas')
+    const res = await agent
+      .post('/api/entregas')
       .field('tareaId', tarea._id.toString())
       .field('padreId', padre._id.toString())
       .attach('archivos', Buffer.from('fake-mov'), { filename: 'clip.mov', contentType: 'video/quicktime' });
@@ -205,7 +239,9 @@ describe('POST /api/entregas', () => {
 
 describe('IDOR corregido: /api/entregas/tarea/:tareaId y /api/entregas/padre/:padreId', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un padre NO puede leer las entregas de una tarea por tareaId (antes era posible)', async () => {
     const { tarea } = await tareaConPadreParticipante();
@@ -281,7 +317,9 @@ describe('IDOR corregido: /api/entregas/tarea/:tareaId y /api/entregas/padre/:pa
 
 describe('CORREGIDO: GET /api/entregas — un administrador solo ve entregas de su propia institución', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('filtra las entregas listadas por la institución del administrador', async () => {
     const institucionA = await crearInstitucion();
@@ -313,7 +351,9 @@ describe('CORREGIDO: GET /api/entregas — un administrador solo ve entregas de 
 
 describe('Ciclo de vida de una entrega (borrador → enviada/tarde → calificada)', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el padre dueño puede editar su entrega mientras está en borrador', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
@@ -341,14 +381,16 @@ describe('Ciclo de vida de una entrega (borrador → enviada/tarde → calificad
 
     const res = await agent.put(`/api/entregas/${entrega._id}`).send({
       textoRespuesta: 'x',
-      archivosAdjuntos: [{
-        url: '/uploads/priv/archivos-entregas/de-otra-entrega.pdf',
-        publicId: 'priv/archivos-entregas/de-otra-entrega.pdf',
-        nombreOriginal: 'de-otra-entrega.pdf',
-        tipoArchivo: 'application/pdf',
-        tamano: 123,
-        privado: true,
-      }],
+      archivosAdjuntos: [
+        {
+          url: '/uploads/priv/archivos-entregas/de-otra-entrega.pdf',
+          publicId: 'priv/archivos-entregas/de-otra-entrega.pdf',
+          nombreOriginal: 'de-otra-entrega.pdf',
+          tipoArchivo: 'application/pdf',
+          tamano: 123,
+          privado: true,
+        },
+      ],
     });
 
     expect(res.status).toBe(200);
@@ -397,7 +439,9 @@ describe('Ciclo de vida de una entrega (borrador → enviada/tarde → calificad
     const agent = await loginComo(app, docente);
 
     const res = await agent.patch(`/api/entregas/${entrega._id}/calificar`).send({
-      valoracion: 5, comentario: 'Excelente', docenteId: otroUsuarioId,
+      valoracion: 5,
+      comentario: 'Excelente',
+      docenteId: otroUsuarioId,
     });
 
     // El validator bloquea explícitamente que "docenteId" venga en el body
@@ -410,7 +454,9 @@ describe('Ciclo de vida de una entrega (borrador → enviada/tarde → calificad
     const docente = await User.findById(tarea.docenteId);
     const agent = await loginComo(app, docente);
 
-    const res = await agent.patch(`/api/entregas/${entrega._id}/calificar`).send({ valoracion: 4, comentario: 'Buen trabajo' });
+    const res = await agent
+      .patch(`/api/entregas/${entrega._id}/calificar`)
+      .send({ valoracion: 4, comentario: 'Buen trabajo' });
 
     expect(res.status).toBe(200);
     expect(res.body.entrega.calificacion.valoracion).toBe(4);
@@ -450,13 +496,25 @@ describe('Ciclo de vida de una entrega (borrador → enviada/tarde → calificad
 
 describe('DELETE /api/entregas/:id/archivos/:archivoId', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el dueño quita un archivo adjunto mientras la entrega está en borrador', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const entrega = await crearEntrega({
-      tareaId: tarea._id, padreId: padre._id, estado: 'borrador',
-      archivosAdjuntos: [{ url: 'http://cloud/x.pdf', publicId: 'carpeta/x', nombreOriginal: 'x.pdf', tipoArchivo: 'application/pdf', tamano: 1000 }],
+      tareaId: tarea._id,
+      padreId: padre._id,
+      estado: 'borrador',
+      archivosAdjuntos: [
+        {
+          url: 'http://cloud/x.pdf',
+          publicId: 'carpeta/x',
+          nombreOriginal: 'x.pdf',
+          tipoArchivo: 'application/pdf',
+          tamano: 1000,
+        },
+      ],
     });
     const archivoId = entrega.archivosAdjuntos[0]._id;
     const agent = await loginComo(app, padre);
@@ -469,8 +527,18 @@ describe('DELETE /api/entregas/:id/archivos/:archivoId', () => {
   it('no permite quitar archivos si la entrega ya no está en borrador', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();
     const entrega = await crearEntrega({
-      tareaId: tarea._id, padreId: padre._id, estado: 'enviada',
-      archivosAdjuntos: [{ url: 'http://cloud/x.pdf', publicId: 'carpeta/x', nombreOriginal: 'x.pdf', tipoArchivo: 'application/pdf', tamano: 1000 }],
+      tareaId: tarea._id,
+      padreId: padre._id,
+      estado: 'enviada',
+      archivosAdjuntos: [
+        {
+          url: 'http://cloud/x.pdf',
+          publicId: 'carpeta/x',
+          nombreOriginal: 'x.pdf',
+          tipoArchivo: 'application/pdf',
+          tamano: 1000,
+        },
+      ],
     });
     const archivoId = entrega.archivosAdjuntos[0]._id;
     const agent = await loginComo(app, padre);
@@ -482,7 +550,9 @@ describe('DELETE /api/entregas/:id/archivos/:archivoId', () => {
 
 describe('GET /api/entregas/:id — acceso compartido', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el padre dueño, el docente de la tarea pueden ver; un tercero no', async () => {
     const { padre, tarea } = await tareaConPadreParticipante();

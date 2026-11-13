@@ -9,7 +9,8 @@ const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 
 export const buzonValidator = [
   body('nombre')
-    .notEmpty().withMessage('El nombre es requerido')
+    .notEmpty()
+    .withMessage('El nombre es requerido')
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('El nombre debe tener entre 2 y 100 caracteres')
@@ -33,10 +34,11 @@ export const buzonValidator = [
     .withMessage('La institución no puede exceder 150 caracteres'),
 
   body('mensaje')
-    .notEmpty().withMessage('El mensaje es requerido')
+    .notEmpty()
+    .withMessage('El mensaje es requerido')
     .trim()
     .isLength({ min: 10, max: 1000 })
-    .withMessage('El mensaje debe tener entre 10 y 1000 caracteres')
+    .withMessage('El mensaje debe tener entre 10 y 1000 caracteres'),
 ];
 
 // Máximo 3 envíos por IP cada 15 minutos
@@ -44,8 +46,8 @@ export const buzonRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
   message: {
-    error: 'Demasiados mensajes enviados. Intenta de nuevo en 15 minutos.'
+    error: 'Demasiados mensajes enviados. Intenta de nuevo en 15 minutos.',
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });

@@ -91,7 +91,9 @@ describe('NotificadorFacade — notificarFamilia', () => {
 
   it('no falla si el titular no tiene perfiles familiares', async () => {
     const titular = await crearPadre();
-    await expect(notificador.notificarFamilia(titular._id, { tipo: 'sistema', mensaje: 'hola' })).resolves.toBeUndefined();
+    await expect(
+      notificador.notificarFamilia(titular._id, { tipo: 'sistema', mensaje: 'hola' }),
+    ).resolves.toBeUndefined();
   });
 });
 

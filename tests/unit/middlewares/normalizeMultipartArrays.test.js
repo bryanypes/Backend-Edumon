@@ -35,10 +35,11 @@ describe('normalizeMultipartArrays', () => {
   });
 
   it('procesa varios campos declarados de forma independiente', () => {
-    const { req } = ejecutar(
-      { enlaces: '["a","b"]', etiquetas: '["x"]', criterios: 'texto plano' },
-      ['enlaces', 'etiquetas', 'criterios'],
-    );
+    const { req } = ejecutar({ enlaces: '["a","b"]', etiquetas: '["x"]', criterios: 'texto plano' }, [
+      'enlaces',
+      'etiquetas',
+      'criterios',
+    ]);
     expect(req.body.enlaces).toEqual(['a', 'b']);
     expect(req.body.etiquetas).toEqual(['x']);
     expect(req.body.criterios).toBe('texto plano');

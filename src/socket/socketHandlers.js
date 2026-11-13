@@ -93,7 +93,7 @@ export const setupSocketIO = (io) => {
         const notificacion = await Notificacion.findOneAndUpdate(
           { _id: notificacionId, usuarioId: userId },
           { leido: true },
-          { new: true }
+          { new: true },
         );
 
         if (notificacion) {
@@ -124,7 +124,7 @@ export const setupSocketIO = (io) => {
 
         await Notificacion.findOneAndDelete({
           _id: notificacionId,
-          usuarioId: userId
+          usuarioId: userId,
         });
 
         const noLeidas = await Notificacion.contarNoLeidas(userId);
@@ -137,7 +137,6 @@ export const setupSocketIO = (io) => {
     });
 
     socket.on('disconnect', () => {
-      
       const sockets = usuariosConectados.get(userId);
       if (sockets) {
         sockets.delete(socket.id);
@@ -162,7 +161,7 @@ export const emitirNotificacion = async (notificacion) => {
     const roomName = `user:${userId}`;
 
     io.to(roomName).emit('notificaciones:nueva', {
-      notificacion: notificacion.toObject ? notificacion.toObject() : notificacion
+      notificacion: notificacion.toObject ? notificacion.toObject() : notificacion,
     });
 
     const noLeidas = await Notificacion.contarNoLeidas(notificacion.usuarioId);
@@ -172,4 +171,3 @@ export const emitirNotificacion = async (notificacion) => {
     throw error;
   }
 };
-

@@ -7,13 +7,13 @@ import {
   updateEvento,
   deleteEvento,
   cancelarEvento,
-  getEventosHoy
+  getEventosHoy,
 } from '../controllers/eventoController.js';
 import { authMiddleware } from '../middlewares/authMiddleware.js';
 import {
   createEventoValidator,
   updateEventoValidator,
-  eventoIdValidator
+  eventoIdValidator,
 } from '../middlewares/validators/eventoValidator.js';
 
 const router = express.Router();
@@ -26,8 +26,12 @@ const uploadEventoArchivos = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const imageTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
-    const allTypes = [...imageTypes, 'application/pdf', 'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const allTypes = [
+      ...imageTypes,
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
 
     // status:400 en los dos -- si no, un formato de archivo inválido (error de
     // usuario, no del servidor) cae en el manejador global como 500
@@ -42,44 +46,22 @@ const uploadEventoArchivos = multer({
       return cb(error, false);
     }
     cb(null, true);
-  }
+  },
 }).fields([
   { name: 'imagenPortada', maxCount: 1 },
-  { name: 'adjunto', maxCount: 1 }
+  { name: 'adjunto', maxCount: 1 },
 ]);
 
 router.get('/', authMiddleware, getEventos);
 router.get('/hoy', authMiddleware, getEventosHoy);
 router.get('/:id', authMiddleware, eventoIdValidator, getEventoById);
 
-router.post(
-  '/',
-  authMiddleware,
-  uploadEventoArchivos,
-  createEventoValidator,
-  createEvento
-);
+router.post('/', authMiddleware, uploadEventoArchivos, createEventoValidator, createEvento);
 
-router.put(
-  '/:id',
-  authMiddleware,
-  uploadEventoArchivos,
-  updateEventoValidator,
-  updateEvento
-);
+router.put('/:id', authMiddleware, uploadEventoArchivos, updateEventoValidator, updateEvento);
 
-router.delete(
-  '/:id',
-  authMiddleware,
-  eventoIdValidator,
-  deleteEvento
-);
+router.delete('/:id', authMiddleware, eventoIdValidator, deleteEvento);
 
-router.patch(
-  '/:id/cancelar',
-  authMiddleware,
-  eventoIdValidator,
-  cancelarEvento
-);
+router.patch('/:id/cancelar', authMiddleware, eventoIdValidator, cancelarEvento);
 
 export default router;

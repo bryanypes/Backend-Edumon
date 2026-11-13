@@ -1,7 +1,7 @@
 import express from 'express';
-import { 
-  createUser, 
-  getUsers, 
+import {
+  createUser,
+  getUsers,
   getUserById,
   getProfile,
   updateOwnProfile,
@@ -14,18 +14,18 @@ import {
   updateModoOscuro,
   getUltimasSesiones,
   getPadreInfo,
-  cambiarContrasenaUsuario
+  cambiarContrasenaUsuario,
 } from '../controllers/userController.js';
-import { authMiddleware, requireRole } from "../middlewares/authMiddleware.js";
+import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import { uploadImagenCloudinary } from '../middlewares/cloudinaryMiddleware.js';
-import { 
+import {
   createUserValidator,
   updateUserValidator,
   updateOwnProfileValidator,
   userIdValidator,
   updateFcmTokenValidator,
   updateModoOscuroValidator,
-  cambiarContrasenaValidator
+  cambiarContrasenaValidator,
 } from '../middlewares/validators/userValidator.js';
 import { param } from 'express-validator';
 
@@ -34,29 +34,13 @@ const router = express.Router();
 // Rutas /me (deben ir ANTES de /:id para no colisionar)
 router.get('/me/profile', authMiddleware, getProfile);
 
-router.put('/me/profile',
-  authMiddleware,
-  updateOwnProfileValidator,
-  updateOwnProfile
-);
+router.put('/me/profile', authMiddleware, updateOwnProfileValidator, updateOwnProfile);
 
-router.put('/me/foto-perfil',
-  authMiddleware,
-  uploadImagenCloudinary.single('foto'),
-  updateFotoPerfil
-);
+router.put('/me/foto-perfil', authMiddleware, uploadImagenCloudinary.single('foto'), updateFotoPerfil);
 
-router.put('/me/fcm-token',
-  authMiddleware,
-  updateFcmTokenValidator,
-  updateFcmToken
-);
+router.put('/me/fcm-token', authMiddleware, updateFcmTokenValidator, updateFcmToken);
 
-router.patch('/me/modo-oscuro',
-  authMiddleware,
-  updateModoOscuroValidator,
-  updateModoOscuro
-);
+router.patch('/me/modo-oscuro', authMiddleware, updateModoOscuroValidator, updateModoOscuro);
 
 // Rutas especiales (también antes de /:id)
 router.get('/fotos-predeterminadas', authMiddleware, getFotosPredeterminadas);
@@ -66,7 +50,7 @@ router.get(
   '/padre/:padreId/info',
   authMiddleware,
   [param('padreId').isMongoId().withMessage('ID de padre inválido')],
-  getPadreInfo
+  getPadreInfo,
 );
 
 // CRUD general (panel de administración — nunca abierto a padres/docentes)
@@ -78,7 +62,19 @@ router.get('/', authMiddleware, requireRole(['administrador', 'superadmin']), ge
 router.get('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, getUserById);
 router.put('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), updateUserValidator, updateUser);
 router.delete('/:id', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, deleteUser);
-router.patch('/:id/reactivar', authMiddleware, requireRole(['administrador', 'superadmin']), userIdValidator, reactivateUser);
-router.patch('/:id/contrasena', authMiddleware, requireRole(['administrador', 'superadmin']), cambiarContrasenaValidator, cambiarContrasenaUsuario);
+router.patch(
+  '/:id/reactivar',
+  authMiddleware,
+  requireRole(['administrador', 'superadmin']),
+  userIdValidator,
+  reactivateUser,
+);
+router.patch(
+  '/:id/contrasena',
+  authMiddleware,
+  requireRole(['administrador', 'superadmin']),
+  cambiarContrasenaValidator,
+  cambiarContrasenaUsuario,
+);
 
 export default router;

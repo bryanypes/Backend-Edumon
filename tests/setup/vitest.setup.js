@@ -4,11 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import {
-  fcmSendMock,
-  fcmSendMulticastMock,
-  nodemailerSendMailMock,
-} from './mocks.js';
+import { fcmSendMock, fcmSendMulticastMock, nodemailerSendMailMock } from './mocks.js';
 
 // ─── Variables de entorno de prueba ───────────────────────────────────────────
 // falsas pero con forma válida; los SDKs que las usan están mockeados abajo
@@ -75,9 +71,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   const collections = mongoose.connection.collections;
-  await Promise.all(
-    Object.values(collections).map((collection) => collection.deleteMany({})),
-  );
+  await Promise.all(Object.values(collections).map((collection) => collection.deleteMany({})));
   vi.clearAllMocks();
 });
 

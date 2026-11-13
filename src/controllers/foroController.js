@@ -2,8 +2,8 @@ import Foro from '../models/Foro.js';
 import Curso from '../models/Curso.js';
 import User from '../models/User.js';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
-import MensajeForo from '../models/MensajeForo.js'; 
-import mongoose from 'mongoose';  
+import MensajeForo from '../models/MensajeForo.js';
+import mongoose from 'mongoose';
 import { getFileBuffer } from '../utils/fileUploadHelper.js';
 import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 import { rangoDiaBogota, diaBogotaISO } from '../utils/fechaColombia.js';
@@ -17,13 +17,13 @@ const TIPOS_ARCHIVO_PERMITIDOS = {
   'video/mp4': 'video',
   'video/quicktime': 'video', // MOV
   'video/x-msvideo': 'video', // AVI
-  'application/pdf': 'pdf'
+  'application/pdf': 'pdf',
 };
 
 const TAMANO_MAX_ARCHIVO = {
-  imagen: 5 * 1024 * 1024,    // 5 MB
-  video: 50 * 1024 * 1024,    // 50 MB
-  pdf: 10 * 1024 * 1024       // 10 MB
+  imagen: 5 * 1024 * 1024, // 5 MB
+  video: 50 * 1024 * 1024, // 50 MB
+  pdf: 10 * 1024 * 1024, // 10 MB
 };
 
 const procesarArchivosAdjuntos = async (files) => {
@@ -40,7 +40,7 @@ const procesarArchivosAdjuntos = async (files) => {
       if (!tipo) {
         errores.push({
           archivo: file.originalname,
-          error: `Tipo de archivo no permitido: ${file.mimetype}`
+          error: `Tipo de archivo no permitido: ${file.mimetype}`,
         });
         continue;
       }
@@ -49,7 +49,7 @@ const procesarArchivosAdjuntos = async (files) => {
       if (file.size > tamanoMax) {
         errores.push({
           archivo: file.originalname,
-          error: `Archivo demasiado grande. Máximo: ${tamanoMax / (1024 * 1024)} MB`
+          error: `Archivo demasiado grande. Máximo: ${tamanoMax / (1024 * 1024)} MB`,
         });
         continue;
       }
@@ -66,14 +66,13 @@ const procesarArchivosAdjuntos = async (files) => {
         publicId: resultado.publicId,
         tipo: tipo,
         nombre: file.originalname,
-        tamano: file.size
+        tamano: file.size,
       });
-
     } catch (error) {
       console.error(`Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Error al subir el archivo'
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Error al subir el archivo',
       });
     }
   }
@@ -87,8 +86,8 @@ export const crearForo = async (req, res) => {
     const docenteId = req.user.userId;
 
     if (!titulo || !descripcion || !cursoId) {
-      return res.status(400).json({ 
-        message: 'Faltan campos requeridos: titulo, descripcion, cursoId' 
+      return res.status(400).json({
+        message: 'Faltan campos requeridos: titulo, descripcion, cursoId',
       });
     }
 
@@ -100,12 +99,12 @@ export const crearForo = async (req, res) => {
 
     if (req.user.rol === 'docente' && curso.docenteId.toString() !== docenteId) {
       return res.status(403).json({
-        message: 'No tienes permisos para crear foros en este curso'
+        message: 'No tienes permisos para crear foros en este curso',
       });
     }
     if (req.user.rol === 'administrador' && curso.institucionId.toString() !== req.user.institucionId) {
       return res.status(403).json({
-        message: 'No tienes permisos para crear foros en este curso'
+        message: 'No tienes permisos para crear foros en este curso',
       });
     }
 
@@ -117,25 +116,25 @@ export const crearForo = async (req, res) => {
       docenteId,
       cursoId,
       archivos,
-      publico: publico || false
+      publico: publico || false,
     });
 
     await nuevoForo.save();
 
     await nuevoForo.populate([
       { path: 'docenteId', select: 'nombre apellido fotoPerfilUrl rol' },
-      { path: 'cursoId', select: 'nombre' }
+      { path: 'cursoId', select: 'nombre' },
     ]);
 
     const respuesta = {
       message: 'Foro creado exitosamente',
-      foro: nuevoForo
+      foro: nuevoForo,
     };
 
     if (errores.length > 0) {
       respuesta.advertencias = {
         message: `${errores.length} archivo(s) no pudieron ser procesados`,
-        detalles: errores
+        detalles: errores,
       };
     }
 
@@ -143,21 +142,20 @@ export const crearForo = async (req, res) => {
       respuesta.archivosSubidos = {
         total: archivos.length,
         tipos: {
-          imagenes: archivos.filter(a => a.tipo === 'imagen').length,
-          videos: archivos.filter(a => a.tipo === 'video').length,
-          pdfs: archivos.filter(a => a.tipo === 'pdf').length
-        }
+          imagenes: archivos.filter((a) => a.tipo === 'imagen').length,
+          videos: archivos.filter((a) => a.tipo === 'video').length,
+          pdfs: archivos.filter((a) => a.tipo === 'pdf').length,
+        },
       };
     }
 
     res.status(201).json(respuesta);
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error(' Error al crear foro:', error);
-    res.status(500).json({ 
-      message: 'Error al crear el foro', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al crear el foro',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -175,8 +173,8 @@ export const obtenerForosPorCurso = async (req, res) => {
 
     const esDocenteDelCurso = curso.docenteId.toString() === usuarioId;
     const esParticipante = curso.esParticipante(usuarioId);
-    const esAdministradorDeLaInstitucion = req.user.rol === 'administrador' &&
-      curso.institucionId.toString() === req.user.institucionId;
+    const esAdministradorDeLaInstitucion =
+      req.user.rol === 'administrador' && curso.institucionId.toString() === req.user.institucionId;
 
     if (!esDocenteDelCurso && !esParticipante && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este curso' });
@@ -189,11 +187,13 @@ export const obtenerForosPorCurso = async (req, res) => {
       .sort({ fechaCreacion: -1 });
 
     res.status(200).json({ foros });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener foros:', error);
-    res.status(500).json({ message: 'Error al obtener los foros', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error al obtener los foros',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -212,19 +212,21 @@ export const obtenerForoPorId = async (req, res) => {
     }
 
     const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const esAdministradorDeLaInstitucion = req.user.rol === 'administrador' &&
-      foro.cursoId.institucionId?.toString() === req.user.institucionId;
+    const esAdministradorDeLaInstitucion =
+      req.user.rol === 'administrador' && foro.cursoId.institucionId?.toString() === req.user.institucionId;
 
     if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
     }
 
     res.status(200).json({ foro });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener foro:', error);
-    res.status(500).json({ message: 'Error al obtener el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error al obtener el foro',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -240,8 +242,11 @@ export const actualizarForo = async (req, res) => {
     }
 
     const esCreador = foro.docenteId.toString() === usuarioId;
-    const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
-      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
+    const esAdministradorDeLaInstitucion =
+      !esCreador &&
+      req.user.rol === 'administrador' &&
+      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() ===
+        req.user.institucionId;
 
     if (!esCreador && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes permisos para actualizar este foro' });
@@ -255,18 +260,20 @@ export const actualizarForo = async (req, res) => {
     await foro.save();
     await foro.populate([
       { path: 'docenteId', select: 'nombre apellido fotoPerfilUrl rol' },
-      { path: 'cursoId', select: 'nombre' }
+      { path: 'cursoId', select: 'nombre' },
     ]);
 
     res.status(200).json({
       message: 'Foro actualizado exitosamente',
-      foro
+      foro,
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar foro:', error);
-    res.status(500).json({ message: 'Error al actualizar el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error al actualizar el foro',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -281,8 +288,11 @@ export const eliminarForo = async (req, res) => {
     }
 
     const esCreador = foro.docenteId.toString() === usuarioId;
-    const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
-      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
+    const esAdministradorDeLaInstitucion =
+      !esCreador &&
+      req.user.rol === 'administrador' &&
+      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() ===
+        req.user.institucionId;
 
     if (!esCreador && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes permisos para eliminar este foro' });
@@ -290,26 +300,26 @@ export const eliminarForo = async (req, res) => {
 
     const mensajes = await mongoose.model('MensajeForo').find({ foroId: id });
 
-    const archivosAEliminar = [
-      ...(foro.archivos || []),
-      ...mensajes.flatMap(m => m.archivos || [])
-    ];
+    const archivosAEliminar = [...(foro.archivos || []), ...mensajes.flatMap((m) => m.archivos || [])];
 
-    await Promise.all(archivosAEliminar.map(archivo => {
-      const resourceType = archivo.tipo === 'video' ? 'video' :
-                         archivo.tipo === 'pdf' ? 'raw' : 'image';
-      return eliminarArchivoCloudinary(archivo.publicId, resourceType);
-    }));
+    await Promise.all(
+      archivosAEliminar.map((archivo) => {
+        const resourceType = archivo.tipo === 'video' ? 'video' : archivo.tipo === 'pdf' ? 'raw' : 'image';
+        return eliminarArchivoCloudinary(archivo.publicId, resourceType);
+      }),
+    );
 
     await mongoose.model('MensajeForo').deleteMany({ foroId: id });
     await Foro.findByIdAndDelete(id);
 
     res.status(200).json({ message: 'Foro eliminado exitosamente' });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar foro:', error);
-    res.status(500).json({ message: 'Error al eliminar el foro', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error al eliminar el foro',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -321,8 +331,8 @@ export const cambiarEstadoForo = async (req, res) => {
     const usuarioId = req.user.userId;
 
     if (!['abierto', 'cerrado'].includes(estado)) {
-      return res.status(400).json({ 
-        message: 'Estado inválido. Debe ser "abierto" o "cerrado"' 
+      return res.status(400).json({
+        message: 'Estado inválido. Debe ser "abierto" o "cerrado"',
       });
     }
 
@@ -332,8 +342,11 @@ export const cambiarEstadoForo = async (req, res) => {
     }
 
     const esCreador = foro.docenteId.toString() === usuarioId;
-    const esAdministradorDeLaInstitucion = !esCreador && req.user.rol === 'administrador' &&
-      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() === req.user.institucionId;
+    const esAdministradorDeLaInstitucion =
+      !esCreador &&
+      req.user.rol === 'administrador' &&
+      (await Curso.findById(foro.cursoId).select('institucionId'))?.institucionId?.toString() ===
+        req.user.institucionId;
 
     if (!esCreador && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes permisos para cambiar el estado' });
@@ -344,13 +357,15 @@ export const cambiarEstadoForo = async (req, res) => {
 
     res.status(200).json({
       message: `Foro ${estado === 'cerrado' ? 'cerrado' : 'abierto'} exitosamente`,
-      foro
+      foro,
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cambiar estado:', error);
-    res.status(500).json({ message: 'Error al cambiar el estado', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error al cambiar el estado',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -370,8 +385,8 @@ export const getDashboardForo = async (req, res) => {
     }
 
     const tieneAcceso = await foro.tieneAcceso(usuarioId);
-    const esAdministradorDeLaInstitucion = req.user.rol === 'administrador' &&
-      foro.cursoId.institucionId?.toString() === req.user.institucionId;
+    const esAdministradorDeLaInstitucion =
+      req.user.rol === 'administrador' && foro.cursoId.institucionId?.toString() === req.user.institucionId;
 
     if (!tieneAcceso && !esAdministradorDeLaInstitucion) {
       return res.status(403).json({ message: 'No tienes acceso a este foro' });
@@ -384,7 +399,7 @@ export const getDashboardForo = async (req, res) => {
         .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
         .lean(),
 
-      MensajeForo.find({ foroId: id }).lean()
+      MensajeForo.find({ foroId: id }).lean(),
     ]);
 
     const mapaParticipantes = new Map();
@@ -395,7 +410,7 @@ export const getDashboardForo = async (req, res) => {
         mapaParticipantes.set(uid, {
           usuarioId: uid,
           totalMensajes: 0,
-          ultimaActividad: msg.fechaCreacion
+          ultimaActividad: msg.fechaCreacion,
         });
       }
       const p = mapaParticipantes.get(uid);
@@ -405,26 +420,24 @@ export const getDashboardForo = async (req, res) => {
       }
     }
 
-    const idsParticipantes = [...mapaParticipantes.keys()].map(
-      id => new mongoose.Types.ObjectId(id)
-    );
+    const idsParticipantes = [...mapaParticipantes.keys()].map((id) => new mongoose.Types.ObjectId(id));
 
     const usuariosParticipantes = await User.find(
       { _id: { $in: idsParticipantes } },
-      'nombre apellido fotoPerfilUrl rol'
+      'nombre apellido fotoPerfilUrl rol',
     ).lean();
 
     const participantesActivos = usuariosParticipantes
-      .map(u => ({
+      .map((u) => ({
         ...u,
         totalMensajes: mapaParticipantes.get(u._id.toString()).totalMensajes,
-        ultimaActividad: mapaParticipantes.get(u._id.toString()).ultimaActividad
+        ultimaActividad: mapaParticipantes.get(u._id.toString()).ultimaActividad,
       }))
       .sort((a, b) => b.totalMensajes - a.totalMensajes)
       .slice(0, 10);
 
     const totalMensajes = todosLosMensajes.length;
-    const totalRespuestas = todosLosMensajes.filter(m => m.respuestaA !== null).length;
+    const totalRespuestas = todosLosMensajes.filter((m) => m.respuestaA !== null).length;
     const totalRaiz = totalMensajes - totalRespuestas;
     const totalLikes = todosLosMensajes.reduce((sum, m) => sum + (m.likes || 0), 0);
 
@@ -434,9 +447,7 @@ export const getDashboardForo = async (req, res) => {
       totalRespuestas,
       totalParticipantes: mapaParticipantes.size,
       totalLikes,
-      promedioRespuestasPorMensaje: totalRaiz > 0
-        ? parseFloat((totalRespuestas / totalRaiz).toFixed(2))
-        : 0
+      promedioRespuestasPorMensaje: totalRaiz > 0 ? parseFloat((totalRespuestas / totalRaiz).toFixed(2)) : 0,
     };
 
     // actividad por día, últimos 7 días (días de Bogotá; el servidor corre en UTC)
@@ -461,7 +472,7 @@ export const getDashboardForo = async (req, res) => {
 
     const actividad = Object.entries(mapaActividad).map(([fecha, mensajes]) => ({
       fecha,
-      mensajes
+      mensajes,
     }));
 
     res.status(200).json({
@@ -469,15 +480,14 @@ export const getDashboardForo = async (req, res) => {
       mensajesRecientes,
       participantesActivos,
       estadisticas,
-      actividad
+      actividad,
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener dashboard del foro:', error);
     res.status(500).json({
       message: 'Error al obtener el dashboard del foro',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

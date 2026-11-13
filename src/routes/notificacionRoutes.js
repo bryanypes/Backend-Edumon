@@ -1,5 +1,5 @@
 import express from 'express';
-import { 
+import {
   createNotificacion,
   getMisNotificaciones,
   getNotificacionById,
@@ -8,40 +8,26 @@ import {
   marcarTodasLeidas,
   deleteNotificacion,
   eliminarLeidasAntiguas,
-  getConteoNoLeidas
+  getConteoNoLeidas,
 } from '../controllers/notificacionController.js';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
-import { 
+import {
   createNotificacionValidator,
   updateNotificacionValidator,
   marcarVariasLeidasValidator,
   getNotificacionesValidator,
   notificacionIdValidator,
-  enviarManualValidator
+  enviarManualValidator,
 } from '../middlewares/validators/notificacionValidator.js';
 import { enviarNotificacionManual } from '../controllers/envioManualController.js';
 
 const router = express.Router();
 
-router.get(
-  '/',
-  authMiddleware,
-  getNotificacionesValidator,
-  getMisNotificaciones
-);
+router.get('/', authMiddleware, getNotificacionesValidator, getMisNotificaciones);
 
-router.get(
-  '/conteo-no-leidas',
-  authMiddleware,
-  getConteoNoLeidas
-);
+router.get('/conteo-no-leidas', authMiddleware, getConteoNoLeidas);
 
-router.get(
-  '/:id',
-  authMiddleware,
-  notificacionIdValidator,
-  getNotificacionById
-);
+router.get('/:id', authMiddleware, notificacionIdValidator, getNotificacionById);
 
 // el colegio envía un aviso (push + app) a un curso o a todo el colegio
 router.post(
@@ -49,7 +35,7 @@ router.post(
   authMiddleware,
   requireRole(['administrador', 'superadmin']),
   enviarManualValidator,
-  enviarNotificacionManual
+  enviarNotificacionManual,
 );
 
 // uso interno/admin: el body fija el usuarioId destino, requireRole evita que
@@ -59,40 +45,17 @@ router.post(
   authMiddleware,
   requireRole(['administrador', 'superadmin']),
   createNotificacionValidator,
-  createNotificacion
+  createNotificacion,
 );
 
-router.patch(
-  '/:id/leer',
-  authMiddleware,
-  updateNotificacionValidator,
-  marcarComoLeida
-);
+router.patch('/:id/leer', authMiddleware, updateNotificacionValidator, marcarComoLeida);
 
-router.patch(
-  '/leer-multiples',
-  authMiddleware,
-  marcarVariasLeidasValidator,
-  marcarVariasLeidas
-);
+router.patch('/leer-multiples', authMiddleware, marcarVariasLeidasValidator, marcarVariasLeidas);
 
-router.patch(
-  '/leer-todas',
-  authMiddleware,
-  marcarTodasLeidas
-);
+router.patch('/leer-todas', authMiddleware, marcarTodasLeidas);
 
-router.delete(
-  '/:id',
-  authMiddleware,
-  notificacionIdValidator,
-  deleteNotificacion
-);
+router.delete('/:id', authMiddleware, notificacionIdValidator, deleteNotificacion);
 
-router.delete(
-  '/limpiar/antiguas',
-  authMiddleware,
-  eliminarLeidasAntiguas
-);
+router.delete('/limpiar/antiguas', authMiddleware, eliminarLeidasAntiguas);
 
 export default router;

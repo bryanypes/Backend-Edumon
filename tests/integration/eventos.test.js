@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import crearApp from '../../src/app.js';
 import Evento from '../../src/models/Evento.js';
 import User from '../../src/models/User.js';
-import { crearCurso, crearEvento, crearDocente, crearAdministrador, crearPadre, crearInstitucion } from '../helpers/factories.js';
+import {
+  crearCurso,
+  crearEvento,
+  crearDocente,
+  crearAdministrador,
+  crearPadre,
+  crearInstitucion,
+} from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 const docenteDelCurso = (curso) => User.findById(curso.docenteId);
@@ -11,7 +18,9 @@ const pasadoManana = () => new Date(Date.now() + 48 * 60 * 60 * 1000).toISOStrin
 
 describe('POST /api/eventos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente crea un evento para su propio curso', async () => {
     const curso = await crearCurso();
@@ -19,9 +28,14 @@ describe('POST /api/eventos', () => {
     const agent = await loginComo(app, docente);
 
     const res = await agent.post('/api/eventos').send({
-      titulo: 'Reunión de padres', descripcion: 'Reunión trimestral de seguimiento académico',
-      fechaInicio: manana(), fechaFin: pasadoManana(), hora: '15:00', ubicacion: 'Auditorio',
-      cursosIds: [curso._id.toString()], categoria: 'escuela_padres',
+      titulo: 'Reunión de padres',
+      descripcion: 'Reunión trimestral de seguimiento académico',
+      fechaInicio: manana(),
+      fechaFin: pasadoManana(),
+      hora: '15:00',
+      ubicacion: 'Auditorio',
+      cursosIds: [curso._id.toString()],
+      categoria: 'escuela_padres',
     });
     expect(res.status).toBe(201);
   });
@@ -30,9 +44,14 @@ describe('POST /api/eventos', () => {
     const padre = await crearPadre();
     const agent = await loginComo(app, padre);
     const res = await agent.post('/api/eventos').send({
-      titulo: 'Evento de padre', descripcion: 'Descripción con longitud suficiente',
-      fechaInicio: manana(), fechaFin: pasadoManana(), hora: '15:00', ubicacion: 'Auditorio',
-      cursosIds: ['507f1f77bcf86cd799439011'], categoria: 'institucional',
+      titulo: 'Evento de padre',
+      descripcion: 'Descripción con longitud suficiente',
+      fechaInicio: manana(),
+      fechaFin: pasadoManana(),
+      hora: '15:00',
+      ubicacion: 'Auditorio',
+      cursosIds: ['507f1f77bcf86cd799439011'],
+      categoria: 'institucional',
     });
     expect(res.status).toBe(403);
   });
@@ -43,9 +62,14 @@ describe('POST /api/eventos', () => {
     const agent = await loginComo(app, otroDocente);
 
     const res = await agent.post('/api/eventos').send({
-      titulo: 'Evento ajeno', descripcion: 'Descripción con longitud suficiente',
-      fechaInicio: manana(), fechaFin: pasadoManana(), hora: '15:00', ubicacion: 'Auditorio',
-      cursosIds: [curso._id.toString()], categoria: 'institucional',
+      titulo: 'Evento ajeno',
+      descripcion: 'Descripción con longitud suficiente',
+      fechaInicio: manana(),
+      fechaFin: pasadoManana(),
+      hora: '15:00',
+      ubicacion: 'Auditorio',
+      cursosIds: [curso._id.toString()],
+      categoria: 'institucional',
     });
     expect(res.status).toBe(403);
   });
@@ -56,9 +80,14 @@ describe('POST /api/eventos', () => {
     const agent = await loginComo(app, adminAjeno);
 
     const res = await agent.post('/api/eventos').send({
-      titulo: 'Evento ajeno', descripcion: 'Descripción con longitud suficiente',
-      fechaInicio: manana(), fechaFin: pasadoManana(), hora: '15:00', ubicacion: 'Auditorio',
-      cursosIds: [curso._id.toString()], categoria: 'institucional',
+      titulo: 'Evento ajeno',
+      descripcion: 'Descripción con longitud suficiente',
+      fechaInicio: manana(),
+      fechaFin: pasadoManana(),
+      hora: '15:00',
+      ubicacion: 'Auditorio',
+      cursosIds: [curso._id.toString()],
+      categoria: 'institucional',
     });
     expect(res.status).toBe(403);
   });
@@ -69,9 +98,14 @@ describe('POST /api/eventos', () => {
     const agent = await loginComo(app, docente);
 
     const res = await agent.post('/api/eventos').send({
-      titulo: 'Evento inválido', descripcion: 'Descripción con longitud suficiente',
-      fechaInicio: pasadoManana(), fechaFin: manana(), hora: '15:00', ubicacion: 'Auditorio',
-      cursosIds: [curso._id.toString()], categoria: 'institucional',
+      titulo: 'Evento inválido',
+      descripcion: 'Descripción con longitud suficiente',
+      fechaInicio: pasadoManana(),
+      fechaFin: manana(),
+      hora: '15:00',
+      ubicacion: 'Auditorio',
+      cursosIds: [curso._id.toString()],
+      categoria: 'institucional',
     });
     expect(res.status).toBe(400);
   });
@@ -79,7 +113,9 @@ describe('POST /api/eventos', () => {
 
 describe('GET /api/eventos — visibilidad por rol', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un padre solo ve eventos de cursos donde participa', async () => {
     const curso = await crearCurso();
@@ -117,7 +153,9 @@ describe('GET /api/eventos — visibilidad por rol', () => {
 
 describe('PUT/DELETE de eventos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente creador puede editar su evento', async () => {
     const evento = await crearEvento();
@@ -186,7 +224,9 @@ describe('PUT/DELETE de eventos', () => {
 
 describe('GET /api/eventos/hoy', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('devuelve solo los eventos cuya fechaInicio cae hoy', async () => {
     const curso = await crearCurso();
@@ -199,9 +239,15 @@ describe('GET /api/eventos/hoy', () => {
     if (hoyMasUnaHora.toDateString() !== new Date().toDateString()) return;
 
     await Evento.create({
-      titulo: 'Evento de hoy', descripcion: 'Descripción con longitud suficiente',
-      fechaInicio: hoyMasUnaHora, fechaFin: new Date(hoyMasUnaHora.getTime() + 3600000),
-      hora: '10:00', ubicacion: 'Aquí', docenteId: docente._id, cursosIds: [curso._id], categoria: 'institucional',
+      titulo: 'Evento de hoy',
+      descripcion: 'Descripción con longitud suficiente',
+      fechaInicio: hoyMasUnaHora,
+      fechaFin: new Date(hoyMasUnaHora.getTime() + 3600000),
+      hora: '10:00',
+      ubicacion: 'Aquí',
+      docenteId: docente._id,
+      cursosIds: [curso._id],
+      categoria: 'institucional',
     });
 
     const agent = await loginComo(app, docente);
@@ -213,7 +259,9 @@ describe('GET /api/eventos/hoy', () => {
 
 describe('PATCH /api/eventos/:id/cancelar', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente creador cancela su evento futuro', async () => {
     const evento = await crearEvento();

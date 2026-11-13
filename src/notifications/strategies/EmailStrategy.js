@@ -3,9 +3,10 @@ import { NotificacionStrategy } from './NotificacionStrategy.js';
 import { esCorreoFicticio } from '../../utils/correo.js';
 import { correoNotificacion } from '../../services/plantillaCorreo.js';
 
-
 export class EmailStrategy extends NotificacionStrategy {
-  nombre() { return 'email'; }
+  nombre() {
+    return 'email';
+  }
 
   async enviar(usuario, notificacion) {
     // sin correo real (los de relleno como "<cédula>@temp.com" no existen)
@@ -17,7 +18,7 @@ export class EmailStrategy extends NotificacionStrategy {
       const { subject, html, text } = correoNotificacion(usuario, notificacion);
       await transporte.sendMail({
         from: {
-          name:    process.env.SMTP_FROM_NAME || 'Edumon',
+          name: process.env.SMTP_FROM_NAME || 'Edumon',
           address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
         },
         to: { name: usuario.nombre, address: usuario.correo },

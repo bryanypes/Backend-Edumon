@@ -15,7 +15,7 @@ export const canViewTarea = async (req, res, next) => {
 
     if (!tarea) {
       return res.status(404).json({
-        message: "Reto no encontrado"
+        message: 'Reto no encontrado',
       });
     }
 
@@ -34,42 +34,37 @@ export const canViewTarea = async (req, res, next) => {
     }
 
     if (tarea.asignacionTipo === 'seleccionados') {
-      const isSelected = tarea.participantesSeleccionados.some(
-        participante => participante.toString() === userId
-      );
+      const isSelected = tarea.participantesSeleccionados.some((participante) => participante.toString() === userId);
 
       if (!isSelected) {
         return res.status(403).json({
-          message: "No tienes permiso para ver este reto. Este reto está asignado a participantes específicos."
+          message: 'No tienes permiso para ver este reto. Este reto está asignado a participantes específicos.',
         });
       }
-      
+
       return next();
     }
 
     if (tarea.asignacionTipo === 'todos') {
-      const isParticipante = tarea.cursoId.participantes.some(
-        p => p.usuarioId.toString() === userId
-      );
+      const isParticipante = tarea.cursoId.participantes.some((p) => p.usuarioId.toString() === userId);
 
       if (!isParticipante) {
         return res.status(403).json({
-          message: "No tienes permiso para ver este reto. No eres participante del curso."
+          message: 'No tienes permiso para ver este reto. No eres participante del curso.',
         });
       }
-      
+
       return next();
     }
 
     return res.status(403).json({
-      message: "No tienes permiso para ver este reto"
+      message: 'No tienes permiso para ver este reto',
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canViewTarea:', error);
     return res.status(500).json({
-      message: "Error al verificar permisos"
+      message: 'Error al verificar permisos',
     });
   }
 };
@@ -80,14 +75,11 @@ export const canModifyTarea = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const tarea = await Tarea.findById(id)
-      .select('docenteId cursoId')
-      .populate('cursoId', 'institucionId')
-      .lean();
+    const tarea = await Tarea.findById(id).select('docenteId cursoId').populate('cursoId', 'institucionId').lean();
 
     if (!tarea) {
       return res.status(404).json({
-        message: "Reto no encontrado"
+        message: 'Reto no encontrado',
       });
     }
 
@@ -102,13 +94,13 @@ export const canModifyTarea = async (req, res, next) => {
     }
 
     return res.status(403).json({
-      message: "No tienes permiso para modificar este reto"
+      message: 'No tienes permiso para modificar este reto',
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canModifyTarea:', error);
     return res.status(500).json({
-      message: "Error al verificar permisos"
+      message: 'Error al verificar permisos',
     });
   }
 };
@@ -130,7 +122,7 @@ export const filterTareasForUser = async (req, res, next) => {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error en filterTareasForUser:', error);
     return res.status(500).json({
-      message: "Error al filtrar retos"
+      message: 'Error al filtrar retos',
     });
   }
 };

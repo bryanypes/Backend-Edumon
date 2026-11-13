@@ -16,15 +16,11 @@ export const CARPETA_PRIVADA = 'priv';
 export const CARPETA_PUBLICA = 'pub';
 
 // Avatares predeterminados: se empaquetan con la imagen, no en el volumen.
-export const AVATARES_DIR = path.join(
-  fileURLToPath(new URL('../uploads/fotos-predeterminadas/', import.meta.url)),
-);
+export const AVATARES_DIR = path.join(fileURLToPath(new URL('../uploads/fotos-predeterminadas/', import.meta.url)));
 export const AVATARES_PREFIX = '/static/avatares';
 
 // Imágenes de los correos (logo y mascota livianos): también van con la imagen.
-export const CORREO_IMG_DIR = path.join(
-  fileURLToPath(new URL('../uploads/correo/', import.meta.url)),
-);
+export const CORREO_IMG_DIR = path.join(fileURLToPath(new URL('../uploads/correo/', import.meta.url)));
 export const CORREO_IMG_PREFIX = '/static/correo';
 
 // No debe ser fatal: esto corre al importar el módulo, antes de app.listen().
@@ -34,17 +30,14 @@ export const CORREO_IMG_PREFIX = '/static/correo';
 // Con el try/catch, el servidor arranca igual; cada escritura real (en
 // cloudinaryUpload.js) reintenta el mkdir y devuelve un error 500/503 normal
 // solo en esa petición si el problema persiste.
-for (const dir of [
-  path.join(UPLOAD_DIR, CARPETA_PUBLICA),
-  path.join(UPLOAD_DIR, CARPETA_PRIVADA),
-]) {
+for (const dir of [path.join(UPLOAD_DIR, CARPETA_PUBLICA), path.join(UPLOAD_DIR, CARPETA_PRIVADA)]) {
   try {
     fs.mkdirSync(dir, { recursive: true });
   } catch (error) {
     console.error(
       `[almacenamiento] No se pudo crear "${dir}": ${error.message}. ` +
-      'Verifica los permisos de UPLOAD_DIR (el volumen montado debe ser escribible por el usuario "node"). ' +
-      'El servidor sigue arrancando; las subidas de archivos fallarán hasta que se corrija.',
+        'Verifica los permisos de UPLOAD_DIR (el volumen montado debe ser escribible por el usuario "node"). ' +
+        'El servidor sigue arrancando; las subidas de archivos fallarán hasta que se corrija.',
     );
   }
 }

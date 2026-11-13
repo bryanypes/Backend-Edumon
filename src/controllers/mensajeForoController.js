@@ -16,13 +16,13 @@ const TIPOS_ARCHIVO_PERMITIDOS = {
   'video/mp4': 'video',
   'video/quicktime': 'video',
   'video/x-msvideo': 'video',
-  'application/pdf': 'pdf'
+  'application/pdf': 'pdf',
 };
 
 const TAMANO_MAX_ARCHIVO = {
   imagen: 5 * 1024 * 1024,
   video: 50 * 1024 * 1024,
-  pdf: 10 * 1024 * 1024
+  pdf: 10 * 1024 * 1024,
 };
 
 const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
@@ -40,7 +40,10 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
       }
 
       if (file.size > TAMANO_MAX_ARCHIVO[tipo]) {
-        errores.push({ archivo: file.originalname, error: `Tamaño máximo: ${TAMANO_MAX_ARCHIVO[tipo] / (1024 * 1024)} MB` });
+        errores.push({
+          archivo: file.originalname,
+          error: `Tamaño máximo: ${TAMANO_MAX_ARCHIVO[tipo] / (1024 * 1024)} MB`,
+        });
         continue;
       }
 
@@ -55,7 +58,7 @@ const procesarArchivosAdjuntos = async (files, carpeta = 'mensajes-foro') => {
         publicId: resultado.publicId,
         tipo,
         nombre: file.originalname,
-        tamano: file.size
+        tamano: file.size,
       });
     } catch (error) {
       console.error(`Error procesando ${file.originalname}:`, error);
@@ -115,7 +118,7 @@ export const crearMensaje = async (req, res) => {
       usuarioId,
       contenido: contenido.trim(),
       archivos,
-      respuestaA: respuestaA || null
+      respuestaA: respuestaA || null,
     });
 
     await nuevoMensaje.save();
@@ -138,7 +141,10 @@ export const crearMensaje = async (req, res) => {
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear mensaje:', error);
-    res.status(500).json({ message: 'Error al crear el mensaje', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error al crear el mensaje',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -167,12 +173,13 @@ export const obtenerMensajesPorForo = async (req, res) => {
       .lean();
 
     // Traer todas las respuestas en una sola consulta en vez de una por mensaje raíz
-    const todasLasRespuestas = mensajes.length > 0
-      ? await MensajeForo.find({ foroId, respuestaA: { $in: mensajes.map(m => m._id) } })
-          .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
-          .sort({ fechaCreacion: 1 })
-          .lean()
-      : [];
+    const todasLasRespuestas =
+      mensajes.length > 0
+        ? await MensajeForo.find({ foroId, respuestaA: { $in: mensajes.map((m) => m._id) } })
+            .populate('usuarioId', 'nombre apellido fotoPerfilUrl rol')
+            .sort({ fechaCreacion: 1 })
+            .lean()
+        : [];
 
     const respuestasPorMensaje = new Map();
     for (const respuesta of todasLasRespuestas) {
@@ -181,9 +188,9 @@ export const obtenerMensajesPorForo = async (req, res) => {
       respuestasPorMensaje.get(key).push(respuesta);
     }
 
-    const mensajesConRespuestas = mensajes.map(mensaje => ({
+    const mensajesConRespuestas = mensajes.map((mensaje) => ({
       ...mensaje,
-      respuestas: respuestasPorMensaje.get(mensaje._id.toString()) || []
+      respuestas: respuestasPorMensaje.get(mensaje._id.toString()) || [],
     }));
 
     res.status(200).json({ mensajes: mensajesConRespuestas });
@@ -222,7 +229,7 @@ export const toggleLikeMensaje = async (req, res) => {
     res.status(200).json({
       message: 'Like actualizado',
       likes: mensaje.likes,
-      yaLeDioLike: mensaje.yaLeDioLike(usuarioId)
+      yaLeDioLike: mensaje.yaLeDioLike(usuarioId),
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
@@ -247,7 +254,7 @@ export const eliminarMensaje = async (req, res) => {
     // Administrador: solo puede moderar mensajes de foros de su propia institución
     if (!puedeEliminar && req.user.rol === 'administrador') {
       const foroDelMensaje = await Foro.findById(mensaje.foroId);
-      const cursoDelForo = foroDelMensaje && await Curso.findById(foroDelMensaje.cursoId).select('institucionId');
+      const cursoDelForo = foroDelMensaje && (await Curso.findById(foroDelMensaje.cursoId).select('institucionId'));
       if (cursoDelForo?.institucionId?.toString() === req.user.institucionId) {
         puedeEliminar = true;
       }
@@ -259,10 +266,12 @@ export const eliminarMensaje = async (req, res) => {
 
       if (autorMensaje?.rol === 'padre') {
         const foro = await Foro.findById(mensaje.foroId);
-        const cursoDelDocente = foro && await Curso.findOne({
-          _id: foro.cursoId,
-          docenteId: usuarioId
-        });
+        const cursoDelDocente =
+          foro &&
+          (await Curso.findOne({
+            _id: foro.cursoId,
+            docenteId: usuarioId,
+          }));
 
         if (cursoDelDocente) {
           puedeEliminar = true;
@@ -272,23 +281,22 @@ export const eliminarMensaje = async (req, res) => {
 
     if (!puedeEliminar) {
       return res.status(403).json({
-        message: 'No tienes permisos para eliminar este mensaje'
+        message: 'No tienes permisos para eliminar este mensaje',
       });
     }
 
     const respuestas = await MensajeForo.find({ respuestaA: id });
 
-    const archivosAEliminar = [
-      ...(mensaje.archivos || []),
-      ...respuestas.flatMap(r => r.archivos || [])
-    ];
+    const archivosAEliminar = [...(mensaje.archivos || []), ...respuestas.flatMap((r) => r.archivos || [])];
 
-    await Promise.all(archivosAEliminar.map(archivo => {
-      const resourceType = archivo.tipo === 'video' ? 'video' : archivo.tipo === 'pdf' ? 'raw' : 'image';
-      return eliminarArchivoCloudinary(archivo.publicId, resourceType).catch(e =>
-        console.error(`Error eliminando archivo ${archivo.publicId}:`, e.message)
-      );
-    }));
+    await Promise.all(
+      archivosAEliminar.map((archivo) => {
+        const resourceType = archivo.tipo === 'video' ? 'video' : archivo.tipo === 'pdf' ? 'raw' : 'image';
+        return eliminarArchivoCloudinary(archivo.publicId, resourceType).catch((e) =>
+          console.error(`Error eliminando archivo ${archivo.publicId}:`, e.message),
+        );
+      }),
+    );
 
     await MensajeForo.deleteMany({ respuestaA: id });
     await MensajeForo.findByIdAndDelete(id);

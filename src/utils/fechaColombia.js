@@ -13,7 +13,7 @@ export const rangoDiaBogota = (fecha = new Date()) => {
   const enBogota = new Date(fecha.getTime() - OFFSET_BOGOTA_MS);
   enBogota.setUTCHours(0, 0, 0, 0);
   const inicio = new Date(enBogota.getTime() + OFFSET_BOGOTA_MS);
-  const fin    = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
+  const fin = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
   return { inicio, fin };
 };
 
@@ -21,7 +21,7 @@ export const rangoDiaBogota = (fecha = new Date()) => {
 export const rangoDiaBogotaDesdeISO = (fechaISO) => {
   const [anio, mes, dia] = fechaISO.split('-').map(Number);
   const inicio = new Date(Date.UTC(anio, mes - 1, dia, 5, 0, 0, 0)); // 00:00 Bogotá = 05:00 UTC
-  const fin    = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
+  const fin = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
   return { inicio, fin };
 };
 
@@ -32,5 +32,5 @@ export const diaBogotaISO = (fecha) =>
 /** Rango [inicio, fin) del mes calendario de Bogotá para `anio`/`mes` (mes: 1-12) */
 export const rangoMesBogota = (anio, mes) => ({
   inicio: new Date(Date.UTC(anio, mes - 1, 1, 5, 0, 0, 0)),
-  fin:    new Date(Date.UTC(anio, mes,     1, 5, 0, 0, 0)),
+  fin: new Date(Date.UTC(anio, mes, 1, 5, 0, 0, 0)),
 });

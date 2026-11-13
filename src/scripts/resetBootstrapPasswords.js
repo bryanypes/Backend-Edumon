@@ -35,16 +35,20 @@ export async function resetearContraseñasBootstrap() {
 
     const usuario = await User.findOne({ telefono: datos.telefono });
     if (!usuario) {
-      console.log(`⚠️  BOOTSTRAP_ADMIN_${indice}: no existe ningún usuario con el teléfono ${datos.telefono} todavía (reinicia el contenedor para que bootstrapAdmins.js lo cree).`);
+      console.log(
+        `⚠️  BOOTSTRAP_ADMIN_${indice}: no existe ningún usuario con el teléfono ${datos.telefono} todavía (reinicia el contenedor para que bootstrapAdmins.js lo cree).`,
+      );
       resultado.noEncontrados++;
       continue;
     }
 
     usuario.contraseña = datos.contraseña; // el pre('save') del modelo la vuelve a hashear
-    usuario.primerInicioSesion = true;     // obliga a cambiarla en el próximo login
+    usuario.primerInicioSesion = true; // obliga a cambiarla en el próximo login
     await usuario.save();
 
-    console.log(`✅ ${usuario.nombre} ${usuario.apellido} (${usuario.telefono}, rol ${usuario.rol}): contraseña restablecida a la del .env`);
+    console.log(
+      `✅ ${usuario.nombre} ${usuario.apellido} (${usuario.telefono}, rol ${usuario.rol}): contraseña restablecida a la del .env`,
+    );
     resultado.actualizados++;
   }
 
@@ -60,7 +64,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!process.argv.includes('--confirmar')) {
     console.error(
       '❌ Este script cambia contraseñas reales. Vuelve a correrlo agregando --confirmar:\n' +
-      '   node src/scripts/resetBootstrapPasswords.js --confirmar',
+        '   node src/scripts/resetBootstrapPasswords.js --confirmar',
     );
     process.exit(1);
   }

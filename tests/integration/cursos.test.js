@@ -9,7 +9,9 @@ const FIXTURES = path.resolve(__dirname, '../fixtures');
 
 describe('POST /api/cursos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un administrador crea un curso para un docente de su institución', async () => {
     const institucion = await crearInstitucion();
@@ -17,7 +19,8 @@ describe('POST /api/cursos', () => {
     const docente = await crearDocente({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/cursos')
+    const res = await agent
+      .post('/api/cursos')
       .field('nombre', 'Matemáticas 5A')
       .field('descripcion', 'Curso de matemáticas para quinto grado')
       .field('docenteId', docente._id.toString());
@@ -29,7 +32,11 @@ describe('POST /api/cursos', () => {
   it('un padre no puede crear cursos', async () => {
     const padre = await crearPadre();
     const agent = await loginComo(app, padre);
-    const res = await agent.post('/api/cursos').field('nombre', 'X').field('descripcion', 'Descripción válida').field('docenteId', '507f1f77bcf86cd799439011');
+    const res = await agent
+      .post('/api/cursos')
+      .field('nombre', 'X')
+      .field('descripcion', 'Descripción válida')
+      .field('docenteId', '507f1f77bcf86cd799439011');
     expect(res.status).toBe(403);
   });
 
@@ -38,7 +45,8 @@ describe('POST /api/cursos', () => {
     const otroAdmin = await crearAdministrador();
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/cursos')
+    const res = await agent
+      .post('/api/cursos')
       .field('nombre', 'Curso X')
       .field('descripcion', 'Descripción válida de curso')
       .field('docenteId', otroAdmin._id.toString());
@@ -53,7 +61,8 @@ describe('POST /api/cursos', () => {
     const docenteAjeno = await crearDocente({ institucionId: institucionAjena._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/cursos')
+    const res = await agent
+      .post('/api/cursos')
       .field('nombre', 'Curso Intruso')
       .field('descripcion', 'Descripción válida de curso')
       .field('docenteId', docenteAjeno._id.toString());
@@ -69,7 +78,8 @@ describe('POST /api/cursos', () => {
     const docente = await crearDocente({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/cursos')
+    const res = await agent
+      .post('/api/cursos')
       .field('nombre', 'Curso con foto')
       .field('descripcion', 'Descripción válida de curso')
       .field('docenteId', docente._id.toString())
@@ -85,7 +95,8 @@ describe('POST /api/cursos', () => {
     const docente = await crearDocente({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/cursos')
+    const res = await agent
+      .post('/api/cursos')
       .field('nombre', 'Curso con Excel')
       .field('descripcion', 'Descripción válida de curso')
       .field('docenteId', docente._id.toString())
@@ -101,7 +112,9 @@ describe('POST /api/cursos', () => {
 
 describe('GET /api/cursos — aislamiento por institución', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('CRÍTICO: un administrador solo ve los cursos de su propia institución', async () => {
     const institucionA = await crearInstitucion();
@@ -120,7 +133,9 @@ describe('GET /api/cursos — aislamiento por institución', () => {
 
 describe('GET /api/cursos/mis-cursos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un padre solo ve los cursos donde participa', async () => {
     const padre = await crearPadre();
@@ -140,7 +155,9 @@ describe('GET /api/cursos/mis-cursos', () => {
 
 describe('PUT /api/cursos/:id y DELETE (archivar)', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente dueño puede editar su curso', async () => {
     const curso = await crearCurso();
@@ -229,7 +246,9 @@ describe('PUT /api/cursos/:id y DELETE (archivar)', () => {
 
 describe('Participantes de un curso', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('agrega un participante nuevo (crea el usuario si no existe)', async () => {
     const curso = await crearCurso();
@@ -237,7 +256,10 @@ describe('Participantes de un curso', () => {
     const agent = await loginComo(app, docente);
 
     const res = await agent.post(`/api/cursos/${curso._id}/participantes`).send({
-      nombre: 'Nuevo', apellido: 'Participante', telefono: '3009998877', cedula: '99887766',
+      nombre: 'Nuevo',
+      apellido: 'Participante',
+      telefono: '3009998877',
+      cedula: '99887766',
     });
 
     expect(res.status).toBe(200);
@@ -268,14 +290,17 @@ describe('Participantes de un curso', () => {
 
 describe('POST /api/cursos/:id/usuarios-masivo — carga Excel en un curso existente', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente dueño carga participantes por Excel', async () => {
     const curso = await crearCurso();
     const docente = await import('../../src/models/User.js').then((m) => m.default.findById(curso.docenteId));
     const agent = await loginComo(app, docente);
 
-    const res = await agent.post(`/api/cursos/${curso._id}/usuarios-masivo`)
+    const res = await agent
+      .post(`/api/cursos/${curso._id}/usuarios-masivo`)
       .attach('archivoCSV', path.join(FIXTURES, 'participantes.xlsm'));
 
     expect(res.status).toBe(200);
@@ -287,7 +312,8 @@ describe('POST /api/cursos/:id/usuarios-masivo — carga Excel en un curso exist
     const otroDocente = await crearDocente();
     const agent = await loginComo(app, otroDocente);
 
-    const res = await agent.post(`/api/cursos/${curso._id}/usuarios-masivo`)
+    const res = await agent
+      .post(`/api/cursos/${curso._id}/usuarios-masivo`)
       .attach('archivoCSV', path.join(FIXTURES, 'participantes.xlsm'));
     expect(res.status).toBe(403);
   });
@@ -304,7 +330,9 @@ describe('POST /api/cursos/:id/usuarios-masivo — carga Excel en un curso exist
 
 describe('GET /api/cursos/:id — control de acceso a un curso puntual', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente dueño puede ver su curso', async () => {
     const curso = await crearCurso();
@@ -348,7 +376,9 @@ describe('GET /api/cursos/:id — control de acceso a un curso puntual', () => {
 
 describe('CROSS-TENANT: un admin no puede gestionar cursos de otra institución', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   const setup = async () => {
     const [instA, instB] = [await crearInstitucion(), await crearInstitucion()];
@@ -375,7 +405,10 @@ describe('CROSS-TENANT: un admin no puede gestionar cursos de otra institución'
   it('POST participantes responde 403', async () => {
     const { curso, agent } = await setup();
     const res = await agent.post(`/api/cursos/${curso._id}/participantes`).send({
-      nombre: 'X', apellido: 'Y', telefono: '3009998877', cedula: '55443322',
+      nombre: 'X',
+      apellido: 'Y',
+      telefono: '3009998877',
+      cedula: '55443322',
     });
     expect(res.status).toBe(403);
   });
@@ -389,7 +422,9 @@ describe('CROSS-TENANT: un admin no puede gestionar cursos de otra institución'
 
 describe('un padre no puede agregar participantes a un curso', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('aunque participe en el curso, POST participantes responde 403', async () => {
     const curso = await crearCurso();
@@ -399,7 +434,10 @@ describe('un padre no puede agregar participantes a un curso', () => {
     const agent = await loginComo(app, padre);
 
     const res = await agent.post(`/api/cursos/${curso._id}/participantes`).send({
-      nombre: 'Colado', apellido: 'Test', telefono: '3009990000', cedula: '11220033',
+      nombre: 'Colado',
+      apellido: 'Test',
+      telefono: '3009990000',
+      cedula: '11220033',
     });
     expect(res.status).toBe(403);
   });

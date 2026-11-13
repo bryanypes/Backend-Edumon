@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import crearApp from '../../src/app.js';
 import Foro from '../../src/models/Foro.js';
 import User from '../../src/models/User.js';
-import { crearCurso, crearForo, crearMensajeForo, crearDocente, crearAdministrador, crearPadre } from '../helpers/factories.js';
+import {
+  crearCurso,
+  crearForo,
+  crearMensajeForo,
+  crearDocente,
+  crearAdministrador,
+  crearPadre,
+} from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 import { rangoDiaBogota } from '../../src/utils/fechaColombia.js';
 
@@ -10,7 +17,9 @@ const docenteDelCurso = (curso) => User.findById(curso.docenteId);
 
 describe('POST /api/foros', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente dueño del curso crea un foro', async () => {
     const curso = await crearCurso();
@@ -18,7 +27,9 @@ describe('POST /api/foros', () => {
     const agent = await loginComo(app, docente);
 
     const res = await agent.post('/api/foros').send({
-      titulo: 'Dudas de la tarea', descripcion: 'Espacio para resolver dudas de la tarea 1', cursoId: curso._id.toString(),
+      titulo: 'Dudas de la tarea',
+      descripcion: 'Espacio para resolver dudas de la tarea 1',
+      cursoId: curso._id.toString(),
     });
     expect(res.status).toBe(201);
   });
@@ -31,7 +42,9 @@ describe('POST /api/foros', () => {
     const agent = await loginComo(app, padre);
 
     const res = await agent.post('/api/foros').send({
-      titulo: 'Intento de padre', descripcion: 'Descripción con longitud suficiente', cursoId: curso._id.toString(),
+      titulo: 'Intento de padre',
+      descripcion: 'Descripción con longitud suficiente',
+      cursoId: curso._id.toString(),
     });
     expect(res.status).toBe(403);
   });
@@ -42,7 +55,9 @@ describe('POST /api/foros', () => {
     const agent = await loginComo(app, otroDocente);
 
     const res = await agent.post('/api/foros').send({
-      titulo: 'Foro ajeno', descripcion: 'Descripción con longitud suficiente', cursoId: curso._id.toString(),
+      titulo: 'Foro ajeno',
+      descripcion: 'Descripción con longitud suficiente',
+      cursoId: curso._id.toString(),
     });
     expect(res.status).toBe(403);
   });
@@ -53,7 +68,9 @@ describe('POST /api/foros', () => {
     const agent = await loginComo(app, adminAjeno);
 
     const res = await agent.post('/api/foros').send({
-      titulo: 'Foro de otra institución', descripcion: 'Descripción con longitud suficiente', cursoId: curso._id.toString(),
+      titulo: 'Foro de otra institución',
+      descripcion: 'Descripción con longitud suficiente',
+      cursoId: curso._id.toString(),
     });
     expect(res.status).toBe(403);
   });
@@ -64,7 +81,9 @@ describe('POST /api/foros', () => {
     const agent = await loginComo(app, admin);
 
     const res = await agent.post('/api/foros').send({
-      titulo: 'Foro institucional', descripcion: 'Descripción con longitud suficiente', cursoId: curso._id.toString(),
+      titulo: 'Foro institucional',
+      descripcion: 'Descripción con longitud suficiente',
+      cursoId: curso._id.toString(),
     });
     expect(res.status).toBe(201);
   });
@@ -74,14 +93,18 @@ describe('POST /api/foros', () => {
     const docente = await docenteDelCurso(curso);
     const agent = await loginComo(app, docente);
 
-    const res = await agent.post('/api/foros').send({ titulo: 'Hi', descripcion: 'Descripción con longitud suficiente', cursoId: curso._id.toString() });
+    const res = await agent
+      .post('/api/foros')
+      .send({ titulo: 'Hi', descripcion: 'Descripción con longitud suficiente', cursoId: curso._id.toString() });
     expect(res.status).toBe(400);
   });
 });
 
 describe('GET /api/foros/curso/:cursoId y GET /api/foros/:id', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un participante del curso puede listar y ver foros', async () => {
     const curso = await crearCurso();
@@ -111,7 +134,9 @@ describe('GET /api/foros/curso/:cursoId y GET /api/foros/:id', () => {
 
 describe('PATCH /api/foros/:id/estado y DELETE', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente creador abre/cierra el foro', async () => {
     const foro = await crearForo();
@@ -146,7 +171,9 @@ describe('PATCH /api/foros/:id/estado y DELETE', () => {
 
 describe('GET /api/foros/:id/dashboard', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('devuelve estadísticas y mensajes recientes para un usuario con acceso', async () => {
     const foro = await crearForo();

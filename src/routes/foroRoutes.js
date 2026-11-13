@@ -7,14 +7,14 @@ import {
   actualizarForo,
   eliminarForo,
   cambiarEstadoForo,
-   getDashboardForo   
+  getDashboardForo,
 } from '../controllers/foroController.js';
 import {
   crearForoValidator,
   actualizarForoValidator,
   cambiarEstadoForoValidator,
   obtenerForoPorIdValidator,
-  obtenerForosPorCursoValidator
+  obtenerForosPorCursoValidator,
 } from '../middlewares/validators/foroValidator.js';
 import { validationResult } from 'express-validator';
 
@@ -36,7 +36,7 @@ const uploadArchivosForoMiddleware = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024,
-    files: 5
+    files: 5,
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -50,18 +50,20 @@ const uploadArchivosForoMiddleware = multer({
       'video/mp4',
       'video/mpeg',
       'video/quicktime',
-      'application/pdf'
+      'application/pdf',
     ];
 
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       // status:400 -- si no, cae en el manejador global como 500 "error interno"
-      const error = new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC), videos (MP4, MPEG, MOV) y archivos PDF');
+      const error = new Error(
+        'Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC), videos (MP4, MPEG, MOV) y archivos PDF',
+      );
       error.status = 400;
       cb(error, false);
     }
-  }
+  },
 });
 
 router.post(
@@ -71,32 +73,20 @@ router.post(
   uploadArchivosForoMiddleware.array('archivos', 5),
   crearForoValidator,
   handleValidationErrors,
-  crearForo
+  crearForo,
 );
 
-router.get(
-  '/:id/dashboard',
-  authMiddleware,
-  obtenerForoPorIdValidator,
-  handleValidationErrors,
-  getDashboardForo
-);
+router.get('/:id/dashboard', authMiddleware, obtenerForoPorIdValidator, handleValidationErrors, getDashboardForo);
 
 router.get(
   '/curso/:cursoId',
   authMiddleware,
   obtenerForosPorCursoValidator,
   handleValidationErrors,
-  obtenerForosPorCurso
+  obtenerForosPorCurso,
 );
 
-router.get(
-  '/:id',
-  authMiddleware,
-  obtenerForoPorIdValidator,
-  handleValidationErrors,
-  obtenerForoPorId
-);
+router.get('/:id', authMiddleware, obtenerForoPorIdValidator, handleValidationErrors, obtenerForoPorId);
 
 router.put(
   '/:id',
@@ -104,7 +94,7 @@ router.put(
   requireRole(['docente', 'administrador']),
   actualizarForoValidator,
   handleValidationErrors,
-  actualizarForo
+  actualizarForo,
 );
 
 router.patch(
@@ -113,7 +103,7 @@ router.patch(
   requireRole(['docente', 'administrador']),
   cambiarEstadoForoValidator,
   handleValidationErrors,
-  cambiarEstadoForo
+  cambiarEstadoForo,
 );
 
 router.delete(
@@ -122,7 +112,7 @@ router.delete(
   requireRole(['docente', 'administrador']),
   obtenerForoPorIdValidator,
   handleValidationErrors,
-  eliminarForo
+  eliminarForo,
 );
 
 export default router;

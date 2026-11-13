@@ -6,7 +6,10 @@ describe('plantilla de correos', () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it('escapa el texto que escriben las personas', () => {
-    const { html } = correoNotificacion({ nombre: '<b>Ana</b>', rol: 'padre' }, { tipo: 'sistema', mensaje: 'Hola <script>alert(1)</script> & chao' });
+    const { html } = correoNotificacion(
+      { nombre: '<b>Ana</b>', rol: 'padre' },
+      { tipo: 'sistema', mensaje: 'Hola <script>alert(1)</script> & chao' },
+    );
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
     expect(html).toContain('&lt;b&gt;Ana&lt;/b&gt;');
@@ -22,16 +25,22 @@ describe('plantilla de correos', () => {
 
   it('el botón lleva a la pantalla correcta según el rol', () => {
     const ref = '6ad7e61b14bbcba0b5ae2fbe';
-    expect(correoNotificacion({ nombre: 'A', rol: 'padre' }, { tipo: 'tarea', referenciaId: ref, mensaje: 'x' }).html)
-      .toContain(`https://edumon.colegio.test/familia/entregas/${ref}`);
-    expect(correoNotificacion({ nombre: 'A', rol: 'docente' }, { tipo: 'tarea', referenciaId: ref, mensaje: 'x' }).html)
-      .toContain('https://edumon.colegio.test/tareas');
-    expect(correoNotificacion({ nombre: 'A', rol: 'padre' }, { tipo: 'sistema', mensaje: 'x' }).html)
-      .toContain('https://edumon.colegio.test/notificaciones');
+    expect(
+      correoNotificacion({ nombre: 'A', rol: 'padre' }, { tipo: 'tarea', referenciaId: ref, mensaje: 'x' }).html,
+    ).toContain(`https://edumon.colegio.test/familia/entregas/${ref}`);
+    expect(
+      correoNotificacion({ nombre: 'A', rol: 'docente' }, { tipo: 'tarea', referenciaId: ref, mensaje: 'x' }).html,
+    ).toContain('https://edumon.colegio.test/tareas');
+    expect(correoNotificacion({ nombre: 'A', rol: 'padre' }, { tipo: 'sistema', mensaje: 'x' }).html).toContain(
+      'https://edumon.colegio.test/notificaciones',
+    );
   });
 
   it('un aviso del colegio usa su título y trae versión en texto plano', () => {
-    const c = correoNotificacion({ nombre: 'Ana', rol: 'padre' }, { tipo: 'sistema', metadata: { titulo: 'Aviso del colegio' }, mensaje: 'No hay clases' });
+    const c = correoNotificacion(
+      { nombre: 'Ana', rol: 'padre' },
+      { tipo: 'sistema', metadata: { titulo: 'Aviso del colegio' }, mensaje: 'No hay clases' },
+    );
     expect(c.subject).toBe('Aviso del colegio · Edumon');
     expect(c.text).toContain('No hay clases');
     expect(c.text).toContain('https://edumon.colegio.test/notificaciones');

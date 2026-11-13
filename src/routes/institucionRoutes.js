@@ -7,7 +7,7 @@ import {
   preregistrarDocente,
   updateInstitucion,
   cambiarEstadoInstitucion,
-  deleteInstitucion
+  deleteInstitucion,
 } from '../controllers/institucionController.js';
 import { param } from 'express-validator';
 import { uploadCSVCloudinary } from '../middlewares/cloudinaryMiddleware.js';
@@ -41,7 +41,7 @@ router.post(
   '/docentes/csv',
   requireRole(['administrador']),
   uploadCSVCloudinary.single('archivoCSV'),
-  preregistrarDocentesCSV
+  preregistrarDocentesCSV,
 );
 
 export default router;
