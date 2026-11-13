@@ -38,6 +38,6 @@ export function responderErrorDeDatos(res, error) {
  */
 export function conCorreoVacioComoUnset(datos) {
   if (!('correo' in datos) || (datos.correo !== '' && datos.correo !== null)) return datos;
-  const { correo, ...resto } = datos; // eslint-disable-line no-unused-vars
+  const { correo, ...resto } = datos;
   return { ...resto, $unset: { ...(resto.$unset ?? {}), correo: 1 } };
 }

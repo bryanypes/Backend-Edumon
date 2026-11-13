@@ -211,7 +211,7 @@ async function seed() {
     moduloId: modulo1._id,
     asignacionTipo: "todos",
   });
-  const tarea2 = await Tarea.create({
+  await Tarea.create({
     titulo: "Resumen de la lectura",
     descripcion: "Escribir un resumen de media página sobre la lectura vista en clase.",
     fechaEntrega: dias(-3), // vencida, para probar estado 'tarde'
@@ -306,7 +306,7 @@ async function seed() {
     cursosIds: [curso1._id],
     categoria: "escuela_padres",
   });
-  const evento2 = await Evento.create({
+  await Evento.create({
     titulo: "Entrega de informes del periodo",
     descripcion: "Atención a padres de Lengua Castellana 5° para la entrega de informes académicos.",
     fechaInicio: dias(14),

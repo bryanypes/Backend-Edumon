@@ -133,7 +133,6 @@ describe('POST /api/auth/login', () => {
     const padre = await crearPadre();
     let ultima;
     for (let i = 0; i < 11; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       ultima = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: 'incorrecta' });
     }
     expect(ultima.status).toBe(429);
@@ -146,7 +145,6 @@ describe('POST /api/auth/login', () => {
     const padreB = await crearPadre();
 
     for (let i = 0; i < 10; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await request(app).post('/api/auth/login').send({ telefono: padreA.telefono, contraseña: 'incorrecta' });
     }
 
@@ -346,7 +344,6 @@ describe('Recuperación de contraseña por correo', () => {
     let ultima;
     for (let i = 0; i < 11; i += 1) {
       // alterna mayúsculas/minúsculas: no debería alcanzar para evadir el límite
-      // eslint-disable-next-line no-await-in-loop
       ultima = await request(app).post('/api/auth/forgot-password').send({
         correo: i % 2 === 0 ? padre.correo.toUpperCase() : padre.correo,
       });

@@ -11,7 +11,7 @@
 export const normalizarTelefono = (telefono) => {
   if (!telefono) return null;
 
-  let limpio = telefono.trim().replace(/[\s\-\(\)]/g, '');
+  let limpio = telefono.trim().replace(/[\s\-()]/g, '');
 
   if (/^\+57\d{10}$/.test(limpio)) {
     return limpio;

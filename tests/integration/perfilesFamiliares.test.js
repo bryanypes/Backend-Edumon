@@ -27,7 +27,6 @@ describe('POST /api/perfiles — crear perfil familiar', () => {
   it('rechaza un sexto perfil (máximo 5 por cuenta)', async () => {
     const padre = await crearPadre();
     for (let i = 0; i < 5; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await crearPerfilFamiliar({ titularId: padre._id, nombre: `Hijo ${i}` });
     }
     const agent = await loginComo(app, padre);
