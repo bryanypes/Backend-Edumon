@@ -21,7 +21,7 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 // app; se puede ajustar con SESION_DIAS_PADRES_DOCENTES). Administradores: 7 días.
 // No se usa un token sin vencimiento: así una sesión se puede revocar (cerrar sesión,
 // cambio de contraseña, usuario suspendido).
-export const duracionSesionMs = (rol) => {
+const duracionSesionMs = (rol) => {
   const diasLargos = Number(process.env.SESION_DIAS_PADRES_DOCENTES) || 365;
   return (['padre', 'docente'].includes(rol) ? diasLargos : 7) * DIA_MS;
 };

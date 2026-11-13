@@ -8,7 +8,7 @@ import validator from 'validator';
 // cuantificadores ambiguos: cada parte del dominio empieza por un punto, así que
 // el tiempo de evaluación es lineal.
 const PATRON_CORREO = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]{2,}$/;
-export const CORREO_MAX = 254;
+const CORREO_MAX = 254;
 
 /** "  Maria.Perez@Gmail.com " → "maria.perez@gmail.com"; vacío → undefined. No quita puntos ni "+". */
 export function normalizarCorreo(valor) {
