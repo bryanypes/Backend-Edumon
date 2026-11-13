@@ -95,7 +95,6 @@ describe('POST /api/buzon — pública', () => {
       nombre: 'Repetido', correo: 'repetido@test.edumon.com', telefono: telefonoDePrueba(), mensaje: 'Mensaje repetido válido',
     });
     for (let i = 0; i < 3; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       const ok = await request(app).post('/api/buzon').set('X-Forwarded-For', ip).send(datos());
       expect(ok.status).toBe(201);
     }

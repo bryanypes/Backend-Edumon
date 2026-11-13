@@ -10,7 +10,6 @@ import Entrega from '../../src/models/Entrega.js';
 import Foro from '../../src/models/Foro.js';
 import MensajeForo from '../../src/models/MensajeForo.js';
 import Evento from '../../src/models/Evento.js';
-import Notificacion from '../../src/models/Notificacion.js';
 import PerfilFamiliar from '../../src/models/PerfilFamiliar.js';
 import {
   crearAdministrador, crearSuperadmin, crearInstitucion, crearDocente, crearPadre,

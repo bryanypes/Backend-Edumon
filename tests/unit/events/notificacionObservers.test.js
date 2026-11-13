@@ -16,7 +16,7 @@ vi.mock('../../../src/notifications/NotificadorFacade.js', () => ({
 // registrarObservers() ya corre en el beforeAll global de vitest.setup.js, enlazada
 // al mock de arriba — no volver a registrar aquí o cada suscripción queda duplicada
 const { eventBus, EVENTOS } = await import('../../../src/events/EventBus.js');
-const { crearCurso, crearPadre, crearDocente, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento } = await import('../../helpers/factories.js');
+const { crearCurso, crearPadre, crearSuperadmin, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento } = await import('../../helpers/factories.js');
 
 beforeEach(() => {
   notificarMock.mockClear();

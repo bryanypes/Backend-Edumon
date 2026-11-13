@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { authMiddleware, requireRole } from '../../../src/middlewares/authMiddleware.js';
 import { generarAccessToken, extractAccessToken } from '../../../src/controllers/authController.js';
-import { crearPadre, crearDocente, crearAdministrador } from '../../helpers/factories.js';
+import { crearPadre, crearDocente } from '../../helpers/factories.js';
 
 const mockRes = () => {
   const res = {};

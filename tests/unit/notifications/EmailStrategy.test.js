@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { EmailStrategy } from '../../../src/notifications/strategies/EmailStrategy.js';
 import { nodemailerSendMailMock } from '../../setup/mocks.js';
 import { crearPadre } from '../../helpers/factories.js';

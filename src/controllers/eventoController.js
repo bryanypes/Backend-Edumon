@@ -1,6 +1,5 @@
 import Evento from '../models/Evento.js';
 import Curso from '../models/Curso.js';
-import User from '../models/User.js';
 import { validationResult } from 'express-validator';
 import { subirArchivoCloudinary, eliminarArchivoCloudinary } from '../utils/cloudinaryUpload.js';
 import { eventBus, EVENTOS } from '../events/EventBus.js';

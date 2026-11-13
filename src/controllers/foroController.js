@@ -72,7 +72,7 @@ const procesarArchivosAdjuntos = async (files) => {
       console.error(`Error procesando ${file.originalname}:`, error);
       errores.push({
         archivo: file.originalname,
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined || 'Error al subir el archivo'
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Error al subir el archivo'
       });
     }
   }

@@ -329,7 +329,7 @@ export const crearApp = () => {
   });
 
   // Error handler global
-  app.use((err, req, res, next) => {
+  app.use((err, req, res, _next) => {
     // Fallback para rutas de subida de archivos que no capturan MulterError
     // por su cuenta (tareaRoutes y apkRoutes sí lo hacen): sin esto, un
     // adjunto muy grande (foto de celular en una entrega/foro/evento, por

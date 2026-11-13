@@ -95,7 +95,6 @@ describe('POST /api/mensajes-foro — notificaciones', () => {
 
   const esperarNotificacion = async (filtro, timeoutMs = 2000) => {
     const inicio = Date.now();
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const encontrada = await Notificacion.findOne(filtro);
       if (encontrada) return encontrada;
