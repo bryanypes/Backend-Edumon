@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+uploads
+package-lock.json
+*.md
+*.html
