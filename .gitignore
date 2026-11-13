@@ -22,3 +22,10 @@ build/
 
 # Cobertura de tests
 coverage/
+
+# Entorno, archivos subidos en ejecución y editores
+.env.*
+!.env.example
+/uploads/
+.vscode/
+.idea/
