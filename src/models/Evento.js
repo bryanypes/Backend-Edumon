@@ -96,6 +96,8 @@ const eventoSchema = new mongoose.Schema({
 
 eventoSchema.index({ docenteId: 1, fechaInicio: -1 });
 eventoSchema.index({ cursosIds: 1, estado: 1 });
+// calendario del curso y eventos de hoy: filtran por curso y ordenan/acotan por fechaInicio
+eventoSchema.index({ cursosIds: 1, fechaInicio: 1 });
 eventoSchema.index({ categoria: 1, fechaInicio: -1 });
 
 eventoSchema.virtual('participantes', {
