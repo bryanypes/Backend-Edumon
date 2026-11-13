@@ -70,7 +70,6 @@ async function procesarUsuariosCSV(file, cursoId) {
       throw new Error("Curso no encontrado");
     }
 
-    console.log(' Procesando Excel para curso:', curso.nombre);
 
     const fileBuffer = await getFileBuffer(file);
     if (!fileBuffer) {
@@ -89,7 +88,6 @@ async function procesarUsuariosCSV(file, cursoId) {
         contraseña: fila.cedula
       }));
 
-    console.log(` Total usuarios a procesar: ${usuarios.length}`);
 
     for (const userData of usuarios) {
       try {
@@ -169,7 +167,6 @@ async function procesarUsuariosCSV(file, cursoId) {
     }
 
     await curso.save();
-    console.log(`\nExcel procesado completamente`);
 
     return {
       resumen: {

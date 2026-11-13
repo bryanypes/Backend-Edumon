@@ -166,7 +166,6 @@ export const enviarFCM = async (fcmToken, { title, body, data = {} }) => {
   };
 
   const response = await admin.messaging().send(message);
-  console.log(`[FCM] Enviado exitosamente: ${response}`);
   return response;
 };
 

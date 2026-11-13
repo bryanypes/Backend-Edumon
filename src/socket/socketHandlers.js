@@ -52,7 +52,6 @@ export const setupSocketIO = (io) => {
 
   io.on('connection', async (socket) => {
     const userId = socket.userId;
-    console.log(`Usuario conectado: ${userId}`);
 
     if (!usuariosConectados.has(userId)) {
       usuariosConectados.set(userId, new Set());
@@ -138,7 +137,6 @@ export const setupSocketIO = (io) => {
     });
 
     socket.on('disconnect', () => {
-      console.log(`Usuario desconectado: ${userId}`);
       
       const sockets = usuariosConectados.get(userId);
       if (sockets) {

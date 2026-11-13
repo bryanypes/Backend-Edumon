@@ -38,7 +38,6 @@ export const preregistrarDocentesCSV = async (req, res) => {
       cedula: fila.cedula
     }));
 
-    console.log(`[Excel Docentes] Total a procesar: ${usuarios.length}`);
 
     for (const userData of usuarios) {
   try {
