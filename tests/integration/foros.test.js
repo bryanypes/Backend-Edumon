@@ -4,6 +4,7 @@ import Foro from '../../src/models/Foro.js';
 import User from '../../src/models/User.js';
 import { crearCurso, crearForo, crearMensajeForo, crearDocente, crearAdministrador, crearPadre } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
+import { rangoDiaBogota } from '../../src/utils/fechaColombia.js';
 
 const docenteDelCurso = (curso) => User.findById(curso.docenteId);
 
@@ -157,5 +158,23 @@ describe('GET /api/foros/:id/dashboard', () => {
     expect(res.status).toBe(200);
     expect(res.body.estadisticas.totalMensajes).toBe(1);
     expect(res.body.mensajesRecientes).toHaveLength(1);
+  });
+
+  it('la actividad por día cuenta los mensajes en el día de Bogotá (servidor en UTC)', async () => {
+    const foro = await crearForo();
+    // ayer a las 21:00 en Colombia: en UTC ya es "hoy"
+    const inicioHoyBogota = rangoDiaBogota().inicio;
+    const anoche = new Date(inicioHoyBogota.getTime() - 3 * 60 * 60 * 1000);
+    await crearMensajeForo({ foroId: foro._id, usuarioId: foro.docenteId, fechaCreacion: anoche });
+    const agent = await loginComo(app, await User.findById(foro.docenteId));
+
+    const res = await agent.get(`/api/foros/${foro._id}/dashboard`);
+    const diaBogota = (d) => new Date(d.getTime() - 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const ayer = diaBogota(anoche);
+    const hoy = diaBogota(inicioHoyBogota);
+    expect(res.body.actividad).toHaveLength(7);
+    expect(res.body.actividad.find((d) => d.fecha === ayer)?.mensajes).toBe(1);
+    expect(res.body.actividad.at(-1).fecha).toBe(hoy);
+    expect(res.body.actividad.at(-1).mensajes).toBe(0);
   });
 });

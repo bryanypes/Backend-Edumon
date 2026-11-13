@@ -11,6 +11,7 @@ export const registrarObservers = () => {
   eventBus.suscribir(EVENTOS.TAREA_CREADA, async (tarea) => {
     const destinatarios = await resolverDestinatariosTarea(tarea);
     const fechaFormateada = new Date(tarea.fechaEntrega).toLocaleDateString('es-CO', {
+      timeZone: 'America/Bogota', // el servidor corre en UTC
       day: '2-digit', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -32,6 +33,7 @@ export const registrarObservers = () => {
   eventBus.suscribir(EVENTOS.TAREA_ACTUALIZADA, async (tarea) => {
     const destinatarios = await resolverDestinatariosTarea(tarea);
     const fechaFormateada = new Date(tarea.fechaEntrega).toLocaleDateString('es-CO', {
+      timeZone: 'America/Bogota', // el servidor corre en UTC
       day: '2-digit', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -94,6 +96,7 @@ export const registrarObservers = () => {
     const padresIds = await resolverPadresDeEvento(evento);
 
     const fecha = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
+      timeZone: 'America/Bogota', // el servidor corre en UTC
       day: '2-digit', month: 'long', year: 'numeric'
     });
 
@@ -115,6 +118,7 @@ export const registrarObservers = () => {
     const padresIds = await resolverPadresDeEvento(evento);
 
     const fecha = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
+      timeZone: 'America/Bogota', // el servidor corre en UTC
       day: '2-digit', month: 'long', year: 'numeric'
     });
 

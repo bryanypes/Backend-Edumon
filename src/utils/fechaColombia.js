@@ -25,6 +25,10 @@ export const rangoDiaBogotaDesdeISO = (fechaISO) => {
   return { inicio, fin };
 };
 
+/** Día calendario de Bogotá ("YYYY-MM-DD") que contiene `fecha` */
+export const diaBogotaISO = (fecha) =>
+  new Date(new Date(fecha).getTime() - OFFSET_BOGOTA_MS).toISOString().slice(0, 10);
+
 /** Rango [inicio, fin) del mes calendario de Bogotá para `anio`/`mes` (mes: 1-12) */
 export const rangoMesBogota = (anio, mes) => ({
   inicio: new Date(Date.UTC(anio, mes - 1, 1, 5, 0, 0, 0)),
