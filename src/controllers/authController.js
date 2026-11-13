@@ -13,7 +13,7 @@ import { formasDeCorreo } from '../utils/correo.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-const ACCESS_TOKEN_TTL  = '15m';
+const ACCESS_TOKEN_TTL = '15m';
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 // Duración de la sesión desde el ÚLTIMO uso: cada renovación la vuelve a extender.
@@ -28,19 +28,19 @@ const duracionSesionMs = (rol) => {
 
 const COOKIE_BASE = {
   httpOnly: true,
-  secure:   IS_PROD,           // SameSite=None exige Secure
+  secure: IS_PROD, // SameSite=None exige Secure
   // 'none' en prod porque frontend y backend viven en orígenes distintos (cross-site);
   // con 'strict'/'lax' el navegador no reenvía la cookie y todo cae en 401
   sameSite: IS_PROD ? 'none' : 'lax',
-  path:     '/',
+  path: '/',
 };
 
 // perfilId/esTitular identifican el perfil familiar activo (ver seleccionarPerfil)
 export const generarAccessToken = (user, { perfilId = null, esTitular = true } = {}) =>
   jwt.sign(
     {
-      userId:            user._id,
-      rol:               user.rol,
+      userId: user._id,
+      rol: user.rol,
       primerInicioSesion: user.primerInicioSesion ?? false,
       perfilId,
       esTitular,
@@ -51,7 +51,7 @@ export const generarAccessToken = (user, { perfilId = null, esTitular = true } =
 
 // Genera un refresh token opaco; se guarda solo el hash en BD
 const generarRefreshToken = () => {
-  const raw  = crypto.randomBytes(64).toString('hex');
+  const raw = crypto.randomBytes(64).toString('hex');
   const hash = crypto.createHash('sha256').update(raw).digest('hex');
   return { raw, hash };
 };
@@ -72,13 +72,13 @@ const setSessionCookies = (res, accessToken, refreshToken, duracionMs) => {
   // /api/auth/logout, que la necesita para revocar la sesión en BD
   res.cookie('refresh_token', refreshToken, {
     ...COOKIE_BASE,
-    path:   '/api/auth',
+    path: '/api/auth',
     maxAge: duracionMs,
   });
 };
 
 const clearSessionCookies = (res) => {
-  res.clearCookie('access_token',  { ...COOKIE_BASE });
+  res.clearCookie('access_token', { ...COOKIE_BASE });
   res.clearCookie('refresh_token', { ...COOKIE_BASE, path: '/api/auth' });
 };
 
@@ -111,25 +111,25 @@ const resolverPerfilActivo = async (req, userId) => {
     _id: payload.perfilId,
     titularId: userId,
     activo: true,
-  }).select('_id').lean();
+  })
+    .select('_id')
+    .lean();
 
-  return perfil
-    ? { perfilId: perfil._id, esTitular: false }
-    : { perfilId: null, esTitular: true };
+  return perfil ? { perfilId: perfil._id, esTitular: false } : { perfilId: null, esTitular: true };
 };
 
 const publicUser = (user) => ({
-  id:                 user._id,
-  nombre:             user.nombre,
-  apellido:           user.apellido,
-  cedula:             user.cedula,
-  correo:             user.correo,
-  rol:                user.rol,
-  telefono:           user.telefono,
-  estado:             user.estado,
-  ultimoAcceso:       user.ultimoAcceso,
-  institucionId:      user.institucionId,
-  fotoPerfilUrl:      user.fotoPerfilUrl,
+  id: user._id,
+  nombre: user.nombre,
+  apellido: user.apellido,
+  cedula: user.cedula,
+  correo: user.correo,
+  rol: user.rol,
+  telefono: user.telefono,
+  estado: user.estado,
+  ultimoAcceso: user.ultimoAcceso,
+  institucionId: user.institucionId,
+  fotoPerfilUrl: user.fotoPerfilUrl,
   primerInicioSesion: user.primerInicioSesion,
 });
 
@@ -137,8 +137,7 @@ const publicUser = (user) => ({
 export const register = async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { nombre, apellido, cedula, correo, contraseña, telefono } = req.body;
 
@@ -147,14 +146,10 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'El número de teléfono no es válido' });
 
     const existingCedula = await User.findOne({ cedula });
-    if (existingCedula)
-      return res.status(409).json({ message: 'Ya existe un usuario con esta cédula' });
+    if (existingCedula) return res.status(409).json({ message: 'Ya existe un usuario con esta cédula' });
 
     const existingUser = await User.findOne({
-      $or: [
-        ...(correo              ? [{ correo }]                            : []),
-        ...(telefonoNormalizado ? [{ telefono: telefonoNormalizado }]     : []),
-      ],
+      $or: [...(correo ? [{ correo }] : []), ...(telefonoNormalizado ? [{ telefono: telefonoNormalizado }] : [])],
     });
     if (existingUser) {
       const field = existingUser.correo === correo ? 'correo' : 'teléfono';
@@ -165,8 +160,13 @@ export const register = async (req, res) => {
     // restrinja a 'padre' -- así una futura relajación del validator no vuelve
     // a abrir la puerta a autoregistrarse como docente/administrador sin sesión.
     const newUser = new User({
-      nombre, apellido, cedula, correo: correo || undefined, contraseña, rol: 'padre',
-      telefono:     telefonoNormalizado,
+      nombre,
+      apellido,
+      cedula,
+      correo: correo || undefined,
+      contraseña,
+      rol: 'padre',
+      telefono: telefonoNormalizado,
       institucionId: null,
       fechaRegistro: new Date(),
       fotoPerfilUrl: AVATAR_PREDETERMINADO,
@@ -174,16 +174,16 @@ export const register = async (req, res) => {
 
     const savedUser = await newUser.save();
 
-    const accessToken    = generarAccessToken(savedUser);
-    const { raw, hash }  = generarRefreshToken();
-    const expiraEn       = new Date(Date.now() + duracionSesionMs(savedUser.rol));
+    const accessToken = generarAccessToken(savedUser);
+    const { raw, hash } = generarRefreshToken();
+    const expiraEn = new Date(Date.now() + duracionSesionMs(savedUser.rol));
 
     // refreshTokens tiene select:false, pero savedUser ya lo trae en memoria
     savedUser.refreshTokens.push({
       tokenHash: hash,
       expiraEn,
       userAgent: req.headers['user-agent'] || '',
-      ip:        req.ip || '',
+      ip: req.ip || '',
     });
     await savedUser.save();
 
@@ -192,7 +192,7 @@ export const register = async (req, res) => {
 
     return res.status(201).json({
       message: 'Usuario registrado exitosamente',
-      user:    publicUser(savedUser),
+      user: publicUser(savedUser),
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
@@ -205,14 +205,12 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { telefono, contraseña } = req.body;
 
     const telefonoNormalizado = normalizarTelefono(telefono);
-    if (!telefonoNormalizado)
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+    if (!telefonoNormalizado) return res.status(401).json({ message: 'Credenciales inválidas' });
 
     const user = await User.findOne({ telefono: telefonoNormalizado }).select('+refreshTokens');
     if (!user) return res.status(401).json({ message: 'Credenciales inválidas' });
@@ -223,18 +221,18 @@ export const login = async (req, res) => {
     if (user.institucionId) {
       const institucion = await Institucion.findById(user.institucionId).select('activo').lean();
       if (institucion && institucion.activo === false)
-        return res.status(401).json({ message: 'Tu institución fue desactivada. Contacta al administrador del sistema.' });
+        return res
+          .status(401)
+          .json({ message: 'Tu institución fue desactivada. Contacta al administrador del sistema.' });
     }
 
     const isPasswordValid = await user.comparePassword(contraseña);
     if (!isPasswordValid) return res.status(401).json({ message: 'Credenciales inválidas' });
 
     const esPrimerInicio = user.primerInicioSesion;
-    user.ultimoAcceso    = new Date();
+    user.ultimoAcceso = new Date();
 
-    user.refreshTokens = user.refreshTokens.filter(
-      (t) => t.expiraEn > new Date(),
-    );
+    user.refreshTokens = user.refreshTokens.filter((t) => t.expiraEn > new Date());
 
     // máximo 5 sesiones simultáneas
     if (user.refreshTokens.length >= 5) {
@@ -242,24 +240,24 @@ export const login = async (req, res) => {
       user.refreshTokens.shift();
     }
 
-    const accessToken   = generarAccessToken(user);
+    const accessToken = generarAccessToken(user);
     const { raw, hash } = generarRefreshToken();
-    const expiraEn      = new Date(Date.now() + duracionSesionMs(user.rol));
+    const expiraEn = new Date(Date.now() + duracionSesionMs(user.rol));
 
     user.refreshTokens.push({
       tokenHash: hash,
       expiraEn,
       userAgent: req.headers['user-agent'] || '',
-      ip:        req.ip || '',
+      ip: req.ip || '',
     });
 
     await user.save();
     setSessionCookies(res, accessToken, raw, expiraEn.getTime() - Date.now());
 
     return res.json({
-      message:            'Login exitoso',
+      message: 'Login exitoso',
       primerInicioSesion: esPrimerInicio,
-      user:               publicUser(user),
+      user: publicUser(user),
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
@@ -272,14 +270,13 @@ export const login = async (req, res) => {
 export const refresh = async (req, res) => {
   try {
     const rawToken = req.cookies?.refresh_token;
-    if (!rawToken)
-      return res.status(401).json({ message: 'Refresh token requerido' });
+    if (!rawToken) return res.status(401).json({ message: 'Refresh token requerido' });
 
     const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
     const user = await User.findOne({
       'refreshTokens.tokenHash': hash,
-      'refreshTokens.expiraEn':  { $gt: new Date() },
+      'refreshTokens.expiraEn': { $gt: new Date() },
     }).select('+refreshTokens');
 
     if (!user || user.estado !== 'activo') {
@@ -288,21 +285,19 @@ export const refresh = async (req, res) => {
     }
 
     // Rotación: invalida el token usado y emite uno nuevo
-    user.refreshTokens = user.refreshTokens.filter(
-      (t) => t.tokenHash !== hash && t.expiraEn > new Date(),
-    );
+    user.refreshTokens = user.refreshTokens.filter((t) => t.tokenHash !== hash && t.expiraEn > new Date());
 
     // conserva el perfil familiar activo entre renovaciones
     const contextoPerfil = await resolverPerfilActivo(req, user._id);
-    const accessToken      = generarAccessToken(user, contextoPerfil);
+    const accessToken = generarAccessToken(user, contextoPerfil);
     const { raw, hash: newHash } = generarRefreshToken();
-    const expiraEn         = new Date(Date.now() + duracionSesionMs(user.rol));
+    const expiraEn = new Date(Date.now() + duracionSesionMs(user.rol));
 
     user.refreshTokens.push({
       tokenHash: newHash,
       expiraEn,
       userAgent: req.headers['user-agent'] || '',
-      ip:        req.ip || '',
+      ip: req.ip || '',
     });
 
     await user.save();
@@ -359,24 +354,24 @@ export const getProfile = async (req, res) => {
 
     // perfil familiar activo en esta sesión; por defecto el titular
     let perfilActivo = {
-      _id:       user._id,
-      nombre:    user.nombre,
+      _id: user._id,
+      nombre: user.nombre,
       avatarUrl: user.fotoPerfilUrl,
       esTitular: true,
     };
 
     if (req.user.perfilId && !req.user.esTitular) {
       const perfil = await PerfilFamiliar.findOne({
-        _id:       req.user.perfilId,
+        _id: req.user.perfilId,
         titularId: req.user.userId,
-        activo:    true,
+        activo: true,
       }).lean();
 
       // si el perfil fue eliminado, cae de vuelta al titular hasta que expire el token
       if (perfil) {
         perfilActivo = {
-          _id:       perfil._id,
-          nombre:    perfil.nombre,
+          _id: perfil._id,
+          nombre: perfil.nombre,
           avatarUrl: perfil.avatarUrl,
           esTitular: false,
         };
@@ -387,7 +382,7 @@ export const getProfile = async (req, res) => {
       user: {
         ...publicUser(user),
         fechaRegistro: user.fechaRegistro,
-        preferencias:  user.preferencias,
+        preferencias: user.preferencias,
       },
       perfilActivo,
     });
@@ -402,8 +397,7 @@ export const getProfile = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { contraseñaActual, contraseñaNueva } = req.body;
     if (!contraseñaActual || !contraseñaNueva) {
@@ -414,10 +408,9 @@ export const changePassword = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     const isCurrentPasswordValid = await user.comparePassword(contraseñaActual);
-    if (!isCurrentPasswordValid)
-      return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
+    if (!isCurrentPasswordValid) return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
 
-    user.contraseña         = contraseñaNueva;
+    user.contraseña = contraseñaNueva;
     user.primerInicioSesion = false;
     await user.save();
 
@@ -433,12 +426,11 @@ export const changePassword = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { correo } = req.body;
     // también la forma antigua (normalizeEmail quitaba puntos en Gmail): ver formasDeCorreo
-    const user       = await User.findOne({ correo: { $in: formasDeCorreo(correo) } });
+    const user = await User.findOne({ correo: { $in: formasDeCorreo(correo) } });
 
     // Respuesta genérica siempre (anti-enumeración)
     const RESPUESTA_GENERICA = {
@@ -448,10 +440,10 @@ export const forgotPassword = async (req, res) => {
     if (!user) return res.status(200).json(RESPUESTA_GENERICA);
 
     // generador criptográfico (Math.random es predecible)
-    const codigo     = crypto.randomInt(100000, 1000000).toString();
+    const codigo = crypto.randomInt(100000, 1000000).toString();
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
 
-    user.resetPasswordToken   = codigoHash;
+    user.resetPasswordToken = codigoHash;
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
@@ -469,8 +461,7 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
-      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
 
     const { correo, codigo, contraseñaNueva } = req.body;
     if (!correo || !codigo || !contraseñaNueva) {
@@ -480,14 +471,14 @@ export const resetPassword = async (req, res) => {
 
     const user = await User.findOne({
       correo: { $in: formasDeCorreo(correo) },
-      resetPasswordToken:   codigoHash,
+      resetPasswordToken: codigoHash,
       resetPasswordExpires: { $gt: new Date() },
     });
 
     if (!user) return res.status(400).json({ message: 'Código inválido o expirado.' });
 
-    user.contraseña           = contraseñaNueva;
-    user.resetPasswordToken   = null;
+    user.contraseña = contraseñaNueva;
+    user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
     await user.save();
 
@@ -498,4 +489,3 @@ export const resetPassword = async (req, res) => {
     return res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
-

@@ -46,13 +46,11 @@ export const createCursoValidator = [
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .matches(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/)
-    .withMessage('El color debe ser un código hexadecimal válido (ej. #3B82F6)')
+    .withMessage('El color debe ser un código hexadecimal válido (ej. #3B82F6)'),
 ];
 
 export const updateCursoValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de curso inválido'),
+  param('id').isMongoId().withMessage('ID de curso inválido'),
 
   body('nombre')
     .optional()
@@ -87,23 +85,15 @@ export const updateCursoValidator = [
     .optional({ nullable: true, checkFalsy: true })
     .trim()
     .matches(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/)
-    .withMessage('El color debe ser un código hexadecimal válido (ej. #3B82F6)')
+    .withMessage('El color debe ser un código hexadecimal válido (ej. #3B82F6)'),
 ];
 
 export const participanteValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de curso inválido'),
+  param('id').isMongoId().withMessage('ID de curso inválido'),
 
-  body('nombre')
-    .notEmpty()
-    .withMessage('El nombre es requerido')
-    .trim(),
+  body('nombre').notEmpty().withMessage('El nombre es requerido').trim(),
 
-  body('apellido')
-    .notEmpty()
-    .withMessage('El apellido es requerido')
-    .trim(),
+  body('apellido').notEmpty().withMessage('El apellido es requerido').trim(),
 
   body('telefono')
     .notEmpty()
@@ -118,11 +108,7 @@ export const participanteValidator = [
     .withMessage('La cédula es requerida')
     .trim()
     .matches(/^\d{6,10}$/)
-    .withMessage('La cédula debe contener entre 6 y 10 dígitos numéricos')
+    .withMessage('La cédula debe contener entre 6 y 10 dígitos numéricos'),
 ];
 
-export const cursoIdValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de curso inválido')
-];
+export const cursoIdValidator = [param('id').isMongoId().withMessage('ID de curso inválido')];

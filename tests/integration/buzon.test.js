@@ -29,7 +29,9 @@ describe('POST /api/buzon — pública', () => {
 
   it('cualquier visitante (sin autenticar) puede enviar un mensaje', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'Interesado', correo: 'interesado@test.edumon.com', telefono: telefonoDePrueba(),
+      nombre: 'Interesado',
+      correo: 'interesado@test.edumon.com',
+      telefono: telefonoDePrueba(),
       mensaje: 'Quiero información sobre el colegio',
     });
     expect(res.status).toBe(201);
@@ -40,7 +42,9 @@ describe('POST /api/buzon — pública', () => {
   it('notifica al superadmin cuando llega un mensaje (si existe uno)', async () => {
     await crearSuperadmin();
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'Interesado', correo: 'interesado@test.edumon.com', telefono: telefonoDePrueba(),
+      nombre: 'Interesado',
+      correo: 'interesado@test.edumon.com',
+      telefono: telefonoDePrueba(),
       mensaje: 'Quiero información sobre el colegio',
     });
     expect(res.status).toBe(201);
@@ -51,14 +55,20 @@ describe('POST /api/buzon — pública', () => {
 
   it('rechaza un mensaje demasiado corto', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'X', correo: 'x@test.edumon.com', telefono: telefonoDePrueba(), mensaje: 'corto',
+      nombre: 'X',
+      correo: 'x@test.edumon.com',
+      telefono: telefonoDePrueba(),
+      mensaje: 'corto',
     });
     expect(res.status).toBe(400);
   });
 
   it('acepta un teléfono sin +57 y lo normaliza', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'Ana', correo: 'x@test.edumon.com', telefono: '3001112233', mensaje: 'Mensaje con longitud suficiente',
+      nombre: 'Ana',
+      correo: 'x@test.edumon.com',
+      telefono: '3001112233',
+      mensaje: 'Mensaje con longitud suficiente',
     });
     expect(res.status).toBe(201);
     const guardado = await Buzon.findOne({ correo: 'x@test.edumon.com' });
@@ -67,21 +77,28 @@ describe('POST /api/buzon — pública', () => {
 
   it('rechaza un teléfono que no es un número de celular válido', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'X', correo: 'x@test.edumon.com', telefono: 'abc', mensaje: 'Mensaje con longitud suficiente',
+      nombre: 'X',
+      correo: 'x@test.edumon.com',
+      telefono: 'abc',
+      mensaje: 'Mensaje con longitud suficiente',
     });
     expect(res.status).toBe(400);
   });
 
   it('acepta un mensaje sin teléfono (campo opcional)', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'Sin Telefono', correo: 'sintelefono@test.edumon.com', mensaje: 'Mensaje sin teléfono, válido',
+      nombre: 'Sin Telefono',
+      correo: 'sintelefono@test.edumon.com',
+      mensaje: 'Mensaje sin teléfono, válido',
     });
     expect(res.status).toBe(201);
   });
 
   it('guarda la institución cuando se envía', async () => {
     const res = await request(app).post('/api/buzon').set('X-Forwarded-For', ipDePrueba()).send({
-      nombre: 'Con Institucion', correo: 'coninstitucion@test.edumon.com', institucion: 'Colegio de Prueba',
+      nombre: 'Con Institucion',
+      correo: 'coninstitucion@test.edumon.com',
+      institucion: 'Colegio de Prueba',
       mensaje: 'Mensaje con institución, válido',
     });
     expect(res.status).toBe(201);
@@ -92,7 +109,10 @@ describe('POST /api/buzon — pública', () => {
   it('el rate limit público (3 cada 15 min por IP) corta al cuarto envío', async () => {
     const ip = ipDePrueba();
     const datos = () => ({
-      nombre: 'Repetido', correo: 'repetido@test.edumon.com', telefono: telefonoDePrueba(), mensaje: 'Mensaje repetido válido',
+      nombre: 'Repetido',
+      correo: 'repetido@test.edumon.com',
+      telefono: telefonoDePrueba(),
+      mensaje: 'Mensaje repetido válido',
     });
     for (let i = 0; i < 3; i += 1) {
       const ok = await request(app).post('/api/buzon').set('X-Forwarded-For', ip).send(datos());
@@ -105,7 +125,9 @@ describe('POST /api/buzon — pública', () => {
 
 describe('GET /api/buzon y PATCH /:id/leido — solo superadmin', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un padre no puede leer el buzón', async () => {
     const padre = await crearPadre();

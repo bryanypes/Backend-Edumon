@@ -20,7 +20,7 @@ const publico = (apk) => ({
   nombreArchivo: apk.nombreArchivo ?? null,
   obligatoria: apk.obligatoria,
   activa: apk.activa,
-  fecha: apk.createdAt
+  fecha: apk.createdAt,
 });
 
 // Guarda el .apk en el almacenamiento local. Devuelve { url, publicId }.
@@ -91,7 +91,7 @@ export const subirApk = async (req, res) => {
       nombreArchivo: req.file.originalname,
       obligatoria: obligatoria === true || obligatoria === 'true',
       activa: true,
-      subidaPor: req.user.userId
+      subidaPor: req.user.userId,
     });
 
     let guardada;
@@ -100,7 +100,10 @@ export const subirApk = async (req, res) => {
     } catch (saveError) {
       await eliminarArchivoCloudinary(subido.publicId, 'raw', 'upload');
       if (saveError.name === 'ValidationError') {
-        return res.status(400).json({ message: 'Errores de validación', errors: Object.values(saveError.errors).map((e) => ({ path: e.path, msg: e.message })) });
+        return res.status(400).json({
+          message: 'Errores de validación',
+          errors: Object.values(saveError.errors).map((e) => ({ path: e.path, msg: e.message })),
+        });
       }
       throw saveError;
     }
@@ -141,7 +144,10 @@ export const actualizarApk = async (req, res) => {
     res.json({ message: 'Versión actualizada', apk: publico(apk) });
   } catch (error) {
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: 'Errores de validación', errors: Object.values(error.errors).map((e) => ({ path: e.path, msg: e.message })) });
+      return res.status(400).json({
+        message: 'Errores de validación',
+        errors: Object.values(error.errors).map((e) => ({ path: e.path, msg: e.message })),
+      });
     }
     // :id con formato inválido (CastError): 400, igual que al eliminar
     if (responderErrorDeDatos(res, error)) return;

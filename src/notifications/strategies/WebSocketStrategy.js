@@ -2,7 +2,9 @@ import { NotificacionStrategy } from './NotificacionStrategy.js';
 import Notificacion from '../../models/Notificacion.js';
 
 export class WebSocketStrategy extends NotificacionStrategy {
-  nombre() { return 'websocket'; }
+  nombre() {
+    return 'websocket';
+  }
 
   async enviar(usuario, notificacion) {
     try {
@@ -13,7 +15,7 @@ export class WebSocketStrategy extends NotificacionStrategy {
       const room = `user:${userId}`;
 
       io.to(room).emit('notificaciones:nueva', {
-        notificacion: notificacion.toObject ? notificacion.toObject() : notificacion
+        notificacion: notificacion.toObject ? notificacion.toObject() : notificacion,
       });
 
       const noLeidas = await Notificacion.contarNoLeidas(usuario._id);

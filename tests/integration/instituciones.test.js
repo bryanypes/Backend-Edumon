@@ -12,15 +12,30 @@ import MensajeForo from '../../src/models/MensajeForo.js';
 import Evento from '../../src/models/Evento.js';
 import PerfilFamiliar from '../../src/models/PerfilFamiliar.js';
 import {
-  crearAdministrador, crearSuperadmin, crearInstitucion, crearDocente, crearPadre,
-  crearCurso, crearModulo, crearTarea, crearEntrega, crearForo, crearMensajeForo, crearEvento,
-  crearPerfilFamiliar, cedulaDePrueba, telefonoDePrueba, CONTRASEÑA_PRUEBA,
+  crearAdministrador,
+  crearSuperadmin,
+  crearInstitucion,
+  crearDocente,
+  crearPadre,
+  crearCurso,
+  crearModulo,
+  crearTarea,
+  crearEntrega,
+  crearForo,
+  crearMensajeForo,
+  crearEvento,
+  crearPerfilFamiliar,
+  cedulaDePrueba,
+  telefonoDePrueba,
+  CONTRASEÑA_PRUEBA,
 } from '../helpers/factories.js';
 import { loginComo } from '../helpers/authClient.js';
 
 describe('POST /api/instituciones — solo superadmin', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un administrador no puede crear instituciones', async () => {
     const admin = await crearAdministrador();
@@ -57,8 +72,12 @@ describe('POST /api/instituciones — solo superadmin', () => {
     const agent = await loginComo(app, superadmin);
 
     const res = await agent.post('/api/instituciones').send({
-      nombre: 'Otra', nit: institucionExistente.nit,
-      adminNombre: 'A', adminApellido: 'B', adminCedula: cedulaDePrueba(), adminTelefono: telefonoDePrueba(),
+      nombre: 'Otra',
+      nit: institucionExistente.nit,
+      adminNombre: 'A',
+      adminApellido: 'B',
+      adminCedula: cedulaDePrueba(),
+      adminTelefono: telefonoDePrueba(),
     });
     expect(res.status).toBe(400);
   });
@@ -68,8 +87,11 @@ describe('POST /api/instituciones — solo superadmin', () => {
     const agent = await loginComo(app, superadmin);
 
     const res = await agent.post('/api/instituciones').send({
-      nombre: 'Colegio Nuevo', nit: `NIT-${Date.now()}`,
-      adminNombre: 'Carlos', adminApellido: 'Pérez', adminCedula: cedulaDePrueba(),
+      nombre: 'Colegio Nuevo',
+      nit: `NIT-${Date.now()}`,
+      adminNombre: 'Carlos',
+      adminApellido: 'Pérez',
+      adminCedula: cedulaDePrueba(),
       adminTelefono: '123',
     });
     expect(res.status).toBe(400);
@@ -82,8 +104,10 @@ describe('POST /api/instituciones — solo superadmin', () => {
 
     const nit = `NIT-${Date.now()}`;
     const res = await agent.post('/api/instituciones').send({
-      nombre: 'Colegio Huérfano', nit,
-      adminNombre: 'Carlos', adminApellido: 'Pérez',
+      nombre: 'Colegio Huérfano',
+      nit,
+      adminNombre: 'Carlos',
+      adminApellido: 'Pérez',
       adminCedula: adminExistente.cedula, // cédula ya usada -> admin.save() falla
       adminTelefono: telefonoDePrueba(),
     });
@@ -93,9 +117,12 @@ describe('POST /api/instituciones — solo superadmin', () => {
 
     // como no quedó nada huérfano, reintentar con el mismo NIT y otra cédula debe funcionar
     const reintento = await agent.post('/api/instituciones').send({
-      nombre: 'Colegio Huérfano', nit,
-      adminNombre: 'Carlos', adminApellido: 'Pérez',
-      adminCedula: cedulaDePrueba(), adminTelefono: telefonoDePrueba(),
+      nombre: 'Colegio Huérfano',
+      nit,
+      adminNombre: 'Carlos',
+      adminApellido: 'Pérez',
+      adminCedula: cedulaDePrueba(),
+      adminTelefono: telefonoDePrueba(),
     });
     expect(reintento.status).toBe(201);
   });
@@ -103,7 +130,9 @@ describe('POST /api/instituciones — solo superadmin', () => {
 
 describe('GET /api/instituciones — solo superadmin', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un docente no puede listar instituciones', async () => {
     const docente = await crearDocente();
@@ -126,7 +155,9 @@ describe('GET /api/instituciones — solo superadmin', () => {
 
 describe('GET /api/instituciones/mi-institucion', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un administrador ve los datos de su propia institución', async () => {
     const institucion = await crearInstitucion();
@@ -155,7 +186,9 @@ describe('GET /api/instituciones/mi-institucion', () => {
 
 describe('POST /api/instituciones/docentes — preregistro individual', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el administrador preregistra un docente con contraseña = cédula', async () => {
     const institucion = await crearInstitucion();
@@ -164,7 +197,10 @@ describe('POST /api/instituciones/docentes — preregistro individual', () => {
 
     const cedula = cedulaDePrueba();
     const res = await agent.post('/api/instituciones/docentes').send({
-      nombre: 'Prof', apellido: 'Nuevo', cedula, telefono: telefonoDePrueba(),
+      nombre: 'Prof',
+      apellido: 'Nuevo',
+      cedula,
+      telefono: telefonoDePrueba(),
     });
 
     expect(res.status).toBe(201);
@@ -177,7 +213,9 @@ describe('POST /api/instituciones/docentes — preregistro individual', () => {
   it('un superadmin no puede usar esta ruta de preregistro (reservada a "administrador")', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
-    const res = await agent.post('/api/instituciones/docentes').send({ nombre: 'X', apellido: 'Y', cedula: cedulaDePrueba() });
+    const res = await agent
+      .post('/api/instituciones/docentes')
+      .send({ nombre: 'X', apellido: 'Y', cedula: cedulaDePrueba() });
     expect(res.status).toBe(403);
   });
 
@@ -188,7 +226,9 @@ describe('POST /api/instituciones/docentes — preregistro individual', () => {
 
     const sinCedula = await agent.post('/api/instituciones/docentes').send({ nombre: 'Prof', apellido: 'Nuevo' });
     expect(sinCedula.status).toBe(400);
-    const cedulaInvalida = await agent.post('/api/instituciones/docentes').send({ nombre: 'Prof', apellido: 'Nuevo', cedula: '12ab' });
+    const cedulaInvalida = await agent
+      .post('/api/instituciones/docentes')
+      .send({ nombre: 'Prof', apellido: 'Nuevo', cedula: '12ab' });
     expect(cedulaInvalida.status).toBe(400);
     expect(cedulaInvalida.body.message).toMatch(/cédula/i);
   });
@@ -196,7 +236,9 @@ describe('POST /api/instituciones/docentes — preregistro individual', () => {
 
 describe('PUT /api/instituciones/:id', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el superadmin puede actualizar los datos generales de una institución', async () => {
     const institucion = await crearInstitucion();
@@ -220,7 +262,9 @@ describe('PUT /api/instituciones/:id', () => {
 
 describe('PATCH /api/instituciones/:id/estado', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el superadmin desactiva una institución', async () => {
     const institucion = await crearInstitucion();
@@ -292,14 +336,18 @@ describe('PATCH /api/instituciones/:id/estado', () => {
     const institucion = await crearInstitucion({ activo: false });
     const admin = await crearAdministrador({ institucionId: institucion._id });
 
-    const res = await request(app).post('/api/auth/login').send({ telefono: admin.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: admin.telefono, contraseña: CONTRASEÑA_PRUEBA });
     expect(res.status).toBe(401);
   });
 });
 
 describe('DELETE /api/instituciones/:id — soft delete (no borra nada), solo superadmin', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un administrador no puede "eliminar" instituciones', async () => {
     const institucion = await crearInstitucion();
@@ -334,7 +382,7 @@ describe('DELETE /api/instituciones/:id — soft delete (no borra nada), solo su
     const docenteA = await crearDocente({ institucionId: institucionA._id });
     const adminA = await crearAdministrador({ institucionId: institucionA._id });
     const padreCompartido = await crearPadre(); // va a quedar en instituciónA Y institución B
-    const padreSoloDeA = await crearPadre();    // solo tiene curso en institución A
+    const padreSoloDeA = await crearPadre(); // solo tiene curso en institución A
 
     const cursoA = await crearCurso({
       institucionId: institucionA._id,
@@ -406,10 +454,14 @@ describe('DELETE /api/instituciones/:id — soft delete (no borra nada), solo su
 
     await agent.delete(`/api/instituciones/${institucion._id}`);
 
-    const loginDocente = await request(app).post('/api/auth/login').send({ telefono: docente.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    const loginDocente = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: docente.telefono, contraseña: CONTRASEÑA_PRUEBA });
     expect(loginDocente.status).toBe(401);
 
-    const loginPadre = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    const loginPadre = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
     expect(loginPadre.status).toBe(401);
   });
 });

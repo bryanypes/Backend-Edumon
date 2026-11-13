@@ -18,12 +18,15 @@ const DESTINO = process.argv[2] || 'karen.mancilla.s@uniautonoma.edu.co';
 const usuario = { nombre: 'Karen', correo: DESTINO };
 
 const notificaciones = [
-  { tipo: 'tarea',        mensaje: 'Nuevo reto: "Taller de fracciones". Entrega: 15 de septiembre de 2026, 11:59 PM' },
-  { tipo: 'entrega',      mensaje: 'Sofía Ramírez entregó "Taller de fracciones". Ya puedes calificarla.' },
-  { tipo: 'calificacion', mensaje: '"Taller de fracciones" fue calificada por el docente Andrés Gómez. Valoración: 5/5' },
-  { tipo: 'foro',         mensaje: 'El docente Andrés Gómez publicó en el foro "Dudas de la Unidad 1"' },
-  { tipo: 'evento',       mensaje: 'Nuevo evento: "Escuela de Padres" — 12 de septiembre de 2026 a las 17:00' },
-  { tipo: 'sistema',      mensaje: '¡Bienvenido a Edumon! Usa tu cédula como contraseña.' },
+  { tipo: 'tarea', mensaje: 'Nuevo reto: "Taller de fracciones". Entrega: 15 de septiembre de 2026, 11:59 PM' },
+  { tipo: 'entrega', mensaje: 'Sofía Ramírez entregó "Taller de fracciones". Ya puedes calificarla.' },
+  {
+    tipo: 'calificacion',
+    mensaje: '"Taller de fracciones" fue calificada por el docente Andrés Gómez. Valoración: 5/5',
+  },
+  { tipo: 'foro', mensaje: 'El docente Andrés Gómez publicó en el foro "Dudas de la Unidad 1"' },
+  { tipo: 'evento', mensaje: 'Nuevo evento: "Escuela de Padres" — 12 de septiembre de 2026 a las 17:00' },
+  { tipo: 'sistema', mensaje: '¡Bienvenido a Edumon! Usa tu cédula como contraseña.' },
 ];
 
 if (!process.env.SMTP_HOST) {

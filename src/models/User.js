@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
-import { AVATAR_PREDETERMINADO } from "../utils/avatarPredeterminado.js";
-import { normalizarCorreo, esCorreoValido } from "../utils/correo.js";
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import { AVATAR_PREDETERMINADO } from '../utils/avatarPredeterminado.js';
+import { normalizarCorreo, esCorreoValido } from '../utils/correo.js';
 
 const userSchema = new mongoose.Schema(
   {
@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
         validator: function (v) {
           return /^\d{6,10}$/.test(v);
         },
-        message: "La cédula debe contener entre 6 y 10 dígitos numéricos",
+        message: 'La cédula debe contener entre 6 y 10 dígitos numéricos',
       },
     },
     correo: {
@@ -27,13 +27,13 @@ const userSchema = new mongoose.Schema(
       set: normalizarCorreo,
       validate: {
         validator: (v) => !v || esCorreoValido(v),
-        message: "El correo electrónico no es válido",
+        message: 'El correo electrónico no es válido',
       },
     },
     contraseña: { type: String, required: true, minlength: 6 },
     rol: {
       type: String,
-      enum: ["padre", "docente", "administrador", "superadmin"],
+      enum: ['padre', 'docente', 'administrador', 'superadmin'],
       required: true,
     },
     // Usado como credencial de login (User.findOne({ telefono })) — indexado por eso
@@ -57,12 +57,12 @@ const userSchema = new mongoose.Schema(
     },
     estado: {
       type: String,
-      enum: ["activo", "suspendido"],
-      default: "activo",
+      enum: ['activo', 'suspendido'],
+      default: 'activo',
     },
     fotoPerfilUrl: {
       type: String,
-      default: AVATAR_PREDETERMINADO, 
+      default: AVATAR_PREDETERMINADO,
     },
     fcmToken: {
       type: String,
@@ -86,7 +86,7 @@ const userSchema = new mongoose.Schema(
     },
     institucionId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Institucion",
+      ref: 'Institucion',
       default: null,
     },
 
@@ -95,11 +95,11 @@ const userSchema = new mongoose.Schema(
       type: [
         {
           tokenHash: { type: String, required: true },
-          creadoEn:  { type: Date, default: Date.now },
-          expiraEn:  { type: Date, required: true },
+          creadoEn: { type: Date, default: Date.now },
+          expiraEn: { type: Date, required: true },
           userAgent: { type: String, default: '' },
-          ip:        { type: String, default: '' },
-        }
+          ip: { type: String, default: '' },
+        },
       ],
       default: [],
       select: false,
@@ -114,8 +114,8 @@ userSchema.index({ 'refreshTokens.expiraEn': 1 }, { expireAfterSeconds: 0 });
 userSchema.index({ institucionId: 1, rol: 1 });
 userSchema.index({ rol: 1 });
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("contraseña")) return next();
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('contraseña')) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.contraseña = await bcrypt.hash(this.contraseña, salt);
@@ -139,4 +139,4 @@ userSchema.methods.toJSON = function () {
   return obj;
 };
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model('User', userSchema);

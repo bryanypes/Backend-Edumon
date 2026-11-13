@@ -10,7 +10,7 @@ export const enviarMensaje = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         message: 'Errores de validación',
-        errors: errors.array()
+        errors: errors.array(),
       });
     }
 
@@ -26,15 +26,14 @@ export const enviarMensaje = async (req, res) => {
     if (superadmin) {
       eventBus.publicar(EVENTOS.BUZON_MENSAJE_RECIBIDO, {
         destinatario: superadmin,
-        mensaje: nuevoMensaje
+        mensaje: nuevoMensaje,
       });
     }
 
     res.status(201).json({
       success: true,
-      message: 'Mensaje enviado exitosamente. Nos pondremos en contacto contigo pronto.'
+      message: 'Mensaje enviado exitosamente. Nos pondremos en contacto contigo pronto.',
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al enviar mensaje al buzón:', error);
@@ -53,12 +52,8 @@ export const obtenerMensajes = async (req, res) => {
     if (leido !== undefined) filter.leido = leido === 'true';
 
     const [mensajes, total] = await Promise.all([
-      Buzon.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Buzon.countDocuments(filter)
+      Buzon.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Buzon.countDocuments(filter),
     ]);
 
     res.status(200).json({
@@ -69,10 +64,9 @@ export const obtenerMensajes = async (req, res) => {
         totalPages: Math.ceil(total / limit),
         total,
         hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1
-      }
+        hasPrevPage: page > 1,
+      },
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener mensajes del buzón:', error);
@@ -84,18 +78,13 @@ export const marcarLeido = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const mensaje = await Buzon.findByIdAndUpdate(
-      id,
-      { leido: true },
-      { new: true }
-    );
+    const mensaje = await Buzon.findByIdAndUpdate(id, { leido: true }, { new: true });
 
     if (!mensaje) {
       return res.status(404).json({ error: 'Mensaje no encontrado' });
     }
 
     res.status(200).json({ success: true, mensaje });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar mensaje como leído:', error);

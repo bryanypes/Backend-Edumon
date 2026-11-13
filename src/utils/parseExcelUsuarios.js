@@ -6,7 +6,11 @@ function celdaATexto(valor) {
   if (valor === null || valor === undefined) return '';
   if (typeof valor === 'object') {
     if ('result' in valor) return celdaATexto(valor.result);
-    if (Array.isArray(valor.richText)) return valor.richText.map((t) => t.text).join('').trim();
+    if (Array.isArray(valor.richText))
+      return valor.richText
+        .map((t) => t.text)
+        .join('')
+        .trim();
     if ('text' in valor) return celdaATexto(valor.text);
     return '';
   }
@@ -24,15 +28,17 @@ export async function parseFilasUsuarios(buffer) {
   const filas = [];
   hoja.eachRow((row) => {
     filas.push({
-      nombre:   celdaATexto(row.getCell(1).value),
+      nombre: celdaATexto(row.getCell(1).value),
       apellido: celdaATexto(row.getCell(2).value),
       telefono: celdaATexto(row.getCell(3).value),
-      cedula:   celdaATexto(row.getCell(4).value),
+      cedula: celdaATexto(row.getCell(4).value),
     });
   });
 
-  return filas
-    // Salta la fila de encabezados si el archivo la incluye
-    .filter((fila) => !(fila.nombre === 'nombre' && fila.apellido === 'apellido'))
-    .filter((fila) => fila.nombre && fila.apellido && fila.cedula);
+  return (
+    filas
+      // Salta la fila de encabezados si el archivo la incluye
+      .filter((fila) => !(fila.nombre === 'nombre' && fila.apellido === 'apellido'))
+      .filter((fila) => fila.nombre && fila.apellido && fila.cedula)
+  );
 }

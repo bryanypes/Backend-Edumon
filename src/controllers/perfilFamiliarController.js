@@ -15,45 +15,47 @@ export const crearPerfil = async (req, res) => {
     // Máximo 5 perfiles por titular
     const totalPerfiles = await PerfilFamiliar.countDocuments({
       titularId,
-      activo: true
+      activo: true,
     });
 
     if (totalPerfiles >= 5) {
       return res.status(400).json({
-        message: 'Máximo 5 perfiles por cuenta'
+        message: 'Máximo 5 perfiles por cuenta',
       });
     }
 
     const perfil = new PerfilFamiliar({
       titularId,
       nombre,
-      avatarUrl: avatarUrl || null
+      avatarUrl: avatarUrl || null,
     });
 
     await perfil.save();
 
     res.status(201).json({
       message: 'Perfil creado exitosamente',
-      perfil
+      perfil,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('[crearPerfil]', error);
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
 export const getMisPerfiles = async (req, res) => {
   try {
     const titularId = req.user.userId;
-    const titular = await User.findById(titularId)
-      .select('nombre avatarUrl fotoPerfilUrl fcmToken')
-      .lean();
+    const titular = await User.findById(titularId).select('nombre avatarUrl fotoPerfilUrl fcmToken').lean();
 
     const perfiles = await PerfilFamiliar.find({
       titularId,
-      activo: true
-    }).sort({ createdAt: 1 }).lean();
+      activo: true,
+    })
+      .sort({ createdAt: 1 })
+      .lean();
 
     res.json({
       // El titular aparece primero como perfil principal
@@ -61,13 +63,15 @@ export const getMisPerfiles = async (req, res) => {
         _id: titular._id,
         nombre: titular.nombre,
         avatarUrl: titular.fotoPerfilUrl,
-        esTitular: true
+        esTitular: true,
       },
-      perfiles
+      perfiles,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -93,20 +97,20 @@ export const seleccionarPerfil = async (req, res) => {
           _id: titularId,
           nombre: titular.nombre,
           avatarUrl: titular.fotoPerfilUrl,
-          esTitular: true
-        }
+          esTitular: true,
+        },
       });
     }
 
     const perfil = await PerfilFamiliar.findOne({
       _id: perfilId,
       titularId,
-      activo: true
+      activo: true,
     }).lean();
 
     if (!perfil) {
       return res.status(404).json({
-        message: 'Perfil no encontrado o no pertenece a tu cuenta'
+        message: 'Perfil no encontrado o no pertenece a tu cuenta',
       });
     }
 
@@ -119,13 +123,15 @@ export const seleccionarPerfil = async (req, res) => {
         _id: perfil._id,
         nombre: perfil.nombre,
         avatarUrl: perfil.avatarUrl,
-        esTitular: false
-      }
+        esTitular: false,
+      },
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('[seleccionarPerfil]', error);
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -138,7 +144,7 @@ export const actualizarPerfil = async (req, res) => {
     const perfil = await PerfilFamiliar.findOneAndUpdate(
       { _id: id, titularId, activo: true },
       { nombre, avatarUrl },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).lean();
 
     if (!perfil) {
@@ -148,7 +154,9 @@ export const actualizarPerfil = async (req, res) => {
     res.json({ message: 'Perfil actualizado', perfil });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -161,7 +169,7 @@ export const eliminarPerfil = async (req, res) => {
     const perfil = await PerfilFamiliar.findOneAndUpdate(
       { _id: id, titularId, activo: true },
       { activo: false },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!perfil) {
@@ -171,7 +179,9 @@ export const eliminarPerfil = async (req, res) => {
     res.json({ message: 'Perfil eliminado' });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -189,7 +199,7 @@ export const guardarFCMTokenPerfil = async (req, res) => {
     if (!perfilId || perfilId === 'titular') {
       await User.findByIdAndUpdate(titularId, {
         fcmToken,
-        fcmTokenActualizadoEn: new Date()
+        fcmTokenActualizadoEn: new Date(),
       });
       return res.json({ message: 'FCM token del titular guardado' });
     }
@@ -197,7 +207,7 @@ export const guardarFCMTokenPerfil = async (req, res) => {
     const perfil = await PerfilFamiliar.findOneAndUpdate(
       { _id: perfilId, titularId, activo: true },
       { fcmToken, fcmTokenActualizadoEn: new Date() },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!perfil) {
@@ -207,6 +217,8 @@ export const guardarFCMTokenPerfil = async (req, res) => {
     res.json({ message: `FCM token del perfil "${perfil.nombre}" guardado` });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };

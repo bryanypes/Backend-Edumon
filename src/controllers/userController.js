@@ -26,8 +26,7 @@ async function adminPuedeGestionarUsuario(actor, objetivo) {
     });
   }
 
-  return !!objetivo.institucionId &&
-    objetivo.institucionId.toString() === actor.institucionId;
+  return !!objetivo.institucionId && objetivo.institucionId.toString() === actor.institucionId;
 }
 
 // Crear usuario (desde panel de administración)
@@ -36,8 +35,8 @@ export const createUser = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -48,10 +47,12 @@ export const createUser = async (req, res) => {
     // y colocar docentes en instituciones ajenas.
     if (req.user.rol === 'administrador') {
       if (!['padre', 'docente'].includes(rol)) {
-        return res.status(403).json({ message: "Un administrador solo puede crear usuarios con rol 'padre' o 'docente'" });
+        return res
+          .status(403)
+          .json({ message: "Un administrador solo puede crear usuarios con rol 'padre' o 'docente'" });
       }
       if (!req.user.institucionId) {
-        return res.status(400).json({ message: "No tienes institución asignada" });
+        return res.status(400).json({ message: 'No tienes institución asignada' });
       }
     }
 
@@ -60,26 +61,26 @@ export const createUser = async (req, res) => {
     const [superadminExistente, existingCedula, existingCorreo, existingTelefono] = await Promise.all([
       rol === 'superadmin' ? User.findOne({ rol: 'superadmin' }) : null,
       User.findOne({ cedula }),
-      correo   ? User.findOne({ correo })   : null,
+      correo ? User.findOne({ correo }) : null,
       telefono ? User.findOne({ telefono }) : null,
     ]);
 
     if (rol === 'superadmin' && superadminExistente) {
       return res.status(409).json({
-        message: "Ya existe un superadmin en el sistema. Solo puede haber uno."
+        message: 'Ya existe un superadmin en el sistema. Solo puede haber uno.',
       });
     }
 
     if (existingCedula) {
-      return res.status(409).json({ message: "Ya existe un usuario con esta cédula" });
+      return res.status(409).json({ message: 'Ya existe un usuario con esta cédula' });
     }
 
     if (correo && existingCorreo) {
-      return res.status(409).json({ message: "Ya existe un usuario con este correo electrónico" });
+      return res.status(409).json({ message: 'Ya existe un usuario con este correo electrónico' });
     }
 
     if (telefono && existingTelefono) {
-      return res.status(409).json({ message: "Ya existe un usuario con este teléfono" });
+      return res.status(409).json({ message: 'Ya existe un usuario con este teléfono' });
     }
 
     let institucionFinal = null;
@@ -100,34 +101,34 @@ export const createUser = async (req, res) => {
       rol,
       telefono,
       institucionId: institucionFinal,
-      fotoPerfilUrl: AVATAR_PREDETERMINADO
+      fotoPerfilUrl: AVATAR_PREDETERMINADO,
     });
 
     const savedUser = await newUser.save();
 
     res.status(201).json({
-      message: "Usuario creado exitosamente",
-      user: savedUser
+      message: 'Usuario creado exitosamente',
+      user: savedUser,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear usuario:', error);
     res.status(500).json({
-      message: "Error interno del servidor",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
 
 export const getUsers = async (req, res) => {
   try {
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
     const { rol, estado } = req.query;
 
     const filter = {};
-    if (rol)    filter.rol    = rol;
+    if (rol) filter.rol = rol;
     if (estado) filter.estado = estado;
 
     // el admin solo ve usuarios de su institución; el superadmin ve todos.
@@ -136,19 +137,12 @@ export const getUsers = async (req, res) => {
     // esta lista sin padres siempre, para cualquier admin. Se agregan por
     // separado, vía los cursos de la institución.
     if (req.user.rol === 'administrador') {
-      const padresIds = await Curso.find({ institucionId: req.user.institucionId })
-        .distinct('participantes.usuarioId');
+      const padresIds = await Curso.find({ institucionId: req.user.institucionId }).distinct('participantes.usuarioId');
 
-      filter.$or = [
-        { institucionId: req.user.institucionId },
-        { _id: { $in: padresIds }, rol: 'padre' },
-      ];
+      filter.$or = [{ institucionId: req.user.institucionId }, { _id: { $in: padresIds }, rol: 'padre' }];
     }
 
-    const users = await User.find(filter)
-      .skip(skip)
-      .limit(limit)
-      .sort({ fechaRegistro: -1 });
+    const users = await User.find(filter).skip(skip).limit(limit).sort({ fechaRegistro: -1 });
 
     const total = await User.countDocuments(filter);
 
@@ -159,13 +153,13 @@ export const getUsers = async (req, res) => {
         totalPages: Math.ceil(total / limit),
         totalUsers: total,
         hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1
-      }
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener usuarios:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -174,26 +168,26 @@ export const getUserById = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     if (!(await adminPuedeGestionarUsuario(req.user, user))) {
-      return res.status(403).json({ message: "No puedes ver usuarios de otra institución" });
+      return res.status(403).json({ message: 'No puedes ver usuarios de otra institución' });
     }
 
     res.json(user);
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener usuario:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -203,14 +197,14 @@ export const getProfile = async (req, res) => {
     const user = await User.findById(req.user.userId);
 
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     res.json(user);
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener perfil:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -220,8 +214,8 @@ export const updateUser = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -234,10 +228,10 @@ export const updateUser = async (req, res) => {
 
     const usuarioObjetivo = await User.findById(id);
     if (!usuarioObjetivo) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
     if (!(await adminPuedeGestionarUsuario(req.user, usuarioObjetivo))) {
-      return res.status(403).json({ message: "No puedes modificar usuarios de otra institución" });
+      return res.status(403).json({ message: 'No puedes modificar usuarios de otra institución' });
     }
 
     // campos protegidos, nunca se actualizan por esta ruta
@@ -245,7 +239,7 @@ export const updateUser = async (req, res) => {
     delete updateData._id;
     delete updateData.fechaRegistro;
     delete updateData.modoOscuro; // se maneja por su propia ruta
-    delete updateData.estado;     // se maneja por DELETE /:id (suspender) y /:id/reactivar, que sí validan cursos activos etc.
+    delete updateData.estado; // se maneja por DELETE /:id (suspender) y /:id/reactivar, que sí validan cursos activos etc.
     delete updateData.esTitular;
 
     // Cambiar rol/institución: antes se borraban sin más (updateUser nunca
@@ -265,43 +259,43 @@ export const updateUser = async (req, res) => {
       if (nuevoRol === 'superadmin') {
         const superadminExistente = await User.findOne({ rol: 'superadmin', _id: { $ne: id } });
         if (superadminExistente) {
-          return res.status(409).json({ message: "Ya existe un superadmin en el sistema. Solo puede haber uno." });
+          return res.status(409).json({ message: 'Ya existe un superadmin en el sistema. Solo puede haber uno.' });
         }
       }
 
       updateData.rol = nuevoRol;
       if (nuevoRol === 'docente' || nuevoRol === 'administrador') {
-        updateData.institucionId = req.user.rol === 'administrador'
-          ? req.user.institucionId
-          : (updateData.institucionId ?? usuarioObjetivo.institucionId);
+        updateData.institucionId =
+          req.user.rol === 'administrador'
+            ? req.user.institucionId
+            : (updateData.institucionId ?? usuarioObjetivo.institucionId);
         if (!updateData.institucionId) {
-          return res.status(400).json({ message: "La institución es requerida para docentes y administradores" });
+          return res.status(400).json({ message: 'La institución es requerida para docentes y administradores' });
         }
       } else {
         updateData.institucionId = null;
       }
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      conCorreoVacioComoUnset(updateData),
-      { new: true, runValidators: true }
-    );
+    const updatedUser = await User.findByIdAndUpdate(id, conCorreoVacioComoUnset(updateData), {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedUser) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     res.json({
-      message: "Usuario actualizado exitosamente",
-      user: updatedUser
+      message: 'Usuario actualizado exitosamente',
+      user: updatedUser,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar usuario:', error);
     res.status(500).json({
-      message: "Error interno del servidor",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -313,8 +307,8 @@ export const updateOwnProfile = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -326,43 +320,42 @@ export const updateOwnProfile = async (req, res) => {
     }
 
     const [existingCorreo, existingTelefono] = await Promise.all([
-      correo   ? User.findOne({ correo, _id: { $ne: userId } })   : null,
+      correo ? User.findOne({ correo, _id: { $ne: userId } }) : null,
       telefono ? User.findOne({ telefono, _id: { $ne: userId } }) : null,
     ]);
 
     if (correo && existingCorreo) {
-      return res.status(409).json({ message: "Ya existe un usuario con este correo electrónico" });
+      return res.status(409).json({ message: 'Ya existe un usuario con este correo electrónico' });
     }
     if (telefono && existingTelefono) {
-      return res.status(409).json({ message: "Ya existe un usuario con este teléfono" });
+      return res.status(409).json({ message: 'Ya existe un usuario con este teléfono' });
     }
 
     const updateData = {};
-    if (nombre   !== undefined) updateData.nombre   = nombre;
+    if (nombre !== undefined) updateData.nombre = nombre;
     if (apellido !== undefined) updateData.apellido = apellido;
-    if (correo   !== undefined) updateData.correo   = correo;
+    if (correo !== undefined) updateData.correo = correo;
     if (telefono !== undefined) updateData.telefono = telefono;
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      conCorreoVacioComoUnset(updateData),
-      { new: true, runValidators: true }
-    );
+    const updatedUser = await User.findByIdAndUpdate(userId, conCorreoVacioComoUnset(updateData), {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedUser) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     res.json({
-      message: "Perfil actualizado exitosamente",
-      user: updatedUser
+      message: 'Perfil actualizado exitosamente',
+      user: updatedUser,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar el propio perfil:', error);
     res.status(500).json({
-      message: "Error interno del servidor",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -375,17 +368,19 @@ export const cambiarContrasenaUsuario = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
     }
 
     const usuario = await User.findById(req.params.id).select('+refreshTokens');
-    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado' });
 
     if (req.user.rol === 'administrador' && !['padre', 'docente'].includes(usuario.rol)) {
-      return res.status(403).json({ message: "Un administrador solo puede cambiar la contraseña de padres y docentes" });
+      return res
+        .status(403)
+        .json({ message: 'Un administrador solo puede cambiar la contraseña de padres y docentes' });
     }
     if (!(await adminPuedeGestionarUsuario(req.user, usuario))) {
-      return res.status(403).json({ message: "No puedes modificar usuarios de otra institución" });
+      return res.status(403).json({ message: 'No puedes modificar usuarios de otra institución' });
     }
 
     const restablecer = req.body.restablecer === true;
@@ -397,15 +392,13 @@ export const cambiarContrasenaUsuario = async (req, res) => {
     await usuario.save();
 
     res.json({
-      message: restablecer
-        ? "Contraseña restablecida: ahora es la cédula del usuario"
-        : "Contraseña actualizada",
+      message: restablecer ? 'Contraseña restablecida: ahora es la cédula del usuario' : 'Contraseña actualizada',
       primerInicioSesion: usuario.primerInicioSesion,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cambiar la contraseña:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -415,8 +408,8 @@ export const deleteUser = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -424,41 +417,35 @@ export const deleteUser = async (req, res) => {
 
     const userASuspender = await User.findById(id);
     if (!userASuspender) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     if (!(await adminPuedeGestionarUsuario(req.user, userASuspender))) {
-      return res.status(403).json({ message: "No puedes suspender usuarios de otra institución" });
+      return res.status(403).json({ message: 'No puedes suspender usuarios de otra institución' });
     }
 
     // bloquear suspensión si el docente tiene cursos activos, para no dejarlos huérfanos
     if (userASuspender.rol === 'docente') {
-      const cursosActivos = await Curso.find({ docenteId: id, estado: 'activo' })
-        .select('nombre codigoCurso')
-        .lean();
+      const cursosActivos = await Curso.find({ docenteId: id, estado: 'activo' }).select('nombre codigoCurso').lean();
 
       if (cursosActivos.length > 0) {
         return res.status(400).json({
-          message: "No se puede suspender: el docente tiene cursos activos. Reasigna o archiva estos cursos primero.",
-          cursosActivos
+          message: 'No se puede suspender: el docente tiene cursos activos. Reasigna o archiva estos cursos primero.',
+          cursosActivos,
         });
       }
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      { estado: 'suspendido' },
-      { new: true }
-    );
+    const updatedUser = await User.findByIdAndUpdate(id, { estado: 'suspendido' }, { new: true });
 
     res.json({
-      message: "Usuario suspendido exitosamente",
-      user: updatedUser
+      message: 'Usuario suspendido exitosamente',
+      user: updatedUser,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al suspender usuario:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -468,8 +455,8 @@ export const reactivateUser = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -477,26 +464,26 @@ export const reactivateUser = async (req, res) => {
 
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
     if (!(await adminPuedeGestionarUsuario(req.user, user))) {
-      return res.status(403).json({ message: "No puedes reactivar usuarios de otra institución" });
+      return res.status(403).json({ message: 'No puedes reactivar usuarios de otra institución' });
     }
     if (user.estado === 'activo') {
-      return res.status(400).json({ message: "El usuario ya está activo" });
+      return res.status(400).json({ message: 'El usuario ya está activo' });
     }
 
     user.estado = 'activo';
     await user.save();
 
     res.json({
-      message: "Usuario reactivado exitosamente",
-      user
+      message: 'Usuario reactivado exitosamente',
+      user,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al reactivar usuario:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -514,13 +501,13 @@ export const getFotosPredeterminadas = async (req, res) => {
     }));
 
     res.json({
-      message: "Fotos predeterminadas obtenidas exitosamente",
-      fotos
+      message: 'Fotos predeterminadas obtenidas exitosamente',
+      fotos,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener fotos predeterminadas:', error);
-    res.status(500).json({ message: "Error al obtener fotos predeterminadas" });
+    res.status(500).json({ message: 'Error al obtener fotos predeterminadas' });
   }
 };
 
@@ -532,7 +519,7 @@ export const updateFotoPerfil = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     let nuevaFotoUrl = null;
@@ -550,15 +537,11 @@ export const updateFotoPerfil = async (req, res) => {
         return res.status(400).json({ message: 'No se pudo leer la imagen de perfil' });
       }
 
-      const resultado = await subirImagenCloudinary(
-        fileBuffer,
-        req.file.mimetype,
-        'fotos-perfil-usuarios'
-      );
+      const resultado = await subirImagenCloudinary(fileBuffer, req.file.mimetype, 'fotos-perfil-usuarios');
       nuevaFotoUrl = resultado.url;
     } else {
       return res.status(400).json({
-        message: "Debes seleccionar una foto predeterminada o subir una nueva"
+        message: 'Debes seleccionar una foto predeterminada o subir una nueva',
       });
     }
 
@@ -566,15 +549,15 @@ export const updateFotoPerfil = async (req, res) => {
     await user.save();
 
     res.json({
-      message: "Foto de perfil actualizada exitosamente",
-      fotoPerfilUrl: nuevaFotoUrl
+      message: 'Foto de perfil actualizada exitosamente',
+      fotoPerfilUrl: nuevaFotoUrl,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar foto de perfil:', error);
     res.status(500).json({
-      message: "Error al actualizar foto de perfil",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error al actualizar foto de perfil',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -584,8 +567,8 @@ export const updateFcmToken = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -596,26 +579,26 @@ export const updateFcmToken = async (req, res) => {
       userId,
       {
         fcmToken,
-        fcmTokenActualizadoEn: new Date()
+        fcmTokenActualizadoEn: new Date(),
       },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     res.json({
-      message: "Token FCM actualizado exitosamente",
+      message: 'Token FCM actualizado exitosamente',
       fcmToken,
-      actualizadoEn: user.fcmTokenActualizadoEn
+      actualizadoEn: user.fcmTokenActualizadoEn,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar FCM token:', error);
     res.status(500).json({
-      message: "Error al actualizar el token FCM",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error al actualizar el token FCM',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -625,8 +608,8 @@ export const updateModoOscuro = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
@@ -635,30 +618,26 @@ export const updateModoOscuro = async (req, res) => {
 
     if (typeof modoOscuro !== 'boolean') {
       return res.status(400).json({
-        message: "El campo modoOscuro debe ser un booleano (true o false)"
+        message: 'El campo modoOscuro debe ser un booleano (true o false)',
       });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { modoOscuro },
-      { new: true }
-    );
+    const user = await User.findByIdAndUpdate(userId, { modoOscuro }, { new: true });
 
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
     res.json({
       message: `Modo ${modoOscuro ? 'oscuro' : 'claro'} activado exitosamente`,
-      modoOscuro: user.modoOscuro
+      modoOscuro: user.modoOscuro,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar modo de pantalla:', error);
     res.status(500).json({
-      message: "Error al actualizar el modo de pantalla",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error al actualizar el modo de pantalla',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -674,9 +653,9 @@ export const getUltimasSesiones = async (req, res) => {
       return res.json({ ultimoAcceso: user.ultimoAcceso });
     }
 
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const users = await User.find({})
       .select('nombre apellido correo rol ultimoAcceso estado')
@@ -688,21 +667,21 @@ export const getUltimasSesiones = async (req, res) => {
     const total = await User.countDocuments();
 
     return res.json({
-      sesiones: users.map(u => ({
+      sesiones: users.map((u) => ({
         userId: u._id,
         nombre: `${u.nombre} ${u.apellido}`,
         correo: u.correo,
         rol: u.rol,
         estado: u.estado,
-        ultimoAcceso: u.ultimoAcceso ?? null
+        ultimoAcceso: u.ultimoAcceso ?? null,
       })),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
         totalUsuarios: total,
         hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1
-      }
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
@@ -716,24 +695,26 @@ export const getPadreInfo = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Errores de validación",
-        errors: errors.array()
+        message: 'Errores de validación',
+        errors: errors.array(),
       });
     }
 
     const { padreId } = req.params;
 
-    const padre = await User.findById(padreId).select(
-      'nombre apellido cedula correo telefono rol estado esTitular institucionId ' +
-      'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias modoOscuro'
-    ).lean();
+    const padre = await User.findById(padreId)
+      .select(
+        'nombre apellido cedula correo telefono rol estado esTitular institucionId ' +
+          'fotoPerfilUrl fechaRegistro ultimoAcceso primerInicioSesion preferencias modoOscuro',
+      )
+      .lean();
 
     if (!padre) {
-      return res.status(404).json({ message: "Padre/acudiente no encontrado" });
+      return res.status(404).json({ message: 'Padre/acudiente no encontrado' });
     }
 
     if (padre.rol !== 'padre') {
-      return res.status(400).json({ message: "El usuario no tiene rol de padre/acudiente" });
+      return res.status(400).json({ message: 'El usuario no tiene rol de padre/acudiente' });
     }
 
     // sin esto, cualquier usuario autenticado consultaba la cédula/correo/teléfono
@@ -746,15 +727,16 @@ export const getPadreInfo = async (req, res) => {
       autorizado = await Curso.exists({ docenteId: userId, 'participantes.usuarioId': padreId });
     }
     if (!autorizado && rol === 'administrador') {
-      autorizado = (padre.institucionId?.toString() === institucionId)
-        || await Curso.exists({ institucionId, 'participantes.usuarioId': padreId });
+      autorizado =
+        padre.institucionId?.toString() === institucionId ||
+        (await Curso.exists({ institucionId, 'participantes.usuarioId': padreId }));
     }
     if (!autorizado) {
-      return res.status(403).json({ message: "No tienes permiso para ver la información de este padre/acudiente" });
+      return res.status(403).json({ message: 'No tienes permiso para ver la información de este padre/acudiente' });
     }
 
     res.json({
-      message: "Información del padre obtenida exitosamente",
+      message: 'Información del padre obtenida exitosamente',
       padre: {
         id: padre._id,
         nombre: padre.nombre,
@@ -771,11 +753,11 @@ export const getPadreInfo = async (req, res) => {
         modoOscuro: padre.modoOscuro,
         fechaRegistro: padre.fechaRegistro,
         ultimoAcceso: padre.ultimoAcceso ?? null,
-      }
+      },
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener info del padre:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };

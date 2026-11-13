@@ -9,7 +9,9 @@ const apkFalso = () => Buffer.from('PK fake apk payload');
 
 describe('GET /api/apk/actual (público)', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('responde 404 si todavía no se ha subido ninguna versión', async () => {
     const res = await request(app).get('/api/apk/actual');
@@ -27,13 +29,16 @@ describe('GET /api/apk/actual (público)', () => {
 
 describe('POST /api/apk — subir APK', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el superadmin sube un APK y recibe el enlace de descarga', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
 
-    const res = await agent.post('/api/apk')
+    const res = await agent
+      .post('/api/apk')
       .field('version', '1.4.2')
       .field('versionCode', '142')
       .field('notas', 'Arreglos varios')
@@ -51,7 +56,8 @@ describe('POST /api/apk — subir APK', () => {
     const admin = await crearAdministrador({ institucionId: (await crearInstitucion())._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/apk')
+    const res = await agent
+      .post('/api/apk')
       .field('version', '1.0.0')
       .attach('apk', apkFalso(), { filename: 'edumon.apk' });
 
@@ -68,15 +74,15 @@ describe('POST /api/apk — subir APK', () => {
   it('rechaza si falta la versión', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
-    const res = await agent.post('/api/apk')
-      .attach('apk', apkFalso(), { filename: 'edumon.apk' });
+    const res = await agent.post('/api/apk').attach('apk', apkFalso(), { filename: 'edumon.apk' });
     expect(res.status).toBe(400);
   });
 
   it('rechaza un archivo que no es .apk', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
-    const res = await agent.post('/api/apk')
+    const res = await agent
+      .post('/api/apk')
       .field('version', '1.0.0')
       .attach('apk', apkFalso(), { filename: 'virus.exe' });
     expect(res.status).toBe(400);
@@ -86,10 +92,8 @@ describe('POST /api/apk — subir APK', () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
 
-    await agent.post('/api/apk').field('version', '1.0.0')
-      .attach('apk', apkFalso(), { filename: 'v1.apk' });
-    await agent.post('/api/apk').field('version', '2.0.0')
-      .attach('apk', apkFalso(), { filename: 'v2.apk' });
+    await agent.post('/api/apk').field('version', '1.0.0').attach('apk', apkFalso(), { filename: 'v1.apk' });
+    await agent.post('/api/apk').field('version', '2.0.0').attach('apk', apkFalso(), { filename: 'v2.apk' });
 
     const todas = await Apk.find();
     expect(todas).toHaveLength(1);
@@ -103,12 +107,20 @@ describe('POST /api/apk — subir APK', () => {
 
 describe('PUT / DELETE /api/apk/:id', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el superadmin edita las notas de una versión', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
-    const apk = await Apk.create({ version: '1.0.0', url: 'https://cdn/x.apk', publicId: 'apks/x', tamano: 1, activa: true });
+    const apk = await Apk.create({
+      version: '1.0.0',
+      url: 'https://cdn/x.apk',
+      publicId: 'apks/x',
+      tamano: 1,
+      activa: true,
+    });
 
     const res = await agent.put(`/api/apk/${apk._id}`).send({ notas: 'Notas nuevas', obligatoria: true });
     expect(res.status).toBe(200);
@@ -119,7 +131,13 @@ describe('PUT / DELETE /api/apk/:id', () => {
   it('reactivar una versión antigua desactiva las demás', async () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
-    const vieja = await Apk.create({ version: '1.0.0', url: 'https://cdn/v1.apk', publicId: 'apks/v1', tamano: 1, activa: false });
+    const vieja = await Apk.create({
+      version: '1.0.0',
+      url: 'https://cdn/v1.apk',
+      publicId: 'apks/v1',
+      tamano: 1,
+      activa: false,
+    });
     await Apk.create({ version: '2.0.0', url: 'https://cdn/v2.apk', publicId: 'apks/v2', tamano: 1, activa: true });
 
     await agent.put(`/api/apk/${vieja._id}`).send({ activa: true });
@@ -133,7 +151,13 @@ describe('PUT / DELETE /api/apk/:id', () => {
     const superadmin = await crearSuperadmin();
     const agent = await loginComo(app, superadmin);
     await Apk.create({ version: '1.0.0', url: 'https://cdn/v1.apk', publicId: 'apks/v1', tamano: 1, activa: false });
-    const activa = await Apk.create({ version: '2.0.0', url: 'https://cdn/v2.apk', publicId: 'apks/v2', tamano: 1, activa: true });
+    const activa = await Apk.create({
+      version: '2.0.0',
+      url: 'https://cdn/v2.apk',
+      publicId: 'apks/v2',
+      tamano: 1,
+      activa: true,
+    });
 
     const res = await agent.delete(`/api/apk/${activa._id}`);
     expect(res.status).toBe(200);
@@ -146,7 +170,13 @@ describe('PUT / DELETE /api/apk/:id', () => {
   it('un administrador no puede eliminar APKs (403)', async () => {
     const admin = await crearAdministrador({ institucionId: (await crearInstitucion())._id });
     const agent = await loginComo(app, admin);
-    const apk = await Apk.create({ version: '1.0.0', url: 'https://cdn/x.apk', publicId: 'apks/x', tamano: 1, activa: true });
+    const apk = await Apk.create({
+      version: '1.0.0',
+      url: 'https://cdn/x.apk',
+      publicId: 'apks/x',
+      tamano: 1,
+      activa: true,
+    });
 
     const res = await agent.delete(`/api/apk/${apk._id}`);
     expect(res.status).toBe(403);

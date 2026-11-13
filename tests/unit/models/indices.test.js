@@ -38,7 +38,8 @@ describe('índices de consultas frecuentes', () => {
 
   it('cursos de una institución por estado y fecha: usan índice, sin ordenar en memoria', async () => {
     const plan = await Curso.find({ institucionId: id(), estado: { $in: ['activo', 'archivado'] } })
-      .sort({ fechaCreacion: -1 }).explain();
+      .sort({ fechaCreacion: -1 })
+      .explain();
     expect(etapas(plan)).toContain('IXSCAN');
     expect(etapas(plan)).not.toContain('SORT');
   });

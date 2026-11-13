@@ -45,7 +45,7 @@ describe('uploadImagenYCSV (creación de curso)', () => {
     const { aceptado } = await filtrar(
       uploadImagenYCSV,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'participantes.xlsx'
+      'participantes.xlsx',
     );
     expect(aceptado).toBe(true);
   });

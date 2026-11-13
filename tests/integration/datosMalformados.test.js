@@ -8,7 +8,9 @@ import { loginComo } from '../helpers/authClient.js';
 // deben responder 400, nunca 500.
 describe('datos malformados responden 400, no 500', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   const RUTAS_CON_ID = [
     ['get', '/api/tareas/abc'],
@@ -41,13 +43,17 @@ describe('datos malformados responden 400, no 500', () => {
 
   it('login con la contraseña como objeto', async () => {
     const padre = await crearPadre();
-    const res = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: { $ne: null } });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: padre.telefono, contraseña: { $ne: null } });
     expect(res.status).toBe(400);
   });
 
   it('crear entrega con tareaId como objeto', async () => {
     const padre = await crearPadre();
-    const res = await (await loginComo(app, padre)).post('/api/entregas').send({ tareaId: { $ne: null }, padreId: String(padre._id) });
+    const res = await (await loginComo(app, padre))
+      .post('/api/entregas')
+      .send({ tareaId: { $ne: null }, padreId: String(padre._id) });
     expect(res.status).toBe(400);
   });
 });

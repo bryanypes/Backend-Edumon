@@ -29,23 +29,36 @@ const TIPOS = {
   sistema: { etiqueta: 'Aviso', titulo: 'Tienes un aviso del colegio', color: '#0B3A6E', fondo: '#E7EDF5' },
 };
 
-export const escaparHtml = (texto = '') => String(texto)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+export const escaparHtml = (texto = '') =>
+  String(texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 /** Dirección pública de la web (para enlaces e imágenes). */
 export function urlWeb(ruta = '/') {
-  const base = (process.env.URL_WEB
-    || (process.env.FRONTEND_URL || '').split(',').map((u) => u.trim()).find(Boolean)
-    || 'https://edumon.uniautonoma.edu.co').replace(/\/+$/, '');
+  const base = (
+    process.env.URL_WEB ||
+    (process.env.FRONTEND_URL || '')
+      .split(',')
+      .map((u) => u.trim())
+      .find(Boolean) ||
+    'https://edumon.uniautonoma.edu.co'
+  ).replace(/\/+$/, '');
   return `${base}${ruta.startsWith('/') ? ruta : `/${ruta}`}`;
 }
 
 // párrafos: respeta los saltos de línea que escribió el colegio
-const parrafosHtml = (parrafos) => parrafos
-  .filter(Boolean)
-  .map((p) => `<p style="margin:0 0 14px;font-family:${FUENTE};font-size:16px;line-height:1.6;color:${MARCA.texto};">${escaparHtml(p).replace(/\n/g, '<br>')}</p>`)
-  .join('');
+const parrafosHtml = (parrafos) =>
+  parrafos
+    .filter(Boolean)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 14px;font-family:${FUENTE};font-size:16px;line-height:1.6;color:${MARCA.texto};">${escaparHtml(p).replace(/\n/g, '<br>')}</p>`,
+    )
+    .join('');
 
 const franja = () => `<tr><td style="padding:0;font-size:0;line-height:0;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -73,7 +86,18 @@ const boton = ({ texto, url }, color = MARCA.azul) => `
  * @param {string} [o.nota]        texto pequeño bajo el botón
  * @param {string} [o.preheader]   vista previa en la bandeja
  */
-export function plantillaCorreo({ titulo, etiqueta, color = MARCA.azul, fondoEtiqueta = '#E7F1FB', saludo, parrafos = [], destacado, boton: btn, nota, preheader = '' }) {
+export function plantillaCorreo({
+  titulo,
+  etiqueta,
+  color = MARCA.azul,
+  fondoEtiqueta = '#E7F1FB',
+  saludo,
+  parrafos = [],
+  destacado,
+  boton: btn,
+  nota,
+  preheader = '',
+}) {
   const anio = new Date().getFullYear();
   return `<!DOCTYPE html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml">
@@ -107,9 +131,13 @@ export function plantillaCorreo({ titulo, etiqueta, color = MARCA.azul, fondoEti
     </td></tr>
 
     <tr><td class="e-pad" style="padding:10px 40px 8px;">
-      ${etiqueta ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr>
+      ${
+        etiqueta
+          ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr>
         <td style="background:${fondoEtiqueta};border-radius:999px;padding:6px 14px;font-family:${FUENTE};font-size:13px;font-weight:800;color:${color};letter-spacing:.02em;">${escaparHtml(etiqueta)}</td>
-      </tr></table>` : ''}
+      </tr></table>`
+          : ''
+      }
       <h1 class="e-titulo" style="margin:0 0 18px;font-family:${FUENTE};font-size:26px;line-height:1.25;font-weight:900;color:${MARCA.azulOscuro};">${escaparHtml(titulo)}</h1>
 
       <!-- Edumon "habla", como en el chat de la web -->
@@ -123,9 +151,13 @@ export function plantillaCorreo({ titulo, etiqueta, color = MARCA.azul, fondoEti
         </td>
       </tr></table>
 
-      ${destacado ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 18px;"><tr>
+      ${
+        destacado
+          ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 18px;"><tr>
         <td align="center" style="background:#E7F1FB;border:2px dashed #9CC9F0;border-radius:16px;padding:18px 10px;font-family:'Courier New',monospace;font-size:34px;font-weight:700;letter-spacing:10px;color:${MARCA.azulOscuro};">${escaparHtml(destacado)}</td>
-      </tr></table>` : ''}
+      </tr></table>`
+          : ''
+      }
 
       ${btn ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">${boton(btn, color === MARCA.azulOscuro ? MARCA.azul : color)}</td></tr></table>` : ''}
       ${nota ? `<p style="margin:12px 0 0;font-family:${FUENTE};font-size:13.5px;line-height:1.55;color:${MARCA.suave};text-align:center;">${escaparHtml(nota)}</p>` : ''}
@@ -149,13 +181,20 @@ export function plantillaCorreo({ titulo, etiqueta, color = MARCA.azul, fondoEti
 }
 
 /** Texto plano equivalente (mejora la entrega y lo leen los relojes y lectores). */
-const textoPlano = ({ titulo, saludo, parrafos = [], destacado, boton: btn, nota }) => [
-  titulo, '',
-  saludo ? `Hola, ${saludo}` : null,
-  ...parrafos, destacado ? `\n${destacado}\n` : null,
-  btn ? `${btn.texto}: ${btn.url}` : null,
-  nota, '', '— Edumon · correo automático, no respondas',
-].filter((l) => l !== null && l !== undefined).join('\n');
+const textoPlano = ({ titulo, saludo, parrafos = [], destacado, boton: btn, nota }) =>
+  [
+    titulo,
+    '',
+    saludo ? `Hola, ${saludo}` : null,
+    ...parrafos,
+    destacado ? `\n${destacado}\n` : null,
+    btn ? `${btn.texto}: ${btn.url}` : null,
+    nota,
+    '',
+    '— Edumon · correo automático, no respondas',
+  ]
+    .filter((l) => l !== null && l !== undefined)
+    .join('\n');
 
 // a dónde lleva el botón según el tipo y el rol de quien recibe
 function enlaceNotificacion(usuario, notificacion) {
@@ -169,8 +208,12 @@ function enlaceNotificacion(usuario, notificacion) {
 }
 
 const BOTONES = {
-  tarea: 'Ver el reto', entrega: 'Ver la entrega', calificacion: 'Ver mi valoración',
-  foro: 'Ir al foro', evento: 'Ver en el calendario', sistema: 'Abrir Edumon',
+  tarea: 'Ver el reto',
+  entrega: 'Ver la entrega',
+  calificacion: 'Ver mi valoración',
+  foro: 'Ir al foro',
+  evento: 'Ver en el calendario',
+  sistema: 'Abrir Edumon',
 };
 
 /** Correo de una notificación (reto, entrega, foro, evento, aviso del colegio...). */
@@ -196,10 +239,16 @@ export function correoRecuperacion(usuario, codigo) {
     titulo: 'Restablece tu contraseña',
     etiqueta: 'Seguridad de tu cuenta',
     saludo: usuario.nombre,
-    parrafos: ['Recibimos una solicitud para restablecer la contraseña de tu cuenta. Escribe este código en Edumon para continuar:'],
+    parrafos: [
+      'Recibimos una solicitud para restablecer la contraseña de tu cuenta. Escribe este código en Edumon para continuar:',
+    ],
     destacado: String(codigo),
     nota: 'El código vence en 15 minutos. Si no lo pediste, ignora este correo: tu contraseña no cambia.',
     preheader: 'Tu código para restablecer la contraseña',
   };
-  return { subject: 'Tu código para restablecer la contraseña · Edumon', html: plantillaCorreo(datos), text: textoPlano(datos) };
+  return {
+    subject: 'Tu código para restablecer la contraseña · Edumon',
+    html: plantillaCorreo(datos),
+    text: textoPlano(datos),
+  };
 }

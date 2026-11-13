@@ -2,16 +2,26 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import crearApp from '../../src/app.js';
 import User from '../../src/models/User.js';
-import { crearPadre, crearDocente, crearAdministrador, crearInstitucion, CONTRASEÑA_PRUEBA } from '../helpers/factories.js';
+import {
+  crearPadre,
+  crearDocente,
+  crearAdministrador,
+  crearInstitucion,
+  CONTRASEÑA_PRUEBA,
+} from '../helpers/factories.js';
 
 const DIA = 24 * 60 * 60;
-const maxAgeRefresh = (res) => Number(res.headers['set-cookie'].find((c) => c.startsWith('refresh_token=')).match(/Max-Age=(\d+)/)[1]);
+const maxAgeRefresh = (res) =>
+  Number(res.headers['set-cookie'].find((c) => c.startsWith('refresh_token=')).match(/Max-Age=(\d+)/)[1]);
 
 describe('duración de la sesión', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
-  const login = (u) => request(app).post('/api/auth/login').send({ telefono: u.telefono, contraseña: CONTRASEÑA_PRUEBA });
+  const login = (u) =>
+    request(app).post('/api/auth/login').send({ telefono: u.telefono, contraseña: CONTRASEÑA_PRUEBA });
 
   it('padres y docentes quedan con sesión de un año', async () => {
     for (const u of [await crearPadre(), await crearDocente({ institucionId: (await crearInstitucion())._id })]) {

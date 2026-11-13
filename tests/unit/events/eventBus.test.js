@@ -35,7 +35,9 @@ describe('EventBus (patrón Observer)', () => {
 
   it('si un handler async rechaza, no rompe el proceso ni bloquea a los demás handlers', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const handlerQueFalla = vi.fn(async () => { throw new Error('boom'); });
+    const handlerQueFalla = vi.fn(async () => {
+      throw new Error('boom');
+    });
     const handlerQueFunciona = vi.fn();
 
     eventBus.suscribir('evento.con.error', handlerQueFalla);

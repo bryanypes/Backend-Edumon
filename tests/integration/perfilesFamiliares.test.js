@@ -13,7 +13,9 @@ const decodificarAccessToken = (res) => {
 
 describe('POST /api/perfiles — crear perfil familiar', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el titular crea un perfil para un miembro de la familia', async () => {
     const padre = await crearPadre();
@@ -37,7 +39,9 @@ describe('POST /api/perfiles — crear perfil familiar', () => {
 
 describe('GET /api/perfiles — mis perfiles', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('devuelve al titular primero y luego los perfiles activos', async () => {
     const padre = await crearPadre();
@@ -65,7 +69,9 @@ describe('GET /api/perfiles — mis perfiles', () => {
 
 describe('POST /api/perfiles/seleccionar — cambia de perfil activo', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('seleccionar un perfil familiar emite un access token con perfilId y esTitular=false', async () => {
     const padre = await crearPadre();
@@ -132,7 +138,9 @@ describe('POST /api/perfiles/seleccionar — cambia de perfil activo', () => {
 
 describe('Las rutas de perfiles son exclusivas de padres/acudientes', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un docente recibe 403 al listar o crear perfiles', async () => {
     const docente = await crearDocente();
@@ -145,7 +153,9 @@ describe('Las rutas de perfiles son exclusivas de padres/acudientes', () => {
 
 describe('PUT/DELETE de perfiles familiares', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el titular edita su perfil familiar', async () => {
     const padre = await crearPadre();
@@ -183,14 +193,18 @@ describe('PUT/DELETE de perfiles familiares', () => {
 
 describe('POST /api/perfiles/fcm-token', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('guarda el token FCM del perfil activo (no del titular)', async () => {
     const padre = await crearPadre();
     const perfil = await crearPerfilFamiliar({ titularId: padre._id });
     const agent = await loginComo(app, padre);
 
-    const res = await agent.post('/api/perfiles/fcm-token').send({ perfilId: perfil._id.toString(), fcmToken: 'token-del-hijo' });
+    const res = await agent
+      .post('/api/perfiles/fcm-token')
+      .send({ perfilId: perfil._id.toString(), fcmToken: 'token-del-hijo' });
     expect(res.status).toBe(200);
 
     const enBD = await PerfilFamiliar.findById(perfil._id);

@@ -36,7 +36,7 @@ export const createEventoValidator = [
     .custom((value, { req }) => {
       const fechaFin = new Date(value);
       const fechaInicio = new Date(req.body.fechaInicio);
-      
+
       if (fechaFin <= fechaInicio) {
         throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
       }
@@ -56,45 +56,42 @@ export const createEventoValidator = [
     .isLength({ min: 3, max: 200 })
     .withMessage('La ubicación debe tener entre 3 y 200 caracteres'),
 
-  body('cursosIds')
-    .custom((value) => {
-      // acepta string de form-data o array JSON
-      let cursosArray = value;
+  body('cursosIds').custom((value) => {
+    // acepta string de form-data o array JSON
+    let cursosArray = value;
 
-      if (typeof value === 'string') {
-        try {
-          cursosArray = JSON.parse(value);
-        } catch (e) {
-          throw new Error('El formato de cursosIds es inválido. Debe ser un array JSON válido');
-        }
+    if (typeof value === 'string') {
+      try {
+        cursosArray = JSON.parse(value);
+      } catch (e) {
+        throw new Error('El formato de cursosIds es inválido. Debe ser un array JSON válido');
       }
+    }
 
-      if (!Array.isArray(cursosArray)) {
-        throw new Error('cursosIds debe ser un array');
-      }
+    if (!Array.isArray(cursosArray)) {
+      throw new Error('cursosIds debe ser un array');
+    }
 
-      if (cursosArray.length === 0) {
-        throw new Error('Debes seleccionar al menos un curso');
-      }
+    if (cursosArray.length === 0) {
+      throw new Error('Debes seleccionar al menos un curso');
+    }
 
-      if (!cursosArray.every(id => /^[0-9a-fA-F]{24}$/.test(id))) {
-        throw new Error('Uno o más IDs de curso no son válidos');
-      }
-      
-      return true;
-    }),
+    if (!cursosArray.every((id) => /^[0-9a-fA-F]{24}$/.test(id))) {
+      throw new Error('Uno o más IDs de curso no son válidos');
+    }
+
+    return true;
+  }),
 
   body('categoria')
     .notEmpty()
     .withMessage('La categoría es requerida')
     .isIn(['escuela_padres', 'tarea', 'institucional'])
-    .withMessage('La categoría debe ser: escuela_padres, tarea o institucional')
+    .withMessage('La categoría debe ser: escuela_padres, tarea o institucional'),
 ];
 
 export const updateEventoValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de evento inválido'),
+  param('id').isMongoId().withMessage('ID de evento inválido'),
 
   body('titulo')
     .optional()
@@ -108,10 +105,7 @@ export const updateEventoValidator = [
     .isLength({ min: 10 })
     .withMessage('La descripción debe tener al menos 10 caracteres'),
 
-  body('fechaInicio')
-    .optional()
-    .isISO8601()
-    .withMessage('La fecha de inicio debe ser válida'),
+  body('fechaInicio').optional().isISO8601().withMessage('La fecha de inicio debe ser válida'),
 
   body('fechaFin')
     .optional()
@@ -121,7 +115,7 @@ export const updateEventoValidator = [
       if (req.body.fechaInicio) {
         const fechaFin = new Date(value);
         const fechaInicio = new Date(req.body.fechaInicio);
-        
+
         if (fechaFin <= fechaInicio) {
           throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
         }
@@ -141,33 +135,32 @@ export const updateEventoValidator = [
     .withMessage('La ubicación debe tener entre 3 y 200 caracteres'),
 
   body('cursosIds')
-  .optional()
-  .custom((value) => {
-    let cursosArray = value;
+    .optional()
+    .custom((value) => {
+      let cursosArray = value;
 
-    if (typeof value === 'string') {
-      try {
-        cursosArray = JSON.parse(value);
-      } catch (e) {
-        throw new Error('El formato de cursosIds es inválido. Debe ser un array JSON válido');
+      if (typeof value === 'string') {
+        try {
+          cursosArray = JSON.parse(value);
+        } catch (e) {
+          throw new Error('El formato de cursosIds es inválido. Debe ser un array JSON válido');
+        }
       }
-    }
 
-    if (!Array.isArray(cursosArray)) {
-      throw new Error('cursosIds debe ser un array');
-    }
+      if (!Array.isArray(cursosArray)) {
+        throw new Error('cursosIds debe ser un array');
+      }
 
-    if (cursosArray.length === 0) {
-      throw new Error('Debes seleccionar al menos un curso');
-    }
+      if (cursosArray.length === 0) {
+        throw new Error('Debes seleccionar al menos un curso');
+      }
 
-    if (!cursosArray.every(id => /^[0-9a-fA-F]{24}$/.test(id))) {
-      throw new Error('Uno o más IDs de curso no son válidos');
-    }
+      if (!cursosArray.every((id) => /^[0-9a-fA-F]{24}$/.test(id))) {
+        throw new Error('Uno o más IDs de curso no son válidos');
+      }
 
-    return true;
-  }),
-
+      return true;
+    }),
 
   body('categoria')
     .optional()
@@ -177,11 +170,7 @@ export const updateEventoValidator = [
   body('estado')
     .optional()
     .isIn(['programado', 'en_curso', 'finalizado', 'cancelado'])
-    .withMessage('El estado debe ser: programado, en_curso, finalizado o cancelado')
+    .withMessage('El estado debe ser: programado, en_curso, finalizado o cancelado'),
 ];
 
-export const eventoIdValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de evento inválido')
-];
+export const eventoIdValidator = [param('id').isMongoId().withMessage('ID de evento inválido')];

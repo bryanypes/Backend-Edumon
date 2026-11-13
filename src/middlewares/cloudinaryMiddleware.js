@@ -21,14 +21,22 @@ export const uploadImagenCloudinary = multer({
   },
   fileFilter: (req, file, cb) => {
     // heic/heif: formato por defecto de la cámara en iPhones (muy comunes acá)
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/gif',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ];
 
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(crearErrorDeArchivo('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC)'), false);
     }
-  }
+  },
 });
 
 // Permite .xlsx y .xlsm: el mimetype que reporta el navegador para .xlsm es
@@ -37,11 +45,13 @@ export const uploadImagenCloudinary = multer({
 const esExcel = (file) => {
   const tiposPermitidos = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-    'application/vnd.ms-excel.sheet.macroEnabled.12',                    // .xlsm
+    'application/vnd.ms-excel.sheet.macroEnabled.12', // .xlsm
   ];
-  return tiposPermitidos.includes(file.mimetype) ||
+  return (
+    tiposPermitidos.includes(file.mimetype) ||
     file.originalname.endsWith('.xlsx') ||
-    file.originalname.endsWith('.xlsm');
+    file.originalname.endsWith('.xlsm')
+  );
 };
 
 // imágenes + Excel, sin validación estricta
@@ -51,14 +61,25 @@ export const uploadImagenYCSV = multer({
     fileSize: 5 * 1024 * 1024, // 5MB máximo
   },
   fileFilter: (req, file, cb) => {
-    const allowedImages = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+    const allowedImages = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/gif',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ];
 
     if (allowedImages.includes(file.mimetype) || esExcel(file)) {
       cb(null, true);
     } else {
-      cb(crearErrorDeArchivo('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC) o archivos Excel (.xlsx, .xlsm)'), false);
+      cb(
+        crearErrorDeArchivo('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC) o archivos Excel (.xlsx, .xlsm)'),
+        false,
+      );
     }
-  }
+  },
 });
 
 // APK de Android: se valida por extensión (.apk); el navegador manda mimetypes
@@ -74,7 +95,7 @@ export const uploadApk = multer({
     } else {
       cb(crearErrorDeArchivo('Solo se permiten archivos .apk'), false);
     }
-  }
+  },
 });
 
 export const uploadCSVCloudinary = multer({
@@ -88,7 +109,7 @@ export const uploadCSVCloudinary = multer({
     } else {
       cb(crearErrorDeArchivo('Solo se permiten archivos Excel (.xlsx, .xlsm)'), false);
     }
-  }
+  },
 });
 
 // adjuntos de entregas: mismo criterio que tareas/foros (imágenes, vídeo .mov
@@ -100,7 +121,13 @@ export const uploadArchivoCloudinary = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/gif',
+      'image/webp',
+      'image/heic',
+      'image/heif',
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -108,10 +135,19 @@ export const uploadArchivoCloudinary = multer({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-powerpoint',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'text/plain', 'text/csv',
-      'video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm', 'video/x-msvideo',
-      'audio/mpeg', 'audio/wav', 'audio/ogg',
-      'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
+      'text/plain',
+      'text/csv',
+      'video/mp4',
+      'video/mpeg',
+      'video/quicktime',
+      'video/webm',
+      'video/x-msvideo',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/ogg',
+      'application/zip',
+      'application/x-rar-compressed',
+      'application/x-7z-compressed',
     ];
 
     if (allowedTypes.includes(file.mimetype)) {
@@ -119,5 +155,5 @@ export const uploadArchivoCloudinary = multer({
     } else {
       cb(crearErrorDeArchivo(`Formato de archivo no permitido: ${file.mimetype}`), false);
     }
-  }
+  },
 });

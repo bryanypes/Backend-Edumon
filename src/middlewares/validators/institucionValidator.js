@@ -10,13 +10,13 @@ const sanitizarTelefono = (value) => normalizarTelefono(value) ?? value;
 // admin) no tenía ningún chequeo de formato en ningún lado.
 export const crearInstitucionValidator = [
   body('nombre')
-    .notEmpty().withMessage('El nombre de la institución es requerido')
+    .notEmpty()
+    .withMessage('El nombre de la institución es requerido')
     .trim()
-    .isLength({ min: 2, max: 150 }).withMessage('El nombre debe tener entre 2 y 150 caracteres'),
+    .isLength({ min: 2, max: 150 })
+    .withMessage('El nombre debe tener entre 2 y 150 caracteres'),
 
-  body('nit')
-    .notEmpty().withMessage('El NIT es requerido')
-    .trim(),
+  body('nit').notEmpty().withMessage('El NIT es requerido').trim(),
 
   campoCorreo('correo', { mensaje: 'El correo de la institución no es válido' }),
 
@@ -24,26 +24,27 @@ export const crearInstitucionValidator = [
     .optional({ checkFalsy: true })
     .trim()
     .customSanitizer(sanitizarTelefono)
-    .matches(/^\+57\d{10}$/).withMessage('El teléfono de la institución debe iniciar con +57 y tener 10 dígitos numéricos'),
+    .matches(/^\+57\d{10}$/)
+    .withMessage('El teléfono de la institución debe iniciar con +57 y tener 10 dígitos numéricos'),
 
-  body('adminNombre')
-    .notEmpty().withMessage('El nombre del administrador es requerido')
-    .trim(),
+  body('adminNombre').notEmpty().withMessage('El nombre del administrador es requerido').trim(),
 
-  body('adminApellido')
-    .notEmpty().withMessage('El apellido del administrador es requerido')
-    .trim(),
+  body('adminApellido').notEmpty().withMessage('El apellido del administrador es requerido').trim(),
 
   body('adminCedula')
-    .notEmpty().withMessage('La cédula del administrador es requerida')
+    .notEmpty()
+    .withMessage('La cédula del administrador es requerida')
     .trim()
-    .matches(/^\d{6,10}$/).withMessage('La cédula del administrador debe tener entre 6 y 10 dígitos numéricos'),
+    .matches(/^\d{6,10}$/)
+    .withMessage('La cédula del administrador debe tener entre 6 y 10 dígitos numéricos'),
 
   campoCorreo('adminCorreo', { mensaje: 'El correo del administrador no es válido' }),
 
   body('adminTelefono')
-    .notEmpty().withMessage('El teléfono del administrador es requerido')
+    .notEmpty()
+    .withMessage('El teléfono del administrador es requerido')
     .trim()
     .customSanitizer(sanitizarTelefono)
-    .matches(/^\+57\d{10}$/).withMessage('El teléfono del administrador debe iniciar con +57 y tener 10 dígitos numéricos'),
+    .matches(/^\+57\d{10}$/)
+    .withMessage('El teléfono del administrador debe iniciar con +57 y tener 10 dígitos numéricos'),
 ];

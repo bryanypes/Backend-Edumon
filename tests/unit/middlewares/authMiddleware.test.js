@@ -37,11 +37,7 @@ describe('authMiddleware', () => {
 
   it('responde 401 con code TOKEN_EXPIRED si el token ya venció', async () => {
     const padre = await crearPadre();
-    const tokenExpirado = jwt.sign(
-      { userId: padre._id, rol: padre.rol },
-      process.env.JWT_SECRET,
-      { expiresIn: -10 },
-    );
+    const tokenExpirado = jwt.sign({ userId: padre._id, rol: padre.rol }, process.env.JWT_SECRET, { expiresIn: -10 });
     const req = { cookies: { access_token: tokenExpirado }, headers: {} };
     const res = mockRes();
     const next = vi.fn();

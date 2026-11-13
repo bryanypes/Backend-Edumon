@@ -9,7 +9,9 @@ const docenteDelCurso = (curso) => User.findById(curso.docenteId);
 
 describe('POST /api/modulos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente dueño del curso crea un módulo', async () => {
     const curso = await crearCurso();
@@ -62,7 +64,9 @@ describe('POST /api/modulos', () => {
 
 describe('GET /api/modulos/curso/:cursoId', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('devuelve los módulos activos del curso, con sus tareas', async () => {
     const curso = await crearCurso();
@@ -100,7 +104,9 @@ describe('GET /api/modulos/curso/:cursoId', () => {
 
 describe('PUT/DELETE/restore de módulos', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el docente dueño puede editar el módulo', async () => {
     const curso = await crearCurso();

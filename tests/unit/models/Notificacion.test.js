@@ -30,7 +30,11 @@ describe('Notificacion — validaciones de schema', () => {
   });
 
   it('rechaza un mensaje de más de 500 caracteres', () => {
-    const notif = new Notificacion({ usuarioId: '507f1f77bcf86cd799439011', tipo: 'sistema', mensaje: 'x'.repeat(501) });
+    const notif = new Notificacion({
+      usuarioId: '507f1f77bcf86cd799439011',
+      tipo: 'sistema',
+      mensaje: 'x'.repeat(501),
+    });
     expect(notif.validateSync().errors.mensaje).toBeDefined();
   });
 });

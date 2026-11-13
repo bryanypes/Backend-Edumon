@@ -22,21 +22,21 @@ import {
 const router = express.Router();
 
 // Rutas públicas
-router.post('/register',              registerValidator,              register);
-router.post('/login',                 loginValidator,                 login);
+router.post('/register', registerValidator, register);
+router.post('/login', loginValidator, login);
 
 // Recuperación de contraseña (por correo; el registro exige correo a todos)
-router.post('/forgot-password',       forgotPasswordValidator,        forgotPassword);
-router.post('/reset-password',        resetPasswordValidator,         resetPassword);
+router.post('/forgot-password', forgotPasswordValidator, forgotPassword);
+router.post('/reset-password', resetPasswordValidator, resetPassword);
 
 // Refresh de sesión (no requiere access token válido)
 // Usa únicamente la cookie refresh_token (path restringido a este endpoint)
 router.post('/refresh', refresh);
 
 // Rutas protegidas
-router.get('/profile',         authMiddleware,                    getProfile);
-router.post('/change-password',authMiddleware, changePasswordValidator, changePassword);
-router.post('/logout',         authMiddleware,                    logout);
-router.post('/logout-all',     authMiddleware,                    logoutAll);
+router.get('/profile', authMiddleware, getProfile);
+router.post('/change-password', authMiddleware, changePasswordValidator, changePassword);
+router.post('/logout', authMiddleware, logout);
+router.post('/logout-all', authMiddleware, logoutAll);
 
 export default router;

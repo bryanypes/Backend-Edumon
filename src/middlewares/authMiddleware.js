@@ -24,16 +24,18 @@ export const authMiddleware = async (req, res, next) => {
     if (user.institucionId) {
       const institucion = await Institucion.findById(user.institucionId).select('activo').lean();
       if (institucion && institucion.activo === false) {
-        return res.status(401).json({ message: 'Tu institución fue desactivada. Contacta al administrador del sistema.' });
+        return res
+          .status(401)
+          .json({ message: 'Tu institución fue desactivada. Contacta al administrador del sistema.' });
       }
     }
 
     req.user = {
-      userId:        decoded.userId,
-      rol:           user.rol,
+      userId: decoded.userId,
+      rol: user.rol,
       institucionId: user.institucionId?.toString() || null,
-      perfilId:      decoded.perfilId || null,
-      esTitular:     decoded.esTitular !== false,
+      perfilId: decoded.perfilId || null,
+      esTitular: decoded.esTitular !== false,
     };
 
     next();
@@ -53,7 +55,6 @@ export const authMiddleware = async (req, res, next) => {
 // Control de roles
 export const requireRole = (roles) => (req, res, next) => {
   if (!req.user) return res.status(401).json({ message: 'No autenticado' });
-  if (!roles.includes(req.user.rol))
-    return res.status(403).json({ message: 'No tienes permisos para esta acción' });
+  if (!roles.includes(req.user.rol)) return res.status(403).json({ message: 'No tienes permisos para esta acción' });
   next();
 };

@@ -26,9 +26,7 @@ describe('connectDB', () => {
   });
 
   it('reintenta tras un fallo pasajero y conecta antes de agotar los intentos', async () => {
-    connectSpy
-      .mockRejectedValueOnce(new Error('hipo de red'))
-      .mockResolvedValueOnce(undefined);
+    connectSpy.mockRejectedValueOnce(new Error('hipo de red')).mockResolvedValueOnce(undefined);
 
     await connectDB(5, 10);
 

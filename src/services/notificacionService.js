@@ -16,8 +16,8 @@ if (!admin.apps.length) {
       credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-      })
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      }),
     });
   } catch (error) {
     console.error('[Firebase] No se pudo inicializar, el push por FCM quedará deshabilitado:', error.message);
@@ -44,8 +44,8 @@ export const crearYEnviarNotificacion = async (datos) => {
       referenciaId,
       referenciaModelo,
       metadata = {},
-      agrupacionId,          // envíos masivos: mismo id para todas las del lote
-      omitirCorreo = false,  // envío manual: solo push y aviso en la app, sin correo
+      agrupacionId, // envíos masivos: mismo id para todas las del lote
+      omitirCorreo = false, // envío manual: solo push y aviso en la app, sin correo
     } = datos;
 
     const usuario = await User.findById(usuarioId);
@@ -59,7 +59,7 @@ export const crearYEnviarNotificacion = async (datos) => {
       referenciaId,
       referenciaModelo,
       metadata,
-      agrupacionId
+      agrupacionId,
     });
     await notificacion.save();
 
@@ -78,8 +78,8 @@ export const crearYEnviarNotificacion = async (datos) => {
           data: {
             notificacionId: notificacion._id.toString(),
             tipo,
-            url: obtenerUrl(notificacion)
-          }
+            url: obtenerUrl(notificacion),
+          },
         });
         notificacion.canalEnviado.push = true;
       } catch (e) {
@@ -101,7 +101,6 @@ export const crearYEnviarNotificacion = async (datos) => {
 
     await notificacion.save();
     return notificacion;
-
   } catch (error) {
     console.error('[crearYEnviarNotificacion] ERROR:', error.message);
     throw error;
@@ -117,19 +116,19 @@ export const notificarFamilia = async (usuarioId, datos) => {
     const perfiles = await PerfilFamiliar.find({
       titularId: usuarioId,
       activo: true,
-      fcmToken: { $ne: null }
+      fcmToken: { $ne: null },
     });
 
     if (perfiles.length === 0) return;
 
     await Promise.allSettled(
-      perfiles.map(perfil =>
+      perfiles.map((perfil) =>
         enviarFCM(perfil.fcmToken, {
           title: obtenerTitulo(datos.tipo),
           body: datos.mensaje,
-          data: { tipo: datos.tipo }
-        }).catch(e => console.error(`[FAMILIA PERFIL] Error push perfil ${perfil._id}:`, e.message))
-      )
+          data: { tipo: datos.tipo },
+        }).catch((e) => console.error(`[FAMILIA PERFIL] Error push perfil ${perfil._id}:`, e.message)),
+      ),
     );
   } catch (error) {
     console.error('[notificarFamilia] ERROR:', error.message);
@@ -140,29 +139,27 @@ export const enviarFCM = async (fcmToken, { title, body, data = {} }) => {
   const message = {
     token: fcmToken,
     notification: { title, body },
-    data: Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, String(v)])
-    ),
+    data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
     android: {
       priority: 'high',
       notification: {
         icon: 'ic_notification',
         color: '#00B9F0',
-        sound: 'default'
-      }
+        sound: 'default',
+      },
     },
     apns: {
       payload: {
-        aps: { sound: 'default', badge: 1 }
-      }
+        aps: { sound: 'default', badge: 1 },
+      },
     },
     webpush: {
       notification: {
         icon: '/icon-192x192.png',
         badge: '/badge-72x72.png',
-        requireInteraction: true
-      }
-    }
+        requireInteraction: true,
+      },
+    },
   };
 
   const response = await admin.messaging().send(message);
@@ -178,7 +175,7 @@ export const enviarEmail = async (usuario, notificacion) => {
   const transporte = getTransportSMTP();
   await transporte.sendMail({
     from: {
-      name:    process.env.SMTP_FROM_NAME || 'Edumon',
+      name: process.env.SMTP_FROM_NAME || 'Edumon',
       address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
     },
     to: { name: `${usuario.nombre} ${usuario.apellido}`, address: usuario.correo },
@@ -191,35 +188,35 @@ export const enviarEmail = async (usuario, notificacion) => {
 export const notificarTareaProximaVencer = async (tarea) => {
   try {
     const [Curso, Entrega, UserModel] = await Promise.all([
-      import('../models/Curso.js').then(m => m.default),
-      import('../models/Entrega.js').then(m => m.default),
-      import('../models/User.js').then(m => m.default)
+      import('../models/Curso.js').then((m) => m.default),
+      import('../models/Entrega.js').then((m) => m.default),
+      import('../models/User.js').then((m) => m.default),
     ]);
 
     const [curso, entregasRealizadas] = await Promise.all([
       Curso.findById(tarea.cursoId).populate({
         path: 'participantes.usuarioId',
-        select: 'nombre apellido correo telefono fcmToken'
+        select: 'nombre apellido correo telefono fcmToken',
       }),
       Entrega.find({
         tareaId: tarea._id,
-        estado: { $in: ['enviada', 'tarde'] }
-      }).distinct('padreId')
+        estado: { $in: ['enviada', 'tarde'] },
+      }).distinct('padreId'),
     ]);
 
     if (!curso) return;
 
     let destinatarios = [];
-    const yaEntregaron = new Set(entregasRealizadas.map(id => id.toString()));
+    const yaEntregaron = new Set(entregasRealizadas.map((id) => id.toString()));
 
     if (tarea.asignacionTipo === 'todos') {
       destinatarios = curso.participantes
-        .filter(p => p.usuarioId && p.etiqueta === 'padre' && !yaEntregaron.has(p.usuarioId._id.toString()))
-        .map(p => p.usuarioId);
+        .filter((p) => p.usuarioId && p.etiqueta === 'padre' && !yaEntregaron.has(p.usuarioId._id.toString()))
+        .map((p) => p.usuarioId);
     } else {
       destinatarios = await UserModel.find({
-        _id: { $in: tarea.participantesSeleccionados.filter(id => !yaEntregaron.has(id.toString())) },
-        rol: 'padre'
+        _id: { $in: tarea.participantesSeleccionados.filter((id) => !yaEntregaron.has(id.toString())) },
+        rol: 'padre',
       });
     }
 
@@ -229,12 +226,10 @@ export const notificarTareaProximaVencer = async (tarea) => {
       prioridad: 'critica',
       referenciaId: tarea._id,
       referenciaModelo: 'Tarea',
-      metadata: { fechaEntrega: tarea.fechaEntrega, esRecordatorio: true }
+      metadata: { fechaEntrega: tarea.fechaEntrega, esRecordatorio: true },
     };
 
-    await Promise.allSettled(
-      destinatarios.map(u => notificarFamilia(u._id, datos))
-    );
+    await Promise.allSettled(destinatarios.map((u) => notificarFamilia(u._id, datos)));
 
     console.log(`[Recordatorios] Enviados a ${destinatarios.length} familias`);
   } catch (error) {
@@ -249,7 +244,7 @@ function obtenerTitulo(tipo) {
     calificacion: '⭐ Valoración recibida',
     foro: '💬 Nuevo Mensaje en Foro',
     evento: '📅 Nuevo Evento',
-    sistema: '🔔 Notificación'
+    sistema: '🔔 Notificación',
   };
   return titulos[tipo] || '🔔 Notificación';
 }
@@ -261,7 +256,7 @@ function obtenerUrl(notificacion) {
     calificacion: `/entregas/${notificacion.referenciaId}`,
     foro: `/foros/${notificacion.referenciaId}`,
     evento: `/eventos/${notificacion.referenciaId}`,
-    sistema: '/notificaciones'
+    sistema: '/notificaciones',
   };
   return urls[notificacion.tipo] || '/notificaciones';
 }
@@ -271,5 +266,5 @@ export default {
   notificarFamilia,
   enviarFCM,
   enviarEmail,
-  notificarTareaProximaVencer
+  notificarTareaProximaVencer,
 };

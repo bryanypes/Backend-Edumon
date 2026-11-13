@@ -38,7 +38,14 @@ describe('User — validaciones de schema', () => {
   });
 
   it('rechaza un correo con formato inválido cuando se provee', () => {
-    const user = new User({ nombre: 'A', apellido: 'B', cedula: '123456', contraseña: '123456', rol: 'padre', correo: 'no-es-un-correo' });
+    const user = new User({
+      nombre: 'A',
+      apellido: 'B',
+      cedula: '123456',
+      contraseña: '123456',
+      rol: 'padre',
+      correo: 'no-es-un-correo',
+    });
     expect(user.validateSync().errors.correo).toBeDefined();
   });
 

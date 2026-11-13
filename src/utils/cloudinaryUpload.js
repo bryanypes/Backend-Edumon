@@ -5,12 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
-import {
-  UPLOAD_DIR,
-  PUBLIC_PREFIX,
-  CARPETA_PRIVADA,
-  CARPETA_PUBLICA,
-} from '../config/almacenamiento.js';
+import { UPLOAD_DIR, PUBLIC_PREFIX, CARPETA_PRIVADA, CARPETA_PUBLICA } from '../config/almacenamiento.js';
 
 const MAX_ANCHO_IMAGEN = 1600;
 const CALIDAD_IMAGEN = 80;
@@ -38,7 +33,10 @@ export const resourceTypeDeMime = (mimetype = '') => {
 };
 
 const slug = (nombre = 'archivo') =>
-  path.parse(nombre).name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 60) || 'archivo';
+  path
+    .parse(nombre)
+    .name.replace(/[^a-zA-Z0-9]/g, '_')
+    .slice(0, 60) || 'archivo';
 
 const nombreUnico = (originalName, ext) =>
   `${Date.now()}_${crypto.randomBytes(6).toString('hex')}_${slug(originalName)}${ext}`;
@@ -78,11 +76,7 @@ const escribir = async (publicId, buffer) => {
 export const subirImagenCloudinary = async (fileBuffer, mimetype, folder = 'general') => {
   try {
     const { buffer, ext } = await optimizarImagen(Buffer.from(fileBuffer), mimetype);
-    const publicId = path.posix.join(
-      CARPETA_PUBLICA,
-      folder,
-      nombreUnico('imagen', ext || '.bin'),
-    );
+    const publicId = path.posix.join(CARPETA_PUBLICA, folder, nombreUnico('imagen', ext || '.bin'));
     await escribir(publicId, buffer);
     return { url: `${PUBLIC_PREFIX}/${publicId}`, publicId };
   } catch (error) {

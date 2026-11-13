@@ -35,84 +35,82 @@ export const preregistrarDocentesCSV = async (req, res) => {
       nombre: fila.nombre,
       apellido: fila.apellido,
       telefono: normalizarTelefono(fila.telefono) || fila.telefono || '',
-      cedula: fila.cedula
+      cedula: fila.cedula,
     }));
 
-
     for (const userData of usuarios) {
-  try {
-    const { nombre, apellido, telefono, cedula } = userData;
-    const correoFinal = `${cedula}@temp.com`;
-    const telefonoNormalizado = normalizarTelefono(telefono) || telefono;
+      try {
+        const { nombre, apellido, telefono, cedula } = userData;
+        const correoFinal = `${cedula}@temp.com`;
+        const telefonoNormalizado = normalizarTelefono(telefono) || telefono;
 
-    const existe = await User.findOne({
-      $or: [{ cedula }, { correo: correoFinal }]
-    });
+        const existe = await User.findOne({
+          $or: [{ cedula }, { correo: correoFinal }],
+        });
 
-    if (existe) {
-      if (existe.institucionId?.toString() === institucionId.toString()) {
-        resultados.duplicados.push({
-          nombre: `${existe.nombre} ${existe.apellido}`,
+        if (existe) {
+          if (existe.institucionId?.toString() === institucionId.toString()) {
+            resultados.duplicados.push({
+              nombre: `${existe.nombre} ${existe.apellido}`,
+              cedula,
+              motivo: 'Ya está registrado en esta institución',
+            });
+          } else if (existe.institucionId) {
+            resultados.errores.push({
+              nombre: `${existe.nombre} ${existe.apellido}`,
+              cedula,
+              motivo: 'Ya pertenece a otra institución',
+            });
+          } else {
+            // Existe pero sin institución — la asignamos en vez de crear un duplicado
+            existe.institucionId = institucionId;
+            if (telefonoNormalizado) existe.telefono = telefonoNormalizado;
+            await existe.save();
+            eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, existe);
+            resultados.exitosos.push({
+              nombre: `${existe.nombre} ${existe.apellido}`,
+              cedula,
+              accion: 'Usuario existente asignado a la institución',
+            });
+          }
+          continue;
+        }
+
+        const docente = new User({
+          nombre,
+          apellido,
           cedula,
-          motivo: 'Ya está registrado en esta institución'
+          telefono: telefonoNormalizado,
+          correo: correoFinal,
+          contraseña: String(cedula).trim(), // regla única: contraseña inicial = cédula
+          rol: 'docente',
+          estado: 'activo',
+          institucionId,
+          fotoPerfilUrl: AVATAR_PREDETERMINADO,
         });
-      } else if (existe.institucionId) {
-        resultados.errores.push({
-          nombre: `${existe.nombre} ${existe.apellido}`,
-          cedula,
-          motivo: 'Ya pertenece a otra institución'
-        });
-      } else {
-        // Existe pero sin institución — la asignamos en vez de crear un duplicado
-        existe.institucionId = institucionId;
-        if (telefonoNormalizado) existe.telefono = telefonoNormalizado;
-        await existe.save();
-        eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, existe);
+
+        await docente.save();
+        eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, docente);
+
         resultados.exitosos.push({
-          nombre: `${existe.nombre} ${existe.apellido}`,
+          nombre: `${docente.nombre} ${docente.apellido}`,
           cedula,
-          accion: 'Usuario existente asignado a la institución'
+          accion: 'Docente creado y asignado a la institución',
         });
+      } catch (error) {
+        if (error.code === 11000) {
+          resultados.duplicados.push({
+            datos: userData,
+            motivo: 'Cédula o correo duplicado en el sistema',
+          });
+        } else {
+          resultados.errores.push({
+            datos: userData,
+            error: error.message,
+          });
+        }
       }
-      continue;
     }
-
-    const docente = new User({
-      nombre,
-      apellido,
-      cedula,
-      telefono: telefonoNormalizado,
-      correo: correoFinal,
-      contraseña: String(cedula).trim(), // regla única: contraseña inicial = cédula
-      rol: 'docente',
-      estado: 'activo',
-      institucionId,
-      fotoPerfilUrl: AVATAR_PREDETERMINADO
-    });
-
-    await docente.save();
-    eventBus.publicar(EVENTOS.USUARIO_BIENVENIDA, docente);
-
-    resultados.exitosos.push({
-      nombre: `${docente.nombre} ${docente.apellido}`,
-      cedula,
-      accion: 'Docente creado y asignado a la institución'
-    });
-
-  } catch (error) {
-    if (error.code === 11000) {
-      resultados.duplicados.push({
-        datos: userData,
-        motivo: 'Cédula o correo duplicado en el sistema'
-      });
-    } else {
-      resultados.errores.push({
-        datos: userData,
-        error: error.message
-      });
-    }
-  }
-}
 
     res.status(200).json({
       message: 'Proceso de registro masivo de docentes completado',
@@ -120,15 +118,16 @@ export const preregistrarDocentesCSV = async (req, res) => {
         total: usuarios.length,
         exitosos: resultados.exitosos.length,
         duplicados: resultados.duplicados.length,
-        errores: resultados.errores.length
+        errores: resultados.errores.length,
       },
-      detalles: resultados
+      detalles: resultados,
     });
-
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('[preregistrarDocentesCSV]', error);
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -141,9 +140,17 @@ export const crearInstitucion = async (req, res) => {
     }
 
     const {
-      nombre, nit, direccion, telefono, correo,
+      nombre,
+      nit,
+      direccion,
+      telefono,
+      correo,
       // Datos del admin del colegio
-      adminNombre, adminApellido, adminCedula, adminCorreo, adminTelefono
+      adminNombre,
+      adminApellido,
+      adminCedula,
+      adminCorreo,
+      adminTelefono,
     } = req.body;
 
     // Verificar que el NIT no exista (findOne({ nit: undefined }) matchearía
@@ -155,7 +162,7 @@ export const crearInstitucion = async (req, res) => {
       }
     }
 
-    const telefonoInst  = normalizarTelefono(telefono) ?? telefono;
+    const telefonoInst = normalizarTelefono(telefono) ?? telefono;
     const telefonoAdmin = normalizarTelefono(adminTelefono) ?? adminTelefono;
 
     const institucion = new Institucion({ nombre, nit, direccion, telefono: telefonoInst, correo });
@@ -172,7 +179,7 @@ export const crearInstitucion = async (req, res) => {
       rol: 'administrador',
       estado: 'activo',
       institucionId: institucion._id,
-      fotoPerfilUrl: AVATAR_PREDETERMINADO
+      fotoPerfilUrl: AVATAR_PREDETERMINADO,
     });
 
     try {
@@ -201,8 +208,8 @@ export const crearInstitucion = async (req, res) => {
         nombre: admin.nombre,
         apellido: admin.apellido,
         correo: admin.correo,
-        codigoInstitucion: institucion.codigo
-      }
+        codigoInstitucion: institucion.codigo,
+      },
     });
   } catch (error) {
     console.error('[crearInstitucion]', error);
@@ -212,11 +219,15 @@ export const crearInstitucion = async (req, res) => {
       return res.status(400).json({ message: `Ya existe un registro con ese ${campo}` });
     }
     if (error.name === 'ValidationError') {
-      const mensaje = Object.values(error.errors).map(e => e.message).join(', ');
+      const mensaje = Object.values(error.errors)
+        .map((e) => e.message)
+        .join(', ');
       return res.status(400).json({ message: mensaje });
     }
 
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -231,7 +242,9 @@ export const getInstituciones = async (req, res) => {
     res.json({ instituciones });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -250,7 +263,9 @@ export const getMiInstitucion = async (req, res) => {
     res.json({ institucion });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -277,7 +292,7 @@ export const preregistrarDocente = async (req, res) => {
       rol: 'docente',
       estado: 'activo',
       institucionId: admin.institucionId,
-      fotoPerfilUrl: AVATAR_PREDETERMINADO
+      fotoPerfilUrl: AVATAR_PREDETERMINADO,
     });
 
     await docente.save();
@@ -291,8 +306,8 @@ export const preregistrarDocente = async (req, res) => {
         nombre: docente.nombre,
         apellido: docente.apellido,
         correo: docente.correo,
-        rol: docente.rol
-      }
+        rol: docente.rol,
+      },
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -300,7 +315,9 @@ export const preregistrarDocente = async (req, res) => {
     }
     // datos incompletos o con formato inválido (cédula, teléfono...): 400 con el motivo, no 500
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -312,8 +329,10 @@ export const updateInstitucion = async (req, res) => {
     const institucion = await Institucion.findByIdAndUpdate(
       id,
       { nombre, direccion, telefono, correo },
-      { new: true, runValidators: true }
-    ).populate('adminId', 'nombre apellido correo').lean();
+      { new: true, runValidators: true },
+    )
+      .populate('adminId', 'nombre apellido correo')
+      .lean();
 
     if (!institucion) {
       return res.status(404).json({ message: 'Institución no encontrada' });
@@ -322,7 +341,9 @@ export const updateInstitucion = async (req, res) => {
     res.json({ message: 'Institución actualizada', institucion });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -336,11 +357,9 @@ export const cambiarEstadoInstitucion = async (req, res) => {
       return res.status(400).json({ message: 'El campo "activo" debe ser true o false' });
     }
 
-    const institucion = await Institucion.findByIdAndUpdate(
-      id,
-      { activo },
-      { new: true }
-    ).populate('adminId', 'nombre apellido correo').lean();
+    const institucion = await Institucion.findByIdAndUpdate(id, { activo }, { new: true })
+      .populate('adminId', 'nombre apellido correo')
+      .lean();
 
     if (!institucion) {
       return res.status(404).json({ message: 'Institución no encontrada' });
@@ -348,11 +367,13 @@ export const cambiarEstadoInstitucion = async (req, res) => {
 
     res.json({
       message: `Institución ${activo ? 'activada' : 'desactivada'} exitosamente`,
-      institucion
+      institucion,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
-    res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
+    res
+      .status(500)
+      .json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -411,10 +432,7 @@ export const deleteInstitucion = async (req, res) => {
       });
       if (siguePerteneciendoAOtroCurso) continue;
 
-      const { modifiedCount } = await User.updateOne(
-        { _id: padreId, estado: 'activo' },
-        { estado: 'suspendido' },
-      );
+      const { modifiedCount } = await User.updateOne({ _id: padreId, estado: 'activo' }, { estado: 'suspendido' });
       padresSuspendidos += modifiedCount;
     }
 

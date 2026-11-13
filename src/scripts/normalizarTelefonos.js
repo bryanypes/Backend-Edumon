@@ -5,18 +5,18 @@
 //   node src/scripts/normalizarTelefonos.js            → simulación (no escribe)
 //   node src/scripts/normalizarTelefonos.js --aplicar  → aplica los cambios
 
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import User from "../models/User.js";
-import Institucion from "../models/Institucion.js";
-import { normalizarTelefono } from "../utils/normalizarTelefono.js";
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import User from '../models/User.js';
+import Institucion from '../models/Institucion.js';
+import { normalizarTelefono } from '../utils/normalizarTelefono.js';
 
 dotenv.config();
 
-const APLICAR = process.argv.includes("--aplicar");
+const APLICAR = process.argv.includes('--aplicar');
 
 async function normalizarColeccion(Modelo, etiqueta) {
-  const docs = await Modelo.find({ telefono: { $nin: [null, ""] } }).select("telefono nombre apellido");
+  const docs = await Modelo.find({ telefono: { $nin: [null, ''] } }).select('telefono nombre apellido');
 
   let yaOk = 0;
   const cambios = [];
@@ -24,10 +24,16 @@ async function normalizarColeccion(Modelo, etiqueta) {
 
   for (const doc of docs) {
     const actual = doc.telefono;
-    if (/^\+57\d{10}$/.test(actual)) { yaOk++; continue; }
+    if (/^\+57\d{10}$/.test(actual)) {
+      yaOk++;
+      continue;
+    }
 
     const normalizado = normalizarTelefono(actual);
-    if (!normalizado) { invalidos.push({ _id: doc._id, actual }); continue; }
+    if (!normalizado) {
+      invalidos.push({ _id: doc._id, actual });
+      continue;
+    }
 
     cambios.push({ _id: doc._id, actual, normalizado });
   }
@@ -50,7 +56,7 @@ async function normalizarColeccion(Modelo, etiqueta) {
   if (APLICAR && cambios.length) {
     // si el normalizado choca con otra cuenta, se deja intacto en vez de romper ambos logins
     for (const c of cambios) {
-      const choque = await Modelo.findOne({ telefono: c.normalizado, _id: { $ne: c._id } }).select("_id");
+      const choque = await Modelo.findOne({ telefono: c.normalizado, _id: { $ne: c._id } }).select('_id');
       if (choque) {
         console.log(`     ⚠️  ${c.actual} → ${c.normalizado} ya lo usa ${choque._id}: se deja sin cambiar`);
         continue;
@@ -66,17 +72,15 @@ async function normalizarColeccion(Modelo, etiqueta) {
 async function main() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ Conectado a MongoDB");
-    console.log(APLICAR
-      ? "MODO: aplicar cambios"
-      : "MODO: simulación (usa --aplicar para escribir en la base)");
+    console.log('✅ Conectado a MongoDB');
+    console.log(APLICAR ? 'MODO: aplicar cambios' : 'MODO: simulación (usa --aplicar para escribir en la base)');
 
-    await normalizarColeccion(User, "Usuarios");
-    await normalizarColeccion(Institucion, "Instituciones");
+    await normalizarColeccion(User, 'Usuarios');
+    await normalizarColeccion(Institucion, 'Instituciones');
 
-    console.log("\nListo.\n");
+    console.log('\nListo.\n');
   } catch (error) {
-    console.error("Error en la migración:", error);
+    console.error('Error en la migración:', error);
     process.exitCode = 1;
   } finally {
     await mongoose.disconnect();

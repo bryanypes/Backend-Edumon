@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
 
 const esBufferLike = (value) => {
-  return Buffer.isBuffer(value) || value instanceof Uint8Array || ArrayBuffer.isView(value) || value instanceof ArrayBuffer;
+  return (
+    Buffer.isBuffer(value) || value instanceof Uint8Array || ArrayBuffer.isView(value) || value instanceof ArrayBuffer
+  );
 };
 
 export const getFileBuffer = async (file) => {

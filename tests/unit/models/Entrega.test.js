@@ -16,8 +16,12 @@ describe('Entrega — validaciones de schema', () => {
 
   it('rechaza una valoracion fuera del rango 1-5', () => {
     const base = { tareaId: '507f1f77bcf86cd799439011', padreId: '507f1f77bcf86cd799439012' };
-    expect(new Entrega({ ...base, calificacion: { valoracion: 0 } }).validateSync().errors['calificacion.valoracion']).toBeDefined();
-    expect(new Entrega({ ...base, calificacion: { valoracion: 6 } }).validateSync().errors['calificacion.valoracion']).toBeDefined();
+    expect(
+      new Entrega({ ...base, calificacion: { valoracion: 0 } }).validateSync().errors['calificacion.valoracion'],
+    ).toBeDefined();
+    expect(
+      new Entrega({ ...base, calificacion: { valoracion: 6 } }).validateSync().errors['calificacion.valoracion'],
+    ).toBeDefined();
   });
 
   it('rechaza una valoracion no entera', () => {

@@ -3,7 +3,9 @@ import User from '../../models/User.js';
 import { NotificacionStrategy } from './NotificacionStrategy.js';
 
 export class FCMStrategy extends NotificacionStrategy {
-  nombre() { return 'push'; }
+  nombre() {
+    return 'push';
+  }
 
   async enviar(usuario, notificacion) {
     if (!usuario.fcmToken) return false;
@@ -14,22 +16,22 @@ export class FCMStrategy extends NotificacionStrategy {
       calificacion: '⭐ Calificación',
       foro: '💬 Foro',
       evento: '📅 Nuevo Evento',
-      sistema: '🔔 Notificación'
+      sistema: '🔔 Notificación',
     };
 
     const message = {
       token: usuario.fcmToken,
       notification: {
         title: titulos[notificacion.tipo] || '🔔 Notificación',
-        body: notificacion.mensaje
+        body: notificacion.mensaje,
       },
       data: {
         notificacionId: notificacion._id.toString(),
         tipo: notificacion.tipo,
-        url: `/notificaciones`
+        url: `/notificaciones`,
       },
       android: { priority: 'high' },
-      apns: { payload: { aps: { sound: 'default', badge: 1 } } }
+      apns: { payload: { aps: { sound: 'default', badge: 1 } } },
     };
 
     try {

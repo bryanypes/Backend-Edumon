@@ -64,9 +64,7 @@ export const createUserValidator = [
 ];
 
 export const updateUserValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de usuario inválido'),
+  param('id').isMongoId().withMessage('ID de usuario inválido'),
 
   body('nombre')
     .optional()
@@ -109,18 +107,14 @@ export const updateUserValidator = [
   // en silencio; un 200 sin avisar que no pasó nada). El cambio de estado
   // va por DELETE /:id (suspender) y /:id/reactivar, que sí revisan cosas
   // como cursos activos antes de suspender a un docente.
-  body('estado')
-    .custom((value) => {
-      if (value !== undefined) {
-        throw new Error('El estado se cambia con DELETE /:id (suspender) o PATCH /:id/reactivar, no desde aquí');
-      }
-      return true;
-    }),
+  body('estado').custom((value) => {
+    if (value !== undefined) {
+      throw new Error('El estado se cambia con DELETE /:id (suspender) o PATCH /:id/reactivar, no desde aquí');
+    }
+    return true;
+  }),
 
-  body('institucionId')
-    .optional()
-    .isMongoId()
-    .withMessage('ID de institución inválido'),
+  body('institucionId').optional().isMongoId().withMessage('ID de institución inválido'),
 ];
 
 export const updateOwnProfileValidator = [
@@ -150,11 +144,7 @@ export const updateOwnProfileValidator = [
     .withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 ];
 
-export const userIdValidator = [
-  param('id')
-    .isMongoId()
-    .withMessage('ID de usuario inválido'),
-];
+export const userIdValidator = [param('id').isMongoId().withMessage('ID de usuario inválido')];
 
 export const updateFcmTokenValidator = [
   body('fcmToken')
@@ -171,7 +161,7 @@ export const updateModoOscuroValidator = [
     .isBoolean()
     .withMessage('modoOscuro debe ser true o false')
     .notEmpty()
-    .withMessage('modoOscuro es obligatorio')
+    .withMessage('modoOscuro es obligatorio'),
 ];
 
 // el administrador cambia la contraseña de otro usuario: una nueva, o la cédula (restablecer)
@@ -181,6 +171,9 @@ export const cambiarContrasenaValidator = [
   body('exigirCambio').optional().isBoolean().withMessage('exigirCambio debe ser verdadero o falso').toBoolean(),
   body('contraseña')
     .if(body('restablecer').not().equals('true'))
-    .isString().withMessage('La contraseña nueva es requerida').bail()
-    .isLength({ min: 6, max: 100 }).withMessage('La contraseña debe tener entre 6 y 100 caracteres'),
+    .isString()
+    .withMessage('La contraseña nueva es requerida')
+    .bail()
+    .isLength({ min: 6, max: 100 })
+    .withMessage('La contraseña debe tener entre 6 y 100 caracteres'),
 ];

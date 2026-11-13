@@ -18,7 +18,10 @@ const mockRes = () => {
 describe('canCreateEntrega', () => {
   it('responde 403 si el padreId del body no coincide con el usuario autenticado', async () => {
     const padre = await crearPadre();
-    const req = { body: { tareaId: '507f1f77bcf86cd799439011', padreId: 'otro-id' }, user: { userId: padre._id.toString() } };
+    const req = {
+      body: { tareaId: '507f1f77bcf86cd799439011', padreId: 'otro-id' },
+      user: { userId: padre._id.toString() },
+    };
     const res = mockRes();
     const next = vi.fn();
 
@@ -140,7 +143,11 @@ describe('canModifyEntrega', () => {
 
   it('permite DELETE incluso si la entrega ya no está en borrador (el controlador la vuelve a validar)', async () => {
     const entrega = await crearEntrega({ estado: 'enviada' });
-    const req = { params: { id: entrega._id.toString() }, user: { userId: entrega.padreId.toString() }, method: 'DELETE' };
+    const req = {
+      params: { id: entrega._id.toString() },
+      user: { userId: entrega.padreId.toString() },
+      method: 'DELETE',
+    };
     const res = mockRes();
     const next = vi.fn();
 
@@ -176,7 +183,10 @@ describe('canViewEntrega', () => {
   it('permite ver al docente de la tarea', async () => {
     const tarea = await crearTarea();
     const entrega = await crearEntrega({ tareaId: tarea._id });
-    const req = { params: { id: entrega._id.toString() }, user: { userId: tarea.docenteId.toString(), rol: 'docente' } };
+    const req = {
+      params: { id: entrega._id.toString() },
+      user: { userId: tarea.docenteId.toString(), rol: 'docente' },
+    };
     const res = mockRes();
     const next = vi.fn();
 

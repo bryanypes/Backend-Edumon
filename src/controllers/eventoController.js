@@ -20,43 +20,45 @@ export const createEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
     }
 
     const { userId, rol, institucionId } = req.user;
 
     if (!['administrador', 'docente'].includes(rol)) {
-      return res.status(403).json({ message: "No tienes permisos para crear eventos" });
+      return res.status(403).json({ message: 'No tienes permisos para crear eventos' });
     }
 
     let { titulo, descripcion, fechaInicio, fechaFin, hora, ubicacion, cursosIds, categoria } = req.body;
 
     if (typeof cursosIds === 'string') {
-      try { cursosIds = JSON.parse(cursosIds); } catch {
-        return res.status(400).json({ message: "El formato de cursosIds es inválido" });
+      try {
+        cursosIds = JSON.parse(cursosIds);
+      } catch {
+        return res.status(400).json({ message: 'El formato de cursosIds es inválido' });
       }
     }
 
     if (!Array.isArray(cursosIds) || cursosIds.length === 0) {
-      return res.status(400).json({ message: "cursosIds debe ser un array con al menos un ID de curso" });
+      return res.status(400).json({ message: 'cursosIds debe ser un array con al menos un ID de curso' });
     }
 
     const cursosExisten = await Curso.find({ _id: { $in: cursosIds } });
     if (cursosExisten.length !== cursosIds.length) {
-      return res.status(404).json({ message: "Uno o más cursos no existen" });
+      return res.status(404).json({ message: 'Uno o más cursos no existen' });
     }
 
     if (rol === 'docente') {
-      const cursosDelDocente = cursosExisten.filter(c => c.docenteId.toString() === userId);
+      const cursosDelDocente = cursosExisten.filter((c) => c.docenteId.toString() === userId);
       if (cursosDelDocente.length !== cursosIds.length) {
-        return res.status(403).json({ message: "Solo puedes crear eventos para tus propios cursos" });
+        return res.status(403).json({ message: 'Solo puedes crear eventos para tus propios cursos' });
       }
     }
 
     if (rol === 'administrador') {
-      const cursosDeLaInstitucion = cursosExisten.filter(c => c.institucionId.toString() === institucionId);
+      const cursosDeLaInstitucion = cursosExisten.filter((c) => c.institucionId.toString() === institucionId);
       if (cursosDeLaInstitucion.length !== cursosIds.length) {
-        return res.status(403).json({ message: "Solo puedes crear eventos para cursos de tu institución" });
+        return res.status(403).json({ message: 'Solo puedes crear eventos para cursos de tu institución' });
       }
     }
 
@@ -70,8 +72,9 @@ export const createEvento = async (req, res) => {
       const fileBuffer = await getFileBuffer(file);
       if (fileBuffer) {
         subidas.push(
-          subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-portadas')
-            .then(resultado => { imagenPortada = { url: resultado.url, publicId: resultado.publicId }; })
+          subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-portadas').then((resultado) => {
+            imagenPortada = { url: resultado.url, publicId: resultado.publicId };
+          }),
         );
       }
     }
@@ -80,20 +83,26 @@ export const createEvento = async (req, res) => {
       const fileBuffer = await getFileBuffer(file);
       if (fileBuffer) {
         subidas.push(
-          subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-adjuntos', file.originalname)
-            .then(resultado => { adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname }; })
+          subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-adjuntos', file.originalname).then((resultado) => {
+            adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
+          }),
         );
       }
     }
     if (subidas.length > 0) await Promise.all(subidas);
 
     const nuevoEvento = new Evento({
-      titulo, descripcion, fechaInicio, fechaFin, hora, ubicacion,
+      titulo,
+      descripcion,
+      fechaInicio,
+      fechaFin,
+      hora,
+      ubicacion,
       docenteId: userId,
       cursosIds,
       categoria,
       imagenPortada,
-      adjuntos
+      adjuntos,
     });
 
     const eventoGuardado = await nuevoEvento.save();
@@ -104,11 +113,14 @@ export const createEvento = async (req, res) => {
 
     eventBus.publicar(EVENTOS.EVENTO_CREADO, eventoCompleto);
 
-    res.status(201).json({ message: "Evento creado exitosamente", evento: eventoCompleto });
+    res.status(201).json({ message: 'Evento creado exitosamente', evento: eventoCompleto });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear evento:', error);
-    res.status(500).json({ message: "Error interno del servidor", error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    res.status(500).json({
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 };
 
@@ -130,7 +142,7 @@ export const getEventos = async (req, res) => {
     if (rol === 'padre') {
       const cursosDelPadre = await Curso.find({
         'participantes.usuarioId': userId,
-        'participantes.etiqueta': 'padre'
+        'participantes.etiqueta': 'padre',
       }).distinct('_id');
       filter.cursosIds = { $in: cursosDelPadre };
     }
@@ -144,8 +156,10 @@ export const getEventos = async (req, res) => {
       Evento.find(filter)
         .populate('docenteId', 'nombre apellido correo')
         .populate('cursosIds', 'nombre codigoCurso')
-        .skip(skip).limit(limit).sort({ fechaInicio: -1 }),
-      Evento.countDocuments(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort({ fechaInicio: -1 }),
+      Evento.countDocuments(filter),
     ]);
 
     res.json({
@@ -155,13 +169,13 @@ export const getEventos = async (req, res) => {
         totalPages: Math.ceil(total / limit),
         totalEventos: total,
         hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1
-      }
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener eventos:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -169,7 +183,7 @@ export const getEventoById = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
     }
 
     const { id } = req.params;
@@ -180,38 +194,36 @@ export const getEventoById = async (req, res) => {
       .populate({
         path: 'cursosIds',
         select: 'nombre codigoCurso participantes institucionId',
-        populate: { path: 'participantes.usuarioId', select: 'nombre apellido correo rol' }
+        populate: { path: 'participantes.usuarioId', select: 'nombre apellido correo rol' },
       });
 
-    if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
+    if (!evento) return res.status(404).json({ message: 'Evento no encontrado' });
 
     if (rol === 'docente' && evento.docenteId._id.toString() !== userId) {
-      return res.status(403).json({ message: "No tienes permiso para ver este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para ver este evento' });
     }
 
     if (rol === 'padre') {
       const cursosDelPadre = await Curso.find({
         'participantes.usuarioId': userId,
-        'participantes.etiqueta': 'padre'
+        'participantes.etiqueta': 'padre',
       }).distinct('_id');
 
-      const tieneAcceso = evento.cursosIds.some(curso =>
-        cursosDelPadre.some(id => id.equals(curso._id))
-      );
+      const tieneAcceso = evento.cursosIds.some((curso) => cursosDelPadre.some((id) => id.equals(curso._id)));
 
-      if (!tieneAcceso) return res.status(403).json({ message: "No tienes permiso para ver este evento" });
+      if (!tieneAcceso) return res.status(403).json({ message: 'No tienes permiso para ver este evento' });
     }
 
     if (rol === 'administrador') {
-      const esDeMiInstitucion = evento.cursosIds.every(curso => curso.institucionId?.toString() === institucionId);
-      if (!esDeMiInstitucion) return res.status(403).json({ message: "No tienes permiso para ver este evento" });
+      const esDeMiInstitucion = evento.cursosIds.every((curso) => curso.institucionId?.toString() === institucionId);
+      if (!esDeMiInstitucion) return res.status(403).json({ message: 'No tienes permiso para ver este evento' });
     }
 
     res.json(evento);
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener evento:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -219,7 +231,7 @@ export const updateEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
     }
 
     const { id } = req.params;
@@ -227,18 +239,18 @@ export const updateEvento = async (req, res) => {
     const updateData = { ...req.body };
 
     if (!['administrador', 'docente'].includes(rol)) {
-      return res.status(403).json({ message: "No tienes permisos para actualizar eventos" });
+      return res.status(403).json({ message: 'No tienes permisos para actualizar eventos' });
     }
 
     const evento = await Evento.findById(id);
-    if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
+    if (!evento) return res.status(404).json({ message: 'Evento no encontrado' });
 
     if (rol === 'docente' && evento.docenteId.toString() !== userId) {
-      return res.status(403).json({ message: "No tienes permiso para actualizar este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para actualizar este evento' });
     }
 
     if (rol === 'administrador' && !(await eventoPerteneceAInstitucion(evento.cursosIds, institucionId))) {
-      return res.status(403).json({ message: "No tienes permiso para actualizar este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para actualizar este evento' });
     }
 
     delete updateData._id;
@@ -250,23 +262,25 @@ export const updateEvento = async (req, res) => {
     if (updateData.cursosIds !== undefined) {
       let nuevosCursosIds = updateData.cursosIds;
       if (typeof nuevosCursosIds === 'string') {
-        try { nuevosCursosIds = JSON.parse(nuevosCursosIds); } catch {
-          return res.status(400).json({ message: "El formato de cursosIds es inválido" });
+        try {
+          nuevosCursosIds = JSON.parse(nuevosCursosIds);
+        } catch {
+          return res.status(400).json({ message: 'El formato de cursosIds es inválido' });
         }
       }
       if (!Array.isArray(nuevosCursosIds) || nuevosCursosIds.length === 0) {
-        return res.status(400).json({ message: "cursosIds debe ser un array con al menos un ID de curso" });
+        return res.status(400).json({ message: 'cursosIds debe ser un array con al menos un ID de curso' });
       }
 
       const cursosDestino = await Curso.find({ _id: { $in: nuevosCursosIds } });
       if (cursosDestino.length !== nuevosCursosIds.length) {
-        return res.status(404).json({ message: "Uno o más cursos no existen" });
+        return res.status(404).json({ message: 'Uno o más cursos no existen' });
       }
-      if (rol === 'docente' && cursosDestino.some(c => c.docenteId.toString() !== userId)) {
-        return res.status(403).json({ message: "Solo puedes asignar tus propios cursos al evento" });
+      if (rol === 'docente' && cursosDestino.some((c) => c.docenteId.toString() !== userId)) {
+        return res.status(403).json({ message: 'Solo puedes asignar tus propios cursos al evento' });
       }
-      if (rol === 'administrador' && cursosDestino.some(c => c.institucionId.toString() !== institucionId)) {
-        return res.status(403).json({ message: "Solo puedes asignar cursos de tu institución al evento" });
+      if (rol === 'administrador' && cursosDestino.some((c) => c.institucionId.toString() !== institucionId)) {
+        return res.status(403).json({ message: 'Solo puedes asignar cursos de tu institución al evento' });
       }
       updateData.cursosIds = nuevosCursosIds;
     }
@@ -275,33 +289,42 @@ export const updateEvento = async (req, res) => {
     const actualizaciones = [];
 
     if (req.files?.imagenPortada?.[0]) {
-      actualizaciones.push((async () => {
-        if (evento.imagenPortada?.publicId) {
-          await eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {});
-        }
-        const file = req.files.imagenPortada[0];
-        const fileBuffer = await getFileBuffer(file);
-        if (!fileBuffer) {
-          throw new Error('No se pudo leer la imagen del evento');
-        }
-        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-portadas');
-        updateData.imagenPortada = { url: resultado.url, publicId: resultado.publicId };
-      })());
+      actualizaciones.push(
+        (async () => {
+          if (evento.imagenPortada?.publicId) {
+            await eliminarArchivoCloudinary(evento.imagenPortada.publicId, 'image').catch(() => {});
+          }
+          const file = req.files.imagenPortada[0];
+          const fileBuffer = await getFileBuffer(file);
+          if (!fileBuffer) {
+            throw new Error('No se pudo leer la imagen del evento');
+          }
+          const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-portadas');
+          updateData.imagenPortada = { url: resultado.url, publicId: resultado.publicId };
+        })(),
+      );
     }
 
     if (req.files?.adjunto?.[0]) {
-      actualizaciones.push((async () => {
-        if (evento.adjuntos?.publicId) {
-          await eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {});
-        }
-        const file = req.files.adjunto[0];
-        const fileBuffer = await getFileBuffer(file);
-        if (!fileBuffer) {
-          throw new Error('No se pudo leer el adjunto del evento');
-        }
-        const resultado = await subirArchivoCloudinary(fileBuffer, file.mimetype, 'eventos-adjuntos', file.originalname);
-        updateData.adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
-      })());
+      actualizaciones.push(
+        (async () => {
+          if (evento.adjuntos?.publicId) {
+            await eliminarArchivoCloudinary(evento.adjuntos.publicId, 'raw').catch(() => {});
+          }
+          const file = req.files.adjunto[0];
+          const fileBuffer = await getFileBuffer(file);
+          if (!fileBuffer) {
+            throw new Error('No se pudo leer el adjunto del evento');
+          }
+          const resultado = await subirArchivoCloudinary(
+            fileBuffer,
+            file.mimetype,
+            'eventos-adjuntos',
+            file.originalname,
+          );
+          updateData.adjuntos = { url: resultado.url, publicId: resultado.publicId, nombre: file.originalname };
+        })(),
+      );
     }
 
     if (actualizaciones.length > 0) await Promise.all(actualizaciones);
@@ -317,11 +340,11 @@ export const updateEvento = async (req, res) => {
       eventBus.publicar(EVENTOS.EVENTO_ACTUALIZADO, eventoActualizado);
     }
 
-    res.json({ message: "Evento actualizado exitosamente", evento: eventoActualizado });
+    res.json({ message: 'Evento actualizado exitosamente', evento: eventoActualizado });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar evento:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -329,25 +352,25 @@ export const deleteEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
     }
 
     const { id } = req.params;
     const { userId, rol, institucionId } = req.user;
 
     if (!['administrador', 'docente'].includes(rol)) {
-      return res.status(403).json({ message: "No tienes permisos para eliminar eventos" });
+      return res.status(403).json({ message: 'No tienes permisos para eliminar eventos' });
     }
 
     const evento = await Evento.findById(id);
-    if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
+    if (!evento) return res.status(404).json({ message: 'Evento no encontrado' });
 
     if (rol === 'docente' && evento.docenteId.toString() !== userId) {
-      return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para eliminar este evento' });
     }
 
     if (rol === 'administrador' && !(await eventoPerteneceAInstitucion(evento.cursosIds, institucionId))) {
-      return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para eliminar este evento' });
     }
 
     const limpiezas = [];
@@ -360,11 +383,11 @@ export const deleteEvento = async (req, res) => {
     if (limpiezas.length > 0) await Promise.all(limpiezas);
 
     await Evento.findByIdAndDelete(id);
-    res.json({ message: "Evento eliminado exitosamente" });
+    res.json({ message: 'Evento eliminado exitosamente' });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar evento:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -374,32 +397,32 @@ export const cancelarEvento = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ message: "Errores de validación", errors: errors.array() });
+      return res.status(400).json({ message: 'Errores de validación', errors: errors.array() });
     }
 
     const { id } = req.params;
     const { userId, rol, institucionId } = req.user;
 
     if (!['administrador', 'docente'].includes(rol)) {
-      return res.status(403).json({ message: "No tienes permisos para cancelar eventos" });
+      return res.status(403).json({ message: 'No tienes permisos para cancelar eventos' });
     }
 
     const evento = await Evento.findById(id);
-    if (!evento) return res.status(404).json({ message: "Evento no encontrado" });
+    if (!evento) return res.status(404).json({ message: 'Evento no encontrado' });
 
     if (rol === 'docente' && evento.docenteId.toString() !== userId) {
-      return res.status(403).json({ message: "No tienes permiso para cancelar este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para cancelar este evento' });
     }
 
     if (rol === 'administrador' && !(await eventoPerteneceAInstitucion(evento.cursosIds, institucionId))) {
-      return res.status(403).json({ message: "No tienes permiso para cancelar este evento" });
+      return res.status(403).json({ message: 'No tienes permiso para cancelar este evento' });
     }
 
     if (evento.estado === 'cancelado') {
-      return res.status(400).json({ message: "El evento ya está cancelado" });
+      return res.status(400).json({ message: 'El evento ya está cancelado' });
     }
     if (evento.estado === 'finalizado') {
-      return res.status(400).json({ message: "No se puede cancelar un evento que ya finalizó" });
+      return res.status(400).json({ message: 'No se puede cancelar un evento que ya finalizó' });
     }
 
     const eventoCancelado = await Evento.findByIdAndUpdate(id, { estado: 'cancelado' }, { new: true })
@@ -408,11 +431,11 @@ export const cancelarEvento = async (req, res) => {
 
     eventBus.publicar(EVENTOS.EVENTO_CANCELADO, eventoCancelado);
 
-    res.json({ message: "Evento cancelado exitosamente", evento: eventoCancelado });
+    res.json({ message: 'Evento cancelado exitosamente', evento: eventoCancelado });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al cancelar evento:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
 
@@ -429,7 +452,7 @@ export const getEventosHoy = async (req, res) => {
     else if (rol === 'padre') {
       const cursosDelPadre = await Curso.find({
         'participantes.usuarioId': userId,
-        'participantes.etiqueta': 'padre'
+        'participantes.etiqueta': 'padre',
       }).distinct('_id');
       filter.cursosIds = { $in: cursosDelPadre };
     } else if (rol === 'administrador') {
@@ -446,6 +469,6 @@ export const getEventosHoy = async (req, res) => {
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener eventos de hoy:', error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };

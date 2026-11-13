@@ -17,13 +17,17 @@ async function foroConPadreParticipante(overridesForo = {}) {
 
 describe('POST /api/mensajes-foro', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un participante del curso publica un mensaje en el foro', async () => {
     const { padre, foro } = await foroConPadreParticipante();
     const agent = await loginComo(app, padre);
 
-    const res = await agent.post('/api/mensajes-foro').send({ foroId: foro._id.toString(), contenido: 'Hola, tengo una duda' });
+    const res = await agent
+      .post('/api/mensajes-foro')
+      .send({ foroId: foro._id.toString(), contenido: 'Hola, tengo una duda' });
     expect(res.status).toBe(201);
   });
 
@@ -32,7 +36,9 @@ describe('POST /api/mensajes-foro', () => {
     const ajeno = await crearPadre();
     const agent = await loginComo(app, ajeno);
 
-    const res = await agent.post('/api/mensajes-foro').send({ foroId: foro._id.toString(), contenido: 'Intento ajeno' });
+    const res = await agent
+      .post('/api/mensajes-foro')
+      .send({ foroId: foro._id.toString(), contenido: 'Intento ajeno' });
     expect(res.status).toBe(403);
   });
 
@@ -53,7 +59,9 @@ describe('POST /api/mensajes-foro', () => {
 
     const agent = await loginComo(app, padre);
     const res = await agent.post('/api/mensajes-foro').send({
-      foroId: foro._id.toString(), contenido: 'Respondiendo a otro padre', respuestaA: mensajeDeOtroPadre._id.toString(),
+      foroId: foro._id.toString(),
+      contenido: 'Respondiendo a otro padre',
+      respuestaA: mensajeDeOtroPadre._id.toString(),
     });
     expect(res.status).toBe(403);
   });
@@ -64,7 +72,9 @@ describe('POST /api/mensajes-foro', () => {
 
     const agent = await loginComo(app, padre);
     const res = await agent.post('/api/mensajes-foro').send({
-      foroId: foro._id.toString(), contenido: 'Gracias profe', respuestaA: mensajeDocente._id.toString(),
+      foroId: foro._id.toString(),
+      contenido: 'Gracias profe',
+      respuestaA: mensajeDocente._id.toString(),
     });
     expect(res.status).toBe(201);
   });
@@ -76,7 +86,9 @@ describe('POST /api/mensajes-foro', () => {
 
     const agent = await loginComo(app, padre);
     const res = await agent.post('/api/mensajes-foro').send({
-      foroId: foro._id.toString(), contenido: 'Respuesta anidada', respuestaA: respuesta._id.toString(),
+      foroId: foro._id.toString(),
+      contenido: 'Respuesta anidada',
+      respuestaA: respuesta._id.toString(),
     });
     expect(res.status).toBe(400);
   });
@@ -91,7 +103,9 @@ describe('POST /api/mensajes-foro', () => {
 
 describe('POST /api/mensajes-foro — notificaciones', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   const esperarNotificacion = async (filtro, timeoutMs = 2000) => {
     const inicio = Date.now();
@@ -120,7 +134,9 @@ describe('POST /api/mensajes-foro — notificaciones', () => {
     const agent = await loginComo(app, padre);
 
     await agent.post('/api/mensajes-foro').send({
-      foroId: foro._id.toString(), contenido: 'Gracias profe', respuestaA: mensajeDocente._id.toString(),
+      foroId: foro._id.toString(),
+      contenido: 'Gracias profe',
+      respuestaA: mensajeDocente._id.toString(),
     });
 
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -134,7 +150,9 @@ describe('POST /api/mensajes-foro — notificaciones', () => {
     const agent = await loginComo(app, docente);
 
     await agent.post('/api/mensajes-foro').send({
-      foroId: foro._id.toString(), contenido: 'Claro, te explico', respuestaA: mensajeDePadre._id.toString(),
+      foroId: foro._id.toString(),
+      contenido: 'Claro, te explico',
+      respuestaA: mensajeDePadre._id.toString(),
     });
 
     const notifPadre = await esperarNotificacion({ usuarioId: padre._id, tipo: 'foro' });
@@ -145,12 +163,19 @@ describe('POST /api/mensajes-foro — notificaciones', () => {
 
 describe('GET /api/mensajes-foro/foro/:foroId', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('agrupa las respuestas bajo su mensaje raíz correspondiente', async () => {
     const { padre, foro } = await foroConPadreParticipante();
     const raiz = await crearMensajeForo({ foroId: foro._id, usuarioId: foro.docenteId, contenido: 'Mensaje raíz' });
-    await crearMensajeForo({ foroId: foro._id, usuarioId: padre._id, contenido: 'Una respuesta', respuestaA: raiz._id });
+    await crearMensajeForo({
+      foroId: foro._id,
+      usuarioId: padre._id,
+      contenido: 'Una respuesta',
+      respuestaA: raiz._id,
+    });
 
     const agent = await loginComo(app, padre);
     const res = await agent.get(`/api/mensajes-foro/foro/${foro._id}`);
@@ -163,7 +188,9 @@ describe('GET /api/mensajes-foro/foro/:foroId', () => {
 
 describe('POST /api/mensajes-foro/:id/like', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('da y quita like alternadamente', async () => {
     const { padre, foro } = await foroConPadreParticipante();
@@ -183,7 +210,9 @@ describe('POST /api/mensajes-foro/:id/like', () => {
 
 describe('PUT/DELETE de mensajes — moderación', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('el autor puede editar su propio mensaje', async () => {
     const { padre, foro } = await foroConPadreParticipante();

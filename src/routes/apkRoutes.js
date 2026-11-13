@@ -1,13 +1,7 @@
 import express from 'express';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware.js';
 import { uploadApk } from '../middlewares/cloudinaryMiddleware.js';
-import {
-  getApkActual,
-  listarApks,
-  subirApk,
-  actualizarApk,
-  eliminarApk
-} from '../controllers/apkController.js';
+import { getApkActual, listarApks, subirApk, actualizarApk, eliminarApk } from '../controllers/apkController.js';
 
 const router = express.Router();
 

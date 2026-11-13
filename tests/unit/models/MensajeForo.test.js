@@ -21,16 +21,26 @@ describe('MensajeForo — validaciones de schema', () => {
 
   it('rechaza más de 5 archivos adjuntos', () => {
     const archivos = Array.from({ length: 6 }, (_, i) => ({
-      url: `http://x.com/${i}.jpg`, publicId: `id${i}`, tipo: 'imagen', nombre: `${i}.jpg`,
+      url: `http://x.com/${i}.jpg`,
+      publicId: `id${i}`,
+      tipo: 'imagen',
+      nombre: `${i}.jpg`,
     }));
     const mensaje = new MensajeForo({
-      foroId: '507f1f77bcf86cd799439011', usuarioId: '507f1f77bcf86cd799439012', contenido: 'hola', archivos,
+      foroId: '507f1f77bcf86cd799439011',
+      usuarioId: '507f1f77bcf86cd799439012',
+      contenido: 'hola',
+      archivos,
     });
     expect(mensaje.validateSync().errors.archivos).toBeDefined();
   });
 
   it('likes empieza en 0', () => {
-    const mensaje = new MensajeForo({ foroId: '507f1f77bcf86cd799439011', usuarioId: '507f1f77bcf86cd799439012', contenido: 'hola' });
+    const mensaje = new MensajeForo({
+      foroId: '507f1f77bcf86cd799439011',
+      usuarioId: '507f1f77bcf86cd799439012',
+      contenido: 'hola',
+    });
     expect(mensaje.likes).toBe(0);
   });
 });

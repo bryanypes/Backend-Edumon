@@ -5,14 +5,14 @@ import {
   obtenerMensajesPorForo,
   toggleLikeMensaje,
   eliminarMensaje,
-  actualizarMensaje
+  actualizarMensaje,
 } from '../controllers/mensajeForoController.js';
 import {
   crearMensajeValidator,
   actualizarMensajeValidator,
   obtenerMensajesPorForoValidator,
   toggleLikeMensajeValidator,
-  eliminarMensajeValidator
+  eliminarMensajeValidator,
 } from '../middlewares/validators/mensajeForoValidator.js';
 import { validationResult } from 'express-validator';
 
@@ -34,7 +34,7 @@ const uploadArchivosMensajeMiddleware = multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024,
-    files: 5
+    files: 5,
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -48,17 +48,19 @@ const uploadArchivosMensajeMiddleware = multer({
       'video/mp4',
       'video/mpeg',
       'video/quicktime',
-      'application/pdf'
+      'application/pdf',
     ];
 
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      const error = new Error('Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC), videos (MP4, MPEG, MOV) y archivos PDF');
+      const error = new Error(
+        'Solo se permiten imágenes (JPEG, PNG, GIF, WEBP, HEIC), videos (MP4, MPEG, MOV) y archivos PDF',
+      );
       error.status = 400;
       cb(error, false);
     }
-  }
+  },
 });
 
 router.post(
@@ -67,7 +69,7 @@ router.post(
   uploadArchivosMensajeMiddleware.array('archivos', 5),
   crearMensajeValidator,
   handleValidationErrors,
-  crearMensaje
+  crearMensaje,
 );
 
 router.get(
@@ -75,31 +77,13 @@ router.get(
   authMiddleware,
   obtenerMensajesPorForoValidator,
   handleValidationErrors,
-  obtenerMensajesPorForo
+  obtenerMensajesPorForo,
 );
 
-router.post(
-  '/:id/like',
-  authMiddleware,
-  toggleLikeMensajeValidator,
-  handleValidationErrors,
-  toggleLikeMensaje
-);
+router.post('/:id/like', authMiddleware, toggleLikeMensajeValidator, handleValidationErrors, toggleLikeMensaje);
 
-router.put(
-  '/:id',
-  authMiddleware,
-  actualizarMensajeValidator,
-  handleValidationErrors,
-  actualizarMensaje
-);
+router.put('/:id', authMiddleware, actualizarMensajeValidator, handleValidationErrors, actualizarMensaje);
 
-router.delete(
-  '/:id',
-  authMiddleware,
-  eliminarMensajeValidator,
-  handleValidationErrors,
-  eliminarMensaje
-);
+router.delete('/:id', authMiddleware, eliminarMensajeValidator, handleValidationErrors, eliminarMensaje);
 
 export default router;

@@ -23,9 +23,10 @@ export const createNotificacion = async (req, res) => {
         return res.status(404).json({ message: 'El usuario destinatario no existe' });
       }
 
-      const perteneceAInstitucion = destinatario.rol === 'padre'
-        ? await Curso.exists({ institucionId: req.user.institucionId, 'participantes.usuarioId': destinatario._id })
-        : destinatario.institucionId?.toString() === req.user.institucionId;
+      const perteneceAInstitucion =
+        destinatario.rol === 'padre'
+          ? await Curso.exists({ institucionId: req.user.institucionId, 'participantes.usuarioId': destinatario._id })
+          : destinatario.institucionId?.toString() === req.user.institucionId;
 
       if (!perteneceAInstitucion) {
         return res.status(403).json({ message: 'Solo puedes notificar a usuarios de tu institución' });
@@ -39,14 +40,14 @@ export const createNotificacion = async (req, res) => {
 
     res.status(201).json({
       message: 'Notificación creada exitosamente',
-      notificacion
+      notificacion,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al crear notificación:', error);
-    res.status(500).json({ 
-      message: 'Error al crear la notificación', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al crear la notificación',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -56,7 +57,7 @@ export const getMisNotificaciones = async (req, res) => {
     if (!req.user || !req.user.userId) {
       return res.status(401).json({
         message: 'Usuario no autenticado',
-        error: 'Token inválido o middleware de autenticación no configurado'
+        error: 'Token inválido o middleware de autenticación no configurado',
       });
     }
 
@@ -65,12 +66,7 @@ export const getMisNotificaciones = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-      page = 1,
-      limit = 20,
-      tipo,
-      leido
-    } = req.query;
+    const { page = 1, limit = 20, tipo, leido } = req.query;
 
     const usuarioIdString = req.user.userId.toString();
 
@@ -91,14 +87,9 @@ export const getMisNotificaciones = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const [notificaciones, total, noLeidas] = await Promise.all([
-      Notificacion.find(query)
-        .sort({ fecha: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .populate('referenciaId')
-        .lean(),
+      Notificacion.find(query).sort({ fecha: -1 }).skip(skip).limit(parseInt(limit)).populate('referenciaId').lean(),
       Notificacion.countDocuments(query),
-      Notificacion.countDocuments({ usuarioId: usuarioIdString, leido: false })
+      Notificacion.countDocuments({ usuarioId: usuarioIdString, leido: false }),
     ]);
 
     res.status(200).json({
@@ -107,16 +98,16 @@ export const getMisNotificaciones = async (req, res) => {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / limit),
       },
-      noLeidas
+      noLeidas,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener notificaciones:', error);
     res.status(500).json({
       message: 'Error al obtener las notificaciones',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -136,12 +127,12 @@ export const getNotificacionById = async (req, res) => {
 
     const notificacion = await Notificacion.findOne({
       _id: req.params.id,
-      usuarioId: usuarioIdString
+      usuarioId: usuarioIdString,
     }).populate('referenciaId');
 
     if (!notificacion) {
       return res.status(404).json({
-        message: 'Notificación no encontrada'
+        message: 'Notificación no encontrada',
       });
     }
 
@@ -149,9 +140,9 @@ export const getNotificacionById = async (req, res) => {
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener notificación:', error);
-    res.status(500).json({ 
-      message: 'Error al obtener la notificación', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al obtener la notificación',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -172,34 +163,34 @@ export const marcarComoLeida = async (req, res) => {
     const notificacion = await Notificacion.findOneAndUpdate(
       {
         _id: req.params.id,
-        usuarioId: usuarioIdString
+        usuarioId: usuarioIdString,
       },
       { leido: true },
-      { new: true }
+      { new: true },
     );
 
     if (!notificacion) {
       return res.status(404).json({
-        message: 'Notificación no encontrada'
+        message: 'Notificación no encontrada',
       });
     }
 
     const noLeidas = await Notificacion.countDocuments({
       usuarioId: usuarioIdString,
-      leido: false
+      leido: false,
     });
 
     res.status(200).json({
       message: 'Notificación marcada como leída',
       notificacion,
-      noLeidas
+      noLeidas,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar notificación:', error);
-    res.status(500).json({ 
-      message: 'Error al actualizar la notificación', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al actualizar la notificación',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -225,27 +216,27 @@ export const marcarVariasLeidas = async (req, res) => {
     const resultado = await Notificacion.updateMany(
       {
         _id: { $in: notificacionIds },
-        usuarioId: usuarioIdString
+        usuarioId: usuarioIdString,
       },
-      { leido: true }
+      { leido: true },
     );
 
     const noLeidas = await Notificacion.countDocuments({
       usuarioId: usuarioIdString,
-      leido: false
+      leido: false,
     });
 
     res.status(200).json({
       message: 'Notificaciones marcadas como leídas',
       modificadas: resultado.modifiedCount,
-      noLeidas
+      noLeidas,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar notificaciones:', error);
-    res.status(500).json({ 
-      message: 'Error al actualizar las notificaciones', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al actualizar las notificaciones',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -261,22 +252,22 @@ export const marcarTodasLeidas = async (req, res) => {
     const resultado = await Notificacion.updateMany(
       {
         usuarioId: usuarioIdString,
-        leido: false
+        leido: false,
       },
-      { leido: true }
+      { leido: true },
     );
 
     res.status(200).json({
       message: 'Todas las notificaciones marcadas como leídas',
       modificadas: resultado.modifiedCount,
-      noLeidas: 0
+      noLeidas: 0,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al marcar todas las notificaciones:', error);
-    res.status(500).json({ 
-      message: 'Error al actualizar las notificaciones', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al actualizar las notificaciones',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -296,30 +287,30 @@ export const deleteNotificacion = async (req, res) => {
 
     const notificacion = await Notificacion.findOneAndDelete({
       _id: req.params.id,
-      usuarioId: usuarioIdString
+      usuarioId: usuarioIdString,
     });
 
     if (!notificacion) {
       return res.status(404).json({
-        message: 'Notificación no encontrada'
+        message: 'Notificación no encontrada',
       });
     }
 
     const noLeidas = await Notificacion.countDocuments({
       usuarioId: usuarioIdString,
-      leido: false
+      leido: false,
     });
 
     res.status(200).json({
       message: 'Notificación eliminada exitosamente',
-      noLeidas
+      noLeidas,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar notificación:', error);
-    res.status(500).json({ 
-      message: 'Error al eliminar la notificación', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al eliminar la notificación',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -332,26 +323,26 @@ export const eliminarLeidasAntiguas = async (req, res) => {
 
     const { dias = 30 } = req.query;
     const usuarioIdString = req.user.userId.toString();
-    
+
     const fechaLimite = new Date();
     fechaLimite.setDate(fechaLimite.getDate() - parseInt(dias));
 
     const resultado = await Notificacion.deleteMany({
       usuarioId: usuarioIdString,
       leido: true,
-      fecha: { $lt: fechaLimite }
+      fecha: { $lt: fechaLimite },
     });
 
     res.status(200).json({
       message: `${resultado.deletedCount} notificaciones antiguas eliminadas`,
-      eliminadas: resultado.deletedCount
+      eliminadas: resultado.deletedCount,
     });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al eliminar notificaciones antiguas:', error);
-    res.status(500).json({ 
-      message: 'Error al eliminar notificaciones', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al eliminar notificaciones',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -366,16 +357,16 @@ export const getConteoNoLeidas = async (req, res) => {
 
     const noLeidas = await Notificacion.countDocuments({
       usuarioId: usuarioIdString,
-      leido: false
+      leido: false,
     });
 
     res.status(200).json({ noLeidas });
   } catch (error) {
     if (responderErrorDeDatos(res, error)) return;
     console.error('Error al obtener conteo:', error);
-    res.status(500).json({ 
-      message: 'Error al obtener el conteo', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: 'Error al obtener el conteo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

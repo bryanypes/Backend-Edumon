@@ -13,11 +13,7 @@ const TIPOS_SIN_CORREO = ['entrega'];
 // Facade: coordina BD + estrategias de envío + bloque familiar en un solo punto de entrada
 class NotificadorFacade {
   constructor() {
-    this.estrategias = [
-      new WebSocketStrategy(),
-      new FCMStrategy(),
-      new EmailStrategy()
-    ];
+    this.estrategias = [new WebSocketStrategy(), new FCMStrategy(), new EmailStrategy()];
   }
 
   async notificar(usuarioId, datos) {
@@ -32,7 +28,7 @@ class NotificadorFacade {
         prioridad: datos.prioridad || 'critica',
         referenciaId: datos.referenciaId,
         referenciaModelo: datos.referenciaModelo,
-        metadata: datos.metadata || {}
+        metadata: datos.metadata || {},
       });
       await notificacion.save();
 
@@ -45,8 +41,8 @@ class NotificadorFacade {
       const resultados = await Promise.all(
         estrategiasAUsar.map(async (estrategia) => ({
           canal: estrategia.nombre(),
-          enviado: await estrategia.enviar(usuario, notificacion)
-        }))
+          enviado: await estrategia.enviar(usuario, notificacion),
+        })),
       );
       resultados.forEach(({ canal, enviado }) => {
         notificacion.canalEnviado[canal] = enviado;
@@ -55,7 +51,6 @@ class NotificadorFacade {
 
       await notificacion.save();
       return notificacion;
-
     } catch (error) {
       console.error(`[NotificadorFacade] Error notificando a ${usuarioId}:`, error.message);
       return null;
@@ -70,40 +65,35 @@ class NotificadorFacade {
     const perfiles = await PerfilFamiliar.find({
       titularId: usuarioId,
       activo: true,
-      fcmToken: { $ne: null }
+      fcmToken: { $ne: null },
     });
 
     if (perfiles.length === 0) return;
-
 
     // perfiles adicionales solo reciben push, no se guardan en BD
     const { FCMStrategy } = await import('./strategies/FCMStrategy.js');
     const fcm = new FCMStrategy();
 
     await Promise.allSettled(
-      perfiles.map(perfil =>
+      perfiles.map((perfil) =>
         fcm.enviar(
           { _id: perfil._id, fcmToken: perfil.fcmToken },
           {
             _id: `perfil-${perfil._id}`,
             tipo: datos.tipo,
-            mensaje: datos.mensaje
-          }
-        )
-      )
+            mensaje: datos.mensaje,
+          },
+        ),
+      ),
     );
   }
 
   async notificarMultiples(usuarioIds, datos) {
-    await Promise.allSettled(
-      usuarioIds.map(id => this.notificar(id, datos))
-    );
+    await Promise.allSettled(usuarioIds.map((id) => this.notificar(id, datos)));
   }
 
   async notificarFamilias(usuarioIds, datos) {
-    await Promise.allSettled(
-      usuarioIds.map(id => this.notificarFamilia(id, datos))
-    );
+    await Promise.allSettled(usuarioIds.map((id) => this.notificarFamilia(id, datos)));
   }
 }
 

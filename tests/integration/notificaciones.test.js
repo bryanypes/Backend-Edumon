@@ -9,7 +9,9 @@ const crearNotifPara = (usuarioId, overrides = {}) =>
 
 describe('GET /api/notificaciones', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('un usuario solo ve sus propias notificaciones', async () => {
     const padre = await crearPadre();
@@ -39,7 +41,9 @@ describe('GET /api/notificaciones', () => {
 
 describe('GET /api/notificaciones/conteo-no-leidas', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('cuenta solo las no leídas del usuario autenticado', async () => {
     const padre = await crearPadre();
@@ -55,14 +59,18 @@ describe('GET /api/notificaciones/conteo-no-leidas', () => {
 
 describe('POST /api/notificaciones — solo admin/superadmin', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('CORREGIDO: un padre no puede crear notificaciones dirigidas a otro usuario', async () => {
     const padre = await crearPadre();
     const victima = await crearPadre();
     const agent = await loginComo(app, padre);
 
-    const res = await agent.post('/api/notificaciones').send({ usuarioId: victima._id.toString(), tipo: 'sistema', mensaje: 'Notificación falsa' });
+    const res = await agent
+      .post('/api/notificaciones')
+      .send({ usuarioId: victima._id.toString(), tipo: 'sistema', mensaje: 'Notificación falsa' });
     expect(res.status).toBe(403);
   });
 
@@ -72,7 +80,9 @@ describe('POST /api/notificaciones — solo admin/superadmin', () => {
     const destinatario = await crearDocente({ institucionId: institucion._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/notificaciones').send({ usuarioId: destinatario._id.toString(), tipo: 'sistema', mensaje: 'Aviso institucional' });
+    const res = await agent
+      .post('/api/notificaciones')
+      .send({ usuarioId: destinatario._id.toString(), tipo: 'sistema', mensaje: 'Aviso institucional' });
     expect(res.status).toBe(201);
   });
 
@@ -86,7 +96,9 @@ describe('POST /api/notificaciones — solo admin/superadmin', () => {
     });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/notificaciones').send({ usuarioId: destinatario._id.toString(), tipo: 'sistema', mensaje: 'Aviso institucional' });
+    const res = await agent
+      .post('/api/notificaciones')
+      .send({ usuarioId: destinatario._id.toString(), tipo: 'sistema', mensaje: 'Aviso institucional' });
     expect(res.status).toBe(201);
   });
 
@@ -97,14 +109,18 @@ describe('POST /api/notificaciones — solo admin/superadmin', () => {
     const destinatarioAjeno = await crearDocente({ institucionId: institucionAjena._id });
     const agent = await loginComo(app, admin);
 
-    const res = await agent.post('/api/notificaciones').send({ usuarioId: destinatarioAjeno._id.toString(), tipo: 'sistema', mensaje: 'Spoofing' });
+    const res = await agent
+      .post('/api/notificaciones')
+      .send({ usuarioId: destinatarioAjeno._id.toString(), tipo: 'sistema', mensaje: 'Spoofing' });
     expect(res.status).toBe(403);
   });
 });
 
 describe('Marcar como leída(s) / eliminar', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('marca una notificación propia como leída', async () => {
     const padre = await crearPadre();
@@ -132,7 +148,9 @@ describe('Marcar como leída(s) / eliminar', () => {
     const b = await crearNotifPara(padre._id, { leido: false });
     const agent = await loginComo(app, padre);
 
-    const res = await agent.patch('/api/notificaciones/leer-multiples').send({ notificacionIds: [a._id.toString(), b._id.toString()] });
+    const res = await agent
+      .patch('/api/notificaciones/leer-multiples')
+      .send({ notificacionIds: [a._id.toString(), b._id.toString()] });
     expect(res.status).toBe(200);
     expect(res.body.modificadas).toBe(2);
   });
@@ -160,7 +178,10 @@ describe('Marcar como leída(s) / eliminar', () => {
 
   it('limpia solo las leídas con más de N días de antigüedad', async () => {
     const padre = await crearPadre();
-    const vieja = await crearNotifPara(padre._id, { leido: true, fecha: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000) });
+    const vieja = await crearNotifPara(padre._id, {
+      leido: true,
+      fecha: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+    });
     const reciente = await crearNotifPara(padre._id, { leido: true, fecha: new Date() });
     const agent = await loginComo(app, padre);
 

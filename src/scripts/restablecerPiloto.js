@@ -66,8 +66,11 @@ export function leerContenidoPiloto(env = process.env) {
     modulos.length === 0 && 'PILOTO_MODULO_1_TITULO',
     !contenido.tarea.titulo && 'PILOTO_TAREA_TITULO',
     !(contenido.tarea.fechaEntrega instanceof Date) && 'PILOTO_TAREA_FECHA_ENTREGA',
-    contenido.tarea.fechaEntrega instanceof Date && Number.isNaN(contenido.tarea.fechaEntrega.getTime()) && 'PILOTO_TAREA_FECHA_ENTREGA (fecha inválida)',
-    !(contenido.tarea.modulo >= 1 && contenido.tarea.modulo <= modulos.length) && 'PILOTO_TAREA_MODULO (fuera de rango)',
+    contenido.tarea.fechaEntrega instanceof Date &&
+      Number.isNaN(contenido.tarea.fechaEntrega.getTime()) &&
+      'PILOTO_TAREA_FECHA_ENTREGA (fecha inválida)',
+    !(contenido.tarea.modulo >= 1 && contenido.tarea.modulo <= modulos.length) &&
+      'PILOTO_TAREA_MODULO (fuera de rango)',
     !contenido.foro.titulo && 'PILOTO_FORO_TITULO',
     !contenido.foro.descripcion && 'PILOTO_FORO_DESCRIPCION',
   ].filter(Boolean);
@@ -97,10 +100,14 @@ export async function restablecerPiloto(env = process.env) {
 
   const docente = await User.findOne({ telefono: contenido.docenteTelefono, rol: 'docente' });
   if (!docente) {
-    throw new Error(`No se creó la docente ${contenido.docenteTelefono}: revisa su bloque BOOTSTRAP_ADMIN_* (ROL=docente) en el .env.`);
+    throw new Error(
+      `No se creó la docente ${contenido.docenteTelefono}: revisa su bloque BOOTSTRAP_ADMIN_* (ROL=docente) en el .env.`,
+    );
   }
   if (!docente.institucionId) {
-    throw new Error('La docente quedó sin institución: revisa BOOTSTRAP_INSTITUCION_NOMBRE y BOOTSTRAP_INSTITUCION_NIT en el .env.');
+    throw new Error(
+      'La docente quedó sin institución: revisa BOOTSTRAP_INSTITUCION_NOMBRE y BOOTSTRAP_INSTITUCION_NIT en el .env.',
+    );
   }
 
   const curso = await Curso.create({
@@ -176,8 +183,8 @@ async function main() {
   if (!process.argv.includes('--confirmar')) {
     console.error(
       '❌ Este comando BORRA toda la base de datos (menos las APK) y crea el contenido inicial del piloto.\n' +
-      `   Base: ${describirDestino(process.env.MONGO_URI)}\n` +
-      '   Para hacerlo de verdad: npm run piloto:restablecer -- --confirmar',
+        `   Base: ${describirDestino(process.env.MONGO_URI)}\n` +
+        '   Para hacerlo de verdad: npm run piloto:restablecer -- --confirmar',
     );
     process.exit(1);
   }

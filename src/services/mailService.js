@@ -1,5 +1,5 @@
-import { getTransportSMTP } from "./smtpTransport.js";
-import { correoRecuperacion } from "./plantillaCorreo.js";
+import { getTransportSMTP } from './smtpTransport.js';
+import { correoRecuperacion } from './plantillaCorreo.js';
 
 export async function enviarCorreoRecuperacion(usuario, codigo) {
   try {
@@ -7,7 +7,7 @@ export async function enviarCorreoRecuperacion(usuario, codigo) {
     const { subject, html, text } = correoRecuperacion(usuario, codigo);
     await transporte.sendMail({
       from: {
-        name:    process.env.SMTP_FROM_NAME || 'Edumon',
+        name: process.env.SMTP_FROM_NAME || 'Edumon',
         address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
       },
       to: { name: usuario.nombre, address: usuario.correo },

@@ -8,7 +8,9 @@ import { nodemailerSendMailMock } from '../setup/mocks.js';
 
 describe('POST /api/auth/register', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   const datosValidos = () => ({
     nombre: 'Ana María',
@@ -38,7 +40,9 @@ describe('POST /api/auth/register', () => {
   });
 
   it('rechaza una contraseña débil (sin mayúscula/minúscula/dígito)', async () => {
-    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), contraseña: 'todominusculas' });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), contraseña: 'todominusculas' });
     expect(res.status).toBe(400);
   });
 
@@ -50,41 +54,57 @@ describe('POST /api/auth/register', () => {
   });
 
   it('rechaza un teléfono que no es un número colombiano válido en ningún formato', async () => {
-    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), telefono: '123' });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), telefono: '123' });
     expect(res.status).toBe(400);
   });
 
   it('CRÍTICO: el registro público rechaza cualquier rol distinto de "padre" (sin sesión no se puede crear un docente/administrador)', async () => {
-    const comoDocente = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'docente' });
+    const comoDocente = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), rol: 'docente' });
     expect(comoDocente.status).toBe(400);
 
-    const comoAdmin = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'administrador' });
+    const comoAdmin = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), rol: 'administrador' });
     expect(comoAdmin.status).toBe(400);
 
-    const comoSuperadmin = await request(app).post('/api/auth/register').send({ ...datosValidos(), rol: 'superadmin' });
+    const comoSuperadmin = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), rol: 'superadmin' });
     expect(comoSuperadmin.status).toBe(400);
   });
 
   it('responde 409 si la cédula ya está registrada', async () => {
     const existente = await crearPadre();
-    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), cedula: existente.cedula });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), cedula: existente.cedula });
     expect(res.status).toBe(409);
   });
 
   it('responde 409 si el correo ya está registrado', async () => {
     const existente = await crearPadre();
-    const res = await request(app).post('/api/auth/register').send({ ...datosValidos(), correo: existente.correo });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ ...datosValidos(), correo: existente.correo });
     expect(res.status).toBe(409);
   });
 });
 
 describe('POST /api/auth/login', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('inicia sesión con teléfono y contraseña correctos', async () => {
     const padre = await crearPadre();
-    const res = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
 
     expect(res.status).toBe(200);
     expect(res.body.user.rol).toBe('padre');
@@ -93,25 +113,33 @@ describe('POST /api/auth/login', () => {
 
   it('responde 401 con contraseña incorrecta', async () => {
     const padre = await crearPadre();
-    const res = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: 'ClaveIncorrecta1' });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: padre.telefono, contraseña: 'ClaveIncorrecta1' });
     expect(res.status).toBe(401);
   });
 
   it('responde 401 para un teléfono que no existe', async () => {
-    const res = await request(app).post('/api/auth/login').send({ telefono: telefonoDePrueba(), contraseña: CONTRASEÑA_PRUEBA });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: telefonoDePrueba(), contraseña: CONTRASEÑA_PRUEBA });
     expect(res.status).toBe(401);
   });
 
   it('responde 401 si el usuario está suspendido, aun con la contraseña correcta', async () => {
     const padre = await crearPadre({ estado: 'suspendido' });
-    const res = await request(app).post('/api/auth/login').send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: padre.telefono, contraseña: CONTRASEÑA_PRUEBA });
     expect(res.status).toBe(401);
   });
 
   it('inicia sesión aunque el teléfono se escriba sin el prefijo +57 (se normaliza antes de buscar)', async () => {
     const padre = await crearPadre(); // factory ya guarda el telefono como +57XXXXXXXXXX
     const sinPrefijo = padre.telefono.replace('+57', '');
-    const res = await request(app).post('/api/auth/login').send({ telefono: sinPrefijo, contraseña: CONTRASEÑA_PRUEBA });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: sinPrefijo, contraseña: CONTRASEÑA_PRUEBA });
     expect(res.status).toBe(200);
   });
 
@@ -149,14 +177,18 @@ describe('POST /api/auth/login', () => {
     }
 
     // padreB no debería verse afectado por los intentos fallidos de padreA
-    const res = await request(app).post('/api/auth/login').send({ telefono: padreB.telefono, contraseña: CONTRASEÑA_PRUEBA });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ telefono: padreB.telefono, contraseña: CONTRASEÑA_PRUEBA });
     expect(res.status).toBe(200);
   });
 });
 
 describe('GET /api/auth/profile y sesión', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('responde 401 sin cookie de sesión', async () => {
     const res = await request(app).get('/api/auth/profile');
@@ -174,7 +206,9 @@ describe('GET /api/auth/profile y sesión', () => {
 
 describe('POST /api/auth/refresh', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('sin cookie refresh_token responde 401', async () => {
     const res = await request(app).post('/api/auth/refresh');
@@ -205,7 +239,9 @@ describe('POST /api/auth/refresh', () => {
 
 describe('POST /api/auth/logout y /api/auth/logout-all', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('logout limpia las cookies del cliente Y revoca el refresh token de esa sesión en BD, sin tocar las demás sesiones', async () => {
     const padre = await crearPadre();
@@ -247,7 +283,9 @@ describe('POST /api/auth/logout y /api/auth/logout-all', () => {
 
 describe('POST /api/auth/change-password', () => {
   let app;
-  beforeEach(() => { ({ app } = crearApp()); });
+  beforeEach(() => {
+    ({ app } = crearApp());
+  });
 
   it('cambia la contraseña con la actual correcta y marca primerInicioSesion=false', async () => {
     const padre = await crearPadre({ primerInicioSesion: true });
@@ -332,10 +370,14 @@ describe('Recuperación de contraseña por correo', () => {
     await request(app).post('/api/auth/forgot-password').send({ correo: padre.correo });
     const codigo = extraerCodigo();
 
-    const primero = await request(app).post('/api/auth/reset-password').send({ correo: padre.correo, codigo, contraseñaNueva: 'ClaveUno123' });
+    const primero = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ correo: padre.correo, codigo, contraseñaNueva: 'ClaveUno123' });
     expect(primero.status).toBe(200);
 
-    const segundo = await request(app).post('/api/auth/reset-password').send({ correo: padre.correo, codigo, contraseñaNueva: 'ClaveDos123' });
+    const segundo = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ correo: padre.correo, codigo, contraseñaNueva: 'ClaveDos123' });
     expect(segundo.status).toBe(400);
   });
 
@@ -344,9 +386,11 @@ describe('Recuperación de contraseña por correo', () => {
     let ultima;
     for (let i = 0; i < 11; i += 1) {
       // alterna mayúsculas/minúsculas: no debería alcanzar para evadir el límite
-      ultima = await request(app).post('/api/auth/forgot-password').send({
-        correo: i % 2 === 0 ? padre.correo.toUpperCase() : padre.correo,
-      });
+      ultima = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({
+          correo: i % 2 === 0 ? padre.correo.toUpperCase() : padre.correo,
+        });
     }
     expect(ultima.status).toBe(429);
   });
@@ -363,7 +407,9 @@ describe('Recuperación de contraseña por teléfono (retirada)', () => {
     const forgot = await request(app).post('/api/auth/forgot-password-phone').send({ telefono: padre.telefono });
     expect(forgot.status).toBe(404);
     const reset = await request(app).post('/api/auth/reset-password-phone').send({
-      telefono: padre.telefono, codigo: '111111', contraseñaNueva: 'ClaveX123',
+      telefono: padre.telefono,
+      codigo: '111111',
+      contraseñaNueva: 'ClaveX123',
     });
     expect(reset.status).toBe(404);
   });

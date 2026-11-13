@@ -6,26 +6,28 @@ import User from '../models/User.js';
 
 // llamar una sola vez al iniciar el servidor
 export const registrarObservers = () => {
-
   // Observer: Tarea creada → notificar a padres + sus familias
   eventBus.suscribir(EVENTOS.TAREA_CREADA, async (tarea) => {
     const destinatarios = await resolverDestinatariosTarea(tarea);
     const fechaFormateada = new Date(tarea.fechaEntrega).toLocaleDateString('es-CO', {
       timeZone: 'America/Bogota', // el servidor corre en UTC
-      day: '2-digit', month: 'long', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
 
     await notificador.notificarFamilias(
-      destinatarios.map(u => u._id),
+      destinatarios.map((u) => u._id),
       {
         tipo: 'tarea',
         mensaje: `Nuevo reto: "${tarea.titulo}". Entrega: ${fechaFormateada}`,
         prioridad: 'critica',
         referenciaId: tarea._id,
         referenciaModelo: 'Tarea',
-        metadata: { tareaTitulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega }
-      }
+        metadata: { tareaTitulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega },
+      },
     );
   });
 
@@ -34,20 +36,23 @@ export const registrarObservers = () => {
     const destinatarios = await resolverDestinatariosTarea(tarea);
     const fechaFormateada = new Date(tarea.fechaEntrega).toLocaleDateString('es-CO', {
       timeZone: 'America/Bogota', // el servidor corre en UTC
-      day: '2-digit', month: 'long', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
 
     await notificador.notificarFamilias(
-      destinatarios.map(u => u._id),
+      destinatarios.map((u) => u._id),
       {
         tipo: 'tarea',
         mensaje: `El reto "${tarea.titulo}" fue actualizado. Nueva fecha de entrega: ${fechaFormateada}`,
         prioridad: 'critica',
         referenciaId: tarea._id,
         referenciaModelo: 'Tarea',
-        metadata: { tareaTitulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega }
-      }
+        metadata: { tareaTitulo: tarea.titulo, fechaEntrega: tarea.fechaEntrega },
+      },
     );
   });
 
@@ -55,15 +60,15 @@ export const registrarObservers = () => {
   eventBus.suscribir(EVENTOS.TAREA_CERRADA, async (tarea) => {
     const destinatarios = await resolverDestinatariosTarea(tarea);
     await notificador.notificarFamilias(
-      destinatarios.map(u => u._id),
+      destinatarios.map((u) => u._id),
       {
         tipo: 'tarea',
         mensaje: `El reto "${tarea.titulo}" fue cerrado. Ya no se aceptan entregas.`,
         prioridad: 'critica',
         referenciaId: tarea._id,
         referenciaModelo: 'Tarea',
-        metadata: { tareaTitulo: tarea.titulo }
-      }
+        metadata: { tareaTitulo: tarea.titulo },
+      },
     );
   });
 
@@ -75,7 +80,7 @@ export const registrarObservers = () => {
       prioridad: 'critica',
       referenciaId: entrega._id,
       referenciaModelo: 'Entrega',
-      metadata: { tareaTitulo: tarea.titulo }
+      metadata: { tareaTitulo: tarea.titulo },
     });
   });
 
@@ -87,7 +92,7 @@ export const registrarObservers = () => {
       prioridad: 'critica',
       referenciaId: entrega._id,
       referenciaModelo: 'Entrega',
-      metadata: { valoracion: entrega.calificacion.valoracion }
+      metadata: { valoracion: entrega.calificacion.valoracion },
     });
   });
 
@@ -97,20 +102,19 @@ export const registrarObservers = () => {
 
     const fecha = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
       timeZone: 'America/Bogota', // el servidor corre en UTC
-      day: '2-digit', month: 'long', year: 'numeric'
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
 
-    await notificador.notificarFamilias(
-      padresIds,
-      {
-        tipo: 'evento',
-        mensaje: `Nuevo evento: "${evento.titulo}" — ${fecha} a las ${evento.hora}`,
-        prioridad: 'critica',
-        referenciaId: evento._id,
-        referenciaModelo: 'Evento',
-        metadata: { eventoTitulo: evento.titulo }
-      }
-    );
+    await notificador.notificarFamilias(padresIds, {
+      tipo: 'evento',
+      mensaje: `Nuevo evento: "${evento.titulo}" — ${fecha} a las ${evento.hora}`,
+      prioridad: 'critica',
+      referenciaId: evento._id,
+      referenciaModelo: 'Evento',
+      metadata: { eventoTitulo: evento.titulo },
+    });
   });
 
   // Observer: Evento actualizado (cambió fecha/hora/lugar/descripción)
@@ -119,37 +123,33 @@ export const registrarObservers = () => {
 
     const fecha = new Date(evento.fechaInicio).toLocaleDateString('es-CO', {
       timeZone: 'America/Bogota', // el servidor corre en UTC
-      day: '2-digit', month: 'long', year: 'numeric'
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
     });
 
-    await notificador.notificarFamilias(
-      padresIds,
-      {
-        tipo: 'evento',
-        mensaje: `El evento "${evento.titulo}" fue actualizado — ${fecha} a las ${evento.hora}`,
-        prioridad: 'critica',
-        referenciaId: evento._id,
-        referenciaModelo: 'Evento',
-        metadata: { eventoTitulo: evento.titulo }
-      }
-    );
+    await notificador.notificarFamilias(padresIds, {
+      tipo: 'evento',
+      mensaje: `El evento "${evento.titulo}" fue actualizado — ${fecha} a las ${evento.hora}`,
+      prioridad: 'critica',
+      referenciaId: evento._id,
+      referenciaModelo: 'Evento',
+      metadata: { eventoTitulo: evento.titulo },
+    });
   });
 
   // Observer: Evento cancelado
   eventBus.suscribir(EVENTOS.EVENTO_CANCELADO, async (evento) => {
     const padresIds = await resolverPadresDeEvento(evento);
 
-    await notificador.notificarFamilias(
-      padresIds,
-      {
-        tipo: 'evento',
-        mensaje: `El evento "${evento.titulo}" fue cancelado`,
-        prioridad: 'critica',
-        referenciaId: evento._id,
-        referenciaModelo: 'Evento',
-        metadata: { eventoTitulo: evento.titulo }
-      }
-    );
+    await notificador.notificarFamilias(padresIds, {
+      tipo: 'evento',
+      mensaje: `El evento "${evento.titulo}" fue cancelado`,
+      prioridad: 'critica',
+      referenciaId: evento._id,
+      referenciaModelo: 'Evento',
+      metadata: { eventoTitulo: evento.titulo },
+    });
   });
 
   // Observer: Nuevo mensaje en foro → notificar a todo el curso menos al autor
@@ -159,8 +159,8 @@ export const registrarObservers = () => {
 
     const autorId = mensaje.usuarioId._id.toString();
     const destinatarios = curso.participantes
-      .filter(p => p.usuarioId && p.usuarioId._id.toString() !== autorId)
-      .map(p => p.usuarioId._id);
+      .filter((p) => p.usuarioId && p.usuarioId._id.toString() !== autorId)
+      .map((p) => p.usuarioId._id);
 
     if (destinatarios.length === 0) return;
 
@@ -173,7 +173,7 @@ export const registrarObservers = () => {
       prioridad: 'critica',
       referenciaId: foro._id,
       referenciaModelo: 'Foro',
-      metadata: { foroTitulo: foro.titulo, esRespuesta: Boolean(mensaje.respuestaA) }
+      metadata: { foroTitulo: foro.titulo, esRespuesta: Boolean(mensaje.respuestaA) },
     });
   });
 
@@ -185,7 +185,7 @@ export const registrarObservers = () => {
       prioridad: 'critica',
       referenciaId: usuario._id,
       referenciaModelo: 'User',
-      metadata: { primerInicio: true }
+      metadata: { primerInicio: true },
     });
   });
 
@@ -197,7 +197,7 @@ export const registrarObservers = () => {
       prioridad: 'critica',
       referenciaId: curso._id,
       referenciaModelo: 'Curso',
-      metadata: { cursoNombre: curso.nombre }
+      metadata: { cursoNombre: curso.nombre },
     });
   });
 
@@ -213,24 +213,23 @@ export const registrarObservers = () => {
         nombre: mensaje.nombre,
         correo: mensaje.correo,
         telefono: mensaje.telefono,
-        mensajeCompleto: mensaje.mensaje
-      }
+        mensajeCompleto: mensaje.mensaje,
+      },
     });
   });
 
   console.log('[Observer] Todos los observers registrados');
-
 };
 
 // Función auxiliar compartida
 async function resolverPadresDeEvento(evento) {
   const cursos = await Curso.find({
-    _id: { $in: evento.cursosIds.map(c => c._id || c) }
+    _id: { $in: evento.cursosIds.map((c) => c._id || c) },
   }).populate('participantes.usuarioId', '_id');
 
   const padresIds = new Set();
-  cursos.forEach(curso => {
-    curso.participantes.forEach(p => {
+  cursos.forEach((curso) => {
+    curso.participantes.forEach((p) => {
       if (p.etiqueta === 'padre' && p.usuarioId) {
         padresIds.add(p.usuarioId._id.toString());
       }
@@ -244,19 +243,17 @@ async function resolverPadresDeEvento(evento) {
 async function resolverDestinatariosTarea(tarea) {
   const curso = await Curso.findById(tarea.cursoId).populate({
     path: 'participantes.usuarioId',
-    select: '_id nombre apellido'
+    select: '_id nombre apellido',
   });
 
   if (!curso) return [];
 
   if (tarea.asignacionTipo === 'todos') {
-    return curso.participantes
-      .filter(p => p.etiqueta === 'padre' && p.usuarioId)
-      .map(p => p.usuarioId);
+    return curso.participantes.filter((p) => p.etiqueta === 'padre' && p.usuarioId).map((p) => p.usuarioId);
   }
 
   return User.find({
     _id: { $in: tarea.participantesSeleccionados },
-    rol: 'padre'
+    rol: 'padre',
   }).select('_id');
 }
