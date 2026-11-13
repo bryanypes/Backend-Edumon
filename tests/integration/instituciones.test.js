@@ -180,6 +180,18 @@ describe('POST /api/instituciones/docentes — preregistro individual', () => {
     const res = await agent.post('/api/instituciones/docentes').send({ nombre: 'X', apellido: 'Y', cedula: cedulaDePrueba() });
     expect(res.status).toBe(403);
   });
+
+  it('datos incompletos o inválidos responden 400 con el motivo, no 500', async () => {
+    const institucion = await crearInstitucion();
+    const admin = await crearAdministrador({ institucionId: institucion._id });
+    const agent = await loginComo(app, admin);
+
+    const sinCedula = await agent.post('/api/instituciones/docentes').send({ nombre: 'Prof', apellido: 'Nuevo' });
+    expect(sinCedula.status).toBe(400);
+    const cedulaInvalida = await agent.post('/api/instituciones/docentes').send({ nombre: 'Prof', apellido: 'Nuevo', cedula: '12ab' });
+    expect(cedulaInvalida.status).toBe(400);
+    expect(cedulaInvalida.body.message).toMatch(/cédula/i);
+  });
 });
 
 describe('PUT /api/instituciones/:id', () => {

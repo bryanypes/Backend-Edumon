@@ -299,6 +299,8 @@ export const preregistrarDocente = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Ya existe un usuario con esa cédula o correo' });
     }
+    // datos incompletos o con formato inválido (cédula, teléfono...): 400 con el motivo, no 500
+    if (responderErrorDeDatos(res, error)) return;
     res.status(500).json({ message: 'Error interno', error: process.env.NODE_ENV === 'development' ? error.message : undefined});
   }
 };
