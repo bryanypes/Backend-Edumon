@@ -1,4 +1,5 @@
 import Tarea from '../models/Tarea.js';
+import { responderErrorDeDatos } from '../utils/erroresDatos.js';
 
 // acceso: docente asignado, admin/superadmin de la institución, o participante
 // del curso/seleccionados según asignacionTipo
@@ -65,6 +66,7 @@ export const canViewTarea = async (req, res, next) => {
     });
 
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canViewTarea:', error);
     return res.status(500).json({
       message: "Error al verificar permisos"
@@ -103,6 +105,7 @@ export const canModifyTarea = async (req, res, next) => {
       message: "No tienes permiso para modificar este reto"
     });
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en canModifyTarea:', error);
     return res.status(500).json({
       message: "Error al verificar permisos"
@@ -124,6 +127,7 @@ export const filterTareasForUser = async (req, res, next) => {
 
     next();
   } catch (error) {
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error en filterTareasForUser:', error);
     return res.status(500).json({
       message: "Error al filtrar retos"

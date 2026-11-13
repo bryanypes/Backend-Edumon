@@ -54,7 +54,9 @@ export const loginValidator = [
     .matches(/^\+57\d{10}$/).withMessage('El teléfono debe iniciar con +57 y tener 10 dígitos numéricos'),
 
   body('contraseña')
-    .notEmpty().withMessage('La contraseña es requerida'),
+    .notEmpty().withMessage('La contraseña es requerida')
+    // un objeto ({"$ne": null}) llegaba a bcrypt.compare y respondía 500
+    .isString().withMessage('La contraseña es requerida'),
 ];
 
 export const changePasswordValidator = [

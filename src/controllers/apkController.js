@@ -143,6 +143,8 @@ export const actualizarApk = async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Errores de validación', errors: Object.values(error.errors).map((e) => ({ path: e.path, msg: e.message })) });
     }
+    // :id con formato inválido (CastError): 400, igual que al eliminar
+    if (responderErrorDeDatos(res, error)) return;
     console.error('Error al actualizar el APK:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
