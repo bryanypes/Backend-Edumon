@@ -1,107 +1,89 @@
-# Edumon — Backend
+# Edumon Backend
 
-API REST del backend de **Edumon**, una plataforma de gestión escolar que conecta instituciones educativas, docentes y padres/acudientes: cursos, módulos, tareas, entregas con calificación, foros, calendario de eventos y notificaciones multicanal (WebSocket, push, WhatsApp, correo).
+API REST de Edumon, plataforma de gestión escolar que conecta instituciones, docentes y familias: cursos, módulos, retos (tareas) y entregas con valoración, foros, calendario de eventos y notificaciones. La consumen la web (`Frontend`) y la app Android (`Edumonmovil_flutter`).
 
 ## Stack
 
-- Node.js 24 + Express 5
-- MongoDB + Mongoose
-- Autenticación con JWT (cookies httpOnly, access + refresh token con rotación)
-- Socket.IO (tiempo real)
-- Cloudinary (archivos/imágenes), Firebase Admin (push), Twilio (WhatsApp), SMTP (correo)
-- Vitest + Supertest + mongodb-memory-server (pruebas), GitHub Actions (CI)
+- Node.js 22 o superior, Express 5 (ES modules)
+- MongoDB con Mongoose
+- JWT en cookies httpOnly (access token y refresh token rotado)
+- Socket.IO (notificaciones en tiempo real), Firebase Admin (push), Nodemailer (correo)
+- node-cron (recordatorios), sharp y ExcelJS (imágenes e importación de usuarios)
+- Archivos en disco local (`UPLOAD_DIR`)
+- Vitest, Supertest y mongodb-memory-server; ESLint y Prettier
 
-## Requisitos previos
+## Requisitos
 
-- Node.js `>= 22`
-- Una instancia de MongoDB (local o Atlas)
-- Cuentas/credenciales de: Cloudinary, Firebase (proyecto con Cloud Messaging), Twilio (con WhatsApp habilitado), servidor SMTP
-- (Opcional) Docker
+- Node.js 22 o superior
+- MongoDB (local o administrado)
+- Opcional: credenciales SMTP (correo) y de una cuenta de servicio de Firebase (push). Sin ellas, esos canales quedan desactivados.
 
 ## Instalación
 
 ```bash
 npm install
-cp .env.example .env
-# completa .env con tus credenciales reales (ver detalle de cada variable en ese mismo archivo)
+cp .env.example .env   # completar los valores
+npm run dev            # http://localhost:4000
 ```
 
-## Scripts disponibles
-
-| Comando | Descripción |
-|---|---|
-| `npm run dev` | Levanta el servidor en modo desarrollo (nodemon, recarga en caliente) |
-| `npm start` | Levanta el servidor en modo producción |
-| `npm run seed` | **Solo testeo.** Resetea (`dropDatabase`) la base de `MONGO_URI` y borra de Cloudinary todo lo que sube la app (salvo los avatares predeterminados; con `-- --no-cloudinary` se omite). Repuebla con un set mínimo y determinista (~1 registro por colección + 2 docentes / 2 padres / 2 cursos para probar permisos): instituciones, usuarios, perfiles familiares, cursos, módulos, tareas, entregas, foros y mensajes, eventos, notificaciones y buzón. Cédulas/teléfonos/correos fijos entre corridas; clave única `Password123*`. Imprime las credenciales en consola. Bloqueado si `NODE_ENV=production` |
-| `npm run correos:prueba` | Envía por SMTP real un correo de cada tipo (recuperación de contraseña + una notificación por cada tipo) a `karen.mancilla.s@uniautonoma.edu.co`, o al correo que se pase como argumento. Sirve para revisar plantillas y credenciales SMTP. |
-| `npm run fotos:subir` | Sincroniza los avatares de `src/uploads/fotos-predeterminadas/` con la carpeta `fotos-perfil-predeterminadas/` de Cloudinary (sube los nuevos, borra los que ya no estén). Se corre una vez al preparar un entorno. |
-| `npm run telefonos:normalizar` | Migración: pasa los teléfonos antiguos de usuarios e instituciones al formato `+57XXXXXXXXXX`. Sin flags solo simula; con `-- --aplicar` escribe los cambios. |
-| `npm test` | Corre toda la suite de pruebas (Vitest) |
-| `npm run test:watch` | Corre las pruebas en modo watch |
-| `npm run test:coverage` | Corre las pruebas con reporte de cobertura |
-
-El servidor arranca por defecto en `http://localhost:4000` (configurable con `PORT`). La ruta `GET /` sirve como health check.
+`GET /` responde como health check. Todas las rutas de la API están bajo `/api`.
 
 ## Variables de entorno
 
-Ver [.env.example](.env.example) para la lista completa con explicación de cada una (base de datos, JWT, Cloudinary, Firebase, Twilio, SMTP). Ninguna tiene valores por defecto sensibles cargados en el repo; `.env` está en `.gitignore` y nunca debe subirse.
+Documentadas una a una en [`.env.example`](.env.example):
 
-## Docker
+- `PORT`, `NODE_ENV`, `FRONTEND_URL` (CORS), `URL_WEB` (enlaces de los correos)
+- `MONGO_URI`, `JWT_SECRET`, `SESION_DIAS_PADRES_DOCENTES`
+- `UPLOAD_DIR` (archivos subidos)
+- `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL`
+- `BOOTSTRAP_INSTITUCION_*` y `BOOTSTRAP_ADMIN_<n>_*`: institución y cuentas iniciales que se crean al arrancar si no existen
+- `PILOTO_*`: contenido inicial del piloto (solo para `npm run piloto:restablecer`)
 
-```bash
-docker compose up --build
-```
+## Scripts
 
-Levanta el backend en el puerto `4000` leyendo las variables desde `.env`. La imagen corre con un usuario sin privilegios (no root), expone un healthcheck sobre `GET /` y hace apagado ordenado ante SIGTERM para no cortar peticiones en curso en cada redeploy.
+| Comando | Descripción |
+| --- | --- |
+| `npm run dev` | Servidor con recarga (nodemon) |
+| `npm start` | Servidor en producción |
+| `npm test` | Pruebas (Vitest, base de datos en memoria) |
+| `npm run test:watch` / `npm run test:coverage` | Pruebas en modo watch / con cobertura |
+| `npm run lint` | ESLint |
+| `npm run format` / `npm run format:check` | Prettier |
+| `npm run seed` | Borra la base de `MONGO_URI` y carga datos de prueba (clave `Password123*`). Bloqueado con `NODE_ENV=production` |
+| `npm run piloto:restablecer -- --confirmar` | Borra la base (salvo las APK) y crea la institución, las cuentas y el contenido del piloto |
+| `npm run bootstrap:reset-passwords` | Restablece la contraseña de las cuentas `BOOTSTRAP_ADMIN_*` |
+| `npm run correos:prueba` | Envía un correo de cada tipo por el SMTP configurado |
+| `npm run telefonos:normalizar` | Migra teléfonos al formato `+57XXXXXXXXXX` (simula; `-- --aplicar` escribe) |
 
-> Este `docker-compose.yml` es solo para levantar el backend suelto en
-> desarrollo. El despliegue real (frontend + backend en la misma VM) usa el
-> `docker-compose.yml` del repo del frontend, que levanta ambos contenedores
-> en una red compartida (`backend:4000`).
-
-### Antes de exponerlo a internet
-
-Poner el dominio real de la VM en `FRONTEND_URL` (alimenta CORS y el CSP
-`connectSrc`). Sin HTTPS, el login queda roto: las cookies se marcan `Secure`
-en producción y el navegador no las guarda sin TLS.
-
-## Estructura del proyecto
+## Estructura
 
 ```
 src/
-├── config/        # conexión a Mongo, Cloudinary
-├── controllers/    # lógica de negocio por recurso
-├── routes/         # definición de endpoints (montados bajo /api/...)
-├── models/         # esquemas Mongoose
-├── middlewares/     # auth, roles, validadores, uploads
-├── notifications/   # estrategias de notificación (WebSocket, push, WhatsApp, correo)
-├── events/          # bus de eventos interno
-├── schedulers/       # tareas programadas (node-cron)
-├── socket/          # handlers de Socket.IO
-├── scripts/         # seed, correos de prueba, subida de avatares, migración de teléfonos
-└── utils/
+  app.js, server.js, index.js   configuración de Express, servidor HTTP/Socket.IO y arranque
+  config/         base de datos y almacenamiento
+  routes/         endpoints bajo /api
+  controllers/    lógica por recurso
+  middlewares/    autenticación, permisos, validadores y subida de archivos
+  models/         esquemas de Mongoose
+  services/       notificaciones y plantillas de correo
+  notifications/  canales: WebSocket, push y correo
+  events/         bus de eventos interno
+  schedulers/     tareas programadas
+  socket/         handlers de Socket.IO
+  scripts/        seed, piloto y migraciones
+  uploads/        recursos estáticos (avatares predeterminados, imágenes de correo)
+  utils/
+tests/            pruebas unitarias e integración
 ```
 
-## Seguridad (resumen)
+## Docker
 
-- JWT en cookies `httpOnly` (no `localStorage`), access token de 15 min y refresh token rotado (hash SHA-256 en BD, máx. 5 sesiones simultáneas). La sesión se renueva con el uso: dura 365 días desde la última actividad para padres y docentes (configurable con `SESION_DIAS_PADRES_DOCENTES`) y 7 días para administradores.
-- Contraseñas con `bcrypt`.
-- Rate limiting global y reforzado en `/api/auth/login` y `/api/auth/register`.
-- Helmet (CSP, HSTS, Permissions-Policy) y sanitización de payloads contra NoSQL injection.
-- Control de acceso por rol (`padre`, `docente`, `administrador`, `superadmin`) y por institución.
-
-## Testing
-
-Suite de pruebas con Vitest + Supertest + mongodb-memory-server (no toca una base de datos real, corre aislada). Se ejecuta automáticamente en GitHub Actions en cada push y pull request ([.github/workflows/tests.yml](.github/workflows/tests.yml)).
-
-```bash
-npm test              # toda la suite
-npm run test:coverage # con reporte de cobertura
-```
+`docker compose up --build` levanta solo el backend (puerto 4000) con las variables de `.env`. El despliegue completo (web, API y MongoDB) está en el repositorio raíz `Edumon`.
 
 ## Licencia
 
-Este proyecto aún no tiene asignada una licencia de código abierto. Mientras no se indique lo contrario, todos los derechos están reservados por su autor conforme a la legislación de derechos de autor aplicable.
+Sin licencia de código abierto: todos los derechos reservados.
 
 ## Autor
 
