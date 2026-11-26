@@ -133,7 +133,7 @@ const publicUser = (user) => ({
   primerInicioSesion: user.primerInicioSesion,
 });
 
-// REGISTER
+// Registro
 export const register = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -201,7 +201,7 @@ export const register = async (req, res) => {
   }
 };
 
-// LOGIN
+// Inicio de sesión
 export const login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -266,7 +266,7 @@ export const login = async (req, res) => {
   }
 };
 
-// REFRESH
+// Renovación de la sesión
 export const refresh = async (req, res) => {
   try {
     const rawToken = req.cookies?.refresh_token;
@@ -311,7 +311,7 @@ export const refresh = async (req, res) => {
   }
 };
 
-// LOGOUT
+// Cierre de sesión
 export const logout = async (req, res) => {
   try {
     const rawToken = req.cookies?.refresh_token;
@@ -333,7 +333,7 @@ export const logout = async (req, res) => {
   }
 };
 
-// LOGOUT ALL (cerrar todas las sesiones)
+// Cierre de todas las sesiones
 export const logoutAll = async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user.userId, { $set: { refreshTokens: [] } });
@@ -346,7 +346,7 @@ export const logoutAll = async (req, res) => {
   }
 };
 
-// PROFILE
+// Perfil
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -393,7 +393,7 @@ export const getProfile = async (req, res) => {
   }
 };
 
-// CHANGE PASSWORD
+// Cambio de contraseña
 export const changePassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -422,7 +422,7 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// FORGOT PASSWORD (correo)
+// Recuperación de contraseña por correo
 export const forgotPassword = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -457,7 +457,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// RESET PASSWORD (correo)
+// Restablecimiento de contraseña con el código del correo
 export const resetPassword = async (req, res) => {
   try {
     const errors = validationResult(req);

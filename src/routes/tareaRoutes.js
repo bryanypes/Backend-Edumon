@@ -65,7 +65,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // límite del plan de Cloudinary; con Promise.all, un archivo grande tumbaba toda la tarea
+    fileSize: 10 * 1024 * 1024, // 10 MB por archivo: con Promise.all, un archivo grande tumbaba toda la tarea
     files: 10,
   },
 });
