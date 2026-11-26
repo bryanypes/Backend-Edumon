@@ -16,7 +16,7 @@ const ENV_KEYS = [
 
 const limpiarEnv = () => ENV_KEYS.forEach((k) => delete process.env[k]);
 
-const configurarAdmin1 = (telefono = '3165184192') => {
+const configurarAdmin1 = (telefono = '3005550192') => {
   process.env.BOOTSTRAP_ADMIN_1_NOMBRE = 'Bryan David';
   process.env.BOOTSTRAP_ADMIN_1_APELLIDO = 'Yepes Ordóñez';
   process.env.BOOTSTRAP_ADMIN_1_CEDULA = '1000999888';
