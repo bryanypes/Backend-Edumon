@@ -72,7 +72,7 @@ async function limpiarArchivos() {
   console.log(`   ${borrados} entrada(s) borrada(s).\n`);
 }
 
-// ─────────────────────────────── seed ───────────────────────────────
+// seed
 async function seed() {
   if (process.env.NODE_ENV === 'production') {
     console.error('❌ Abortado: NODE_ENV=production. Este seeder es solo para testeo.');
@@ -93,7 +93,7 @@ async function seed() {
 
   await limpiarArchivos();
 
-  // ── 1. Instituciones (2: una completa, otra solo para probar aislamiento) ──
+  // 1. Instituciones (2: una completa, otra solo para probar aislamiento)
   const instA = await Institucion.create({
     nombre: 'Colegio Edumon Demo',
     nit: '900123456-1',
@@ -107,18 +107,18 @@ async function seed() {
     nit: '900654321-2',
     direccion: 'Av. Norte #45-10, Cali, Valle',
     telefono: '+573002220000',
-    correo: 'info@liceolosandes.edu.co',
+    correo: 'info@liceo-demo.edu.co',
     activo: true,
   });
 
-  // ── 2. Usuarios ────────────────────────────────────────────────
+  // 2. Usuarios
   const mk = (data) => User.create({ contraseña: PASSWORD, fotoPerfilUrl: AVATAR_PREDETERMINADO, ...data });
 
   const superadmin = await mk({
     nombre: 'Lucía',
     apellido: 'Torres Ospina',
     cedula: '100000001',
-    correo: 'superadmin@edumon.co',
+    correo: 'superadmin@edumon-demo.edu.co',
     telefono: '+573000000001',
     rol: 'superadmin',
     institucionId: null,
@@ -142,7 +142,7 @@ async function seed() {
     nombre: 'Patricia',
     apellido: 'Ríos Cárdenas',
     cedula: '100000003',
-    correo: 'admin.b@liceolosandes.edu.co',
+    correo: 'admin.b@liceo-demo.edu.co',
     telefono: '+573000000003',
     rol: 'administrador',
     institucionId: instB._id,
@@ -176,7 +176,7 @@ async function seed() {
     nombre: 'Sofía',
     apellido: 'Ramírez Díaz',
     cedula: '100000020',
-    correo: 'padre.a@gmail.com',
+    correo: 'padre.a@ejemplo.com',
     telefono: '+573000000020',
     rol: 'padre',
     institucionId: instA._id,
@@ -187,7 +187,7 @@ async function seed() {
     nombre: 'Tomás',
     apellido: 'Castro Rojas',
     cedula: '100000021',
-    correo: 'padre.b@gmail.com',
+    correo: 'padre.b@ejemplo.com',
     telefono: '+573000000021',
     rol: 'padre',
     institucionId: instA._id,
@@ -195,7 +195,7 @@ async function seed() {
     primerInicioSesion: false,
   });
 
-  // ── 3. Perfiles familiares (1 por padre) ───────────────────────
+  // 3. Perfiles familiares (1 por padre)
   await PerfilFamiliar.create({
     titularId: padreA._id,
     nombre: 'Mateo Ramírez',
@@ -209,7 +209,7 @@ async function seed() {
     activo: true,
   });
 
-  // ── 4. Cursos (2, ambos en instA) ─────────────────────────────
+  // 4. Cursos (2, ambos en instA)
   //  curso1: docenteA · participantes = docenteA + padreA + padreB
   //  curso2: docenteB · participantes = docenteB + padreB   (padreA NO está → probar 403)
   const curso1 = await Curso.create({
@@ -238,7 +238,7 @@ async function seed() {
     ],
   });
 
-  // ── 5. Módulos (1 por curso) ──────────────────────────────────
+  // 5. Módulos (1 por curso)
   const modulo1 = await Modulo.create({
     cursoId: curso1._id,
     titulo: 'Unidad 1 — Números y operaciones',
@@ -252,7 +252,7 @@ async function seed() {
     estado: 'activo',
   });
 
-  // ── 6. Tareas (1 por módulo: una vigente, una vencida) ─────────
+  // 6. Tareas (1 por módulo: una vigente, una vencida)
   const tarea1 = await Tarea.create({
     titulo: 'Taller de fracciones',
     descripcion: 'Resolver el taller adjunto y subir la evidencia en PDF.',
@@ -295,7 +295,7 @@ async function seed() {
     asignacionTipo: 'todos',
   });
 
-  // ── 7. Entregas (a tarea1: una calificada, una pendiente) ──────
+  // 7. Entregas (a tarea1: una calificada, una pendiente)
   const adjunto = () => ({
     url: 'https://res.cloudinary.com/demo/raw/upload/v1/edumon/demo/entrega.pdf',
     publicId: 'edumon/demo/entrega_' + Math.random().toString(36).slice(2, 8),
@@ -327,7 +327,7 @@ async function seed() {
     // sin calificación → pendiente de revisar
   });
 
-  // ── 8. Foros (1 por curso) ────────────────────────────────────
+  // 8. Foros (1 por curso)
   const foro1 = await Foro.create({
     titulo: 'Dudas de la Unidad 1',
     descripcion: 'Espacio para que las familias de Matemáticas 5° compartan inquietudes y aportes.',
@@ -345,7 +345,7 @@ async function seed() {
     publico: true,
   });
 
-  // ── 9. Mensajes de foro (raíz + respuesta + likes) ────────────
+  // 9. Mensajes de foro (raíz + respuesta + likes)
   const msgRaiz = await MensajeForo.create({
     foroId: foro1._id,
     usuarioId: padreA._id,
@@ -365,7 +365,7 @@ async function seed() {
     contenido: 'Les comparto una guía corta de preguntas para conversar la lectura en casa.',
   });
 
-  // ── 10. Eventos (1 por curso; dueño = docente del curso, fecha futura) ──
+  // 10. Eventos (1 por curso; dueño = docente del curso, fecha futura)
   const evento1 = await Evento.create({
     titulo: 'Escuela de Padres: acompañamiento en retos',
     descripcion: 'Encuentro para las familias de Matemáticas 5°. Se solicita puntualidad y confirmación de asistencia.',
@@ -389,7 +389,7 @@ async function seed() {
     categoria: 'institucional',
   });
 
-  // ── 11. Notificaciones (una por cada tipo del enum) ───────────
+  // 11. Notificaciones (una por cada tipo del enum)
   await Notificacion.insertMany([
     {
       usuarioId: padreA._id,
@@ -446,7 +446,7 @@ async function seed() {
     },
   ]);
 
-  // ── 12. Buzón (formulario público de contacto) ────────────────
+  // 12. Buzón (formulario público de contacto)
   await Buzon.insertMany([
     {
       nombre: 'Jorge Pérez',
@@ -465,7 +465,7 @@ async function seed() {
     },
   ]);
 
-  // ── Resumen + credenciales ────────────────────────────────────
+  // Resumen + credenciales
   const L = (u, nota = '') =>
     `    ${u.correo.padEnd(34)} · ${u.telefono} · céd ${u.cedula}${nota ? '  · ' + nota : ''}`;
   console.log('\n══════════════════════════════════════════════════════════════');

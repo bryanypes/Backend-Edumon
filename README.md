@@ -2,6 +2,16 @@
 
 API REST de Edumon, plataforma de gestión escolar que conecta instituciones, docentes y familias: cursos, módulos, retos (tareas) y entregas con valoración, foros, calendario de eventos y notificaciones. La consumen la web (`Frontend`) y la app Android (`Edumonmovil_flutter`).
 
+| Dato | Valor |
+| --- | --- |
+| Programa | EDUMON — programa web (API REST, parte del registro A junto con la web) |
+| Versión | 1.0.0 |
+| Commit | $Format:%H$ |
+| Fecha del commit | $Format:%cs$ |
+| Autores | Bryan David Yepes Ordóñez y Karen Verónica Mancilla Solarte |
+
+En una copia obtenida con `git archive` el commit y la fecha aparecen completos; en el repositorio se ven como marcadores.
+
 ## Stack
 
 - Node.js 22 o superior, Express 5 (ES modules)
@@ -81,10 +91,14 @@ tests/            pruebas unitarias e integración
 
 `docker compose up --build` levanta solo el backend (puerto 4000) con las variables de `.env`. El despliegue completo (web, API y MongoDB) está en el repositorio raíz `Edumon`.
 
+## Licencias de terceros
+
+Las dependencias se instalan desde npm y no se copian al repositorio. Son de licencia permisiva (MIT, ISC, Apache-2.0, BSD); `sharp` incluye libvips (LGPL-3.0, enlazada dinámicamente) y `jszip` es MIT o GPL-3.0 a elección (se usa como MIT). Detalle en `package-lock.json`.
+
 ## Licencia
 
 Sin licencia de código abierto: todos los derechos reservados.
 
-## Autor
+## Autores
 
-Bryan David Yepes
+Bryan David Yepes Ordóñez y Karen Verónica Mancilla Solarte

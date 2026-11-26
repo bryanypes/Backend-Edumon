@@ -1,4 +1,3 @@
-// controllers/cursoController.js
 import Curso from '../models/Curso.js';
 import User from '../models/User.js';
 import { validationResult } from 'express-validator';

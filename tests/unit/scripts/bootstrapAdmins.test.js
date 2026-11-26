@@ -38,14 +38,14 @@ describe('bootstrapAdmins', () => {
     process.env.BOOTSTRAP_ADMIN_1_APELLIDO = 'Yepes Ordóñez';
     process.env.BOOTSTRAP_ADMIN_1_CEDULA = '1000999888';
     process.env.BOOTSTRAP_ADMIN_1_CORREO = 'bryan@example.com';
-    process.env.BOOTSTRAP_ADMIN_1_TELEFONO = '3165184192';
+    process.env.BOOTSTRAP_ADMIN_1_TELEFONO = '3005550192';
     process.env.BOOTSTRAP_ADMIN_1_PASSWORD = 'ClaveTemporal123';
 
     await bootstrapAdmins();
 
     const user = await User.findOne({ cedula: '1000999888' });
     expect(user).not.toBeNull();
-    expect(user.telefono).toBe('+573165184192');
+    expect(user.telefono).toBe('+573005550192');
     expect(user.rol).toBe('superadmin');
     expect(user.primerInicioSesion).toBe(true);
     expect(user.estado).toBe('activo');
@@ -56,7 +56,7 @@ describe('bootstrapAdmins', () => {
     process.env.BOOTSTRAP_ADMIN_1_NOMBRE = 'Verónica';
     process.env.BOOTSTRAP_ADMIN_1_APELLIDO = 'Mancilla Solarte';
     process.env.BOOTSTRAP_ADMIN_1_CEDULA = '1000999777';
-    process.env.BOOTSTRAP_ADMIN_1_TELEFONO = '3212660683';
+    process.env.BOOTSTRAP_ADMIN_1_TELEFONO = '3005550183';
     process.env.BOOTSTRAP_ADMIN_1_PASSWORD = 'ClaveTemporal123';
 
     await bootstrapAdmins();

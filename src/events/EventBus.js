@@ -1,7 +1,6 @@
-// src/events/EventBus.js
 import { EventEmitter } from 'events';
 
-// Observer: EventBus es el subject, los listeners son los observers
+// Patrón observador: EventBus publica los eventos y los listeners reaccionan
 class EventBus extends EventEmitter {
   constructor() {
     super();

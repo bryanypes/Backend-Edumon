@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { fcmSendMock, fcmSendMulticastMock, nodemailerSendMailMock } from './mocks.js';
 
-// ─── Variables de entorno de prueba ───────────────────────────────────────────
+// Variables de entorno de prueba
 // falsas pero con forma válida; los SDKs que las usan están mockeados abajo
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-do-not-use-in-production';
@@ -25,7 +25,7 @@ process.env.SMTP_FROM_EMAIL = 'no-reply@test.edumon.local';
 // almacenamiento local de archivos: carpeta temporal aislada por corrida
 process.env.UPLOAD_DIR = path.join(os.tmpdir(), `edumon-test-uploads-${process.pid}`);
 
-// ─── Mocks globales de SDKs externos ──────────────────────────────────────────
+// Mocks globales de SDKs externos
 // registrados aquí para que apliquen a todo el árbol de módulos sin mockear por archivo
 vi.mock('firebase-admin', () => {
   const messaging = () => ({
@@ -47,7 +47,7 @@ vi.mock('nodemailer', () => ({
   },
 }));
 
-// ─── Ciclo de vida de Mongo (mongodb-memory-server) ───────────────────────────
+// Ciclo de vida de Mongo (mongodb-memory-server)
 let mongod;
 
 beforeAll(async () => {

@@ -1,4 +1,3 @@
-// src/notifications/NotificadorFacade.js
 import Notificacion from '../models/Notificacion.js';
 import User from '../models/User.js';
 import { FCMStrategy } from './strategies/FCMStrategy.js';

@@ -1,4 +1,3 @@
-// src/utils/fechaColombia.js
 
 // Colombia es UTC-5 todo el año (no tiene horario de verano)
 const OFFSET_BOGOTA_MS = 5 * 60 * 60 * 1000;

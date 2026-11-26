@@ -1,11 +1,10 @@
-// src/utils/normalizarTelefono.js
 
 /**
  * Normaliza un número de teléfono colombiano al formato +57XXXXXXXXXX
  * Ejemplos:
- *   "3113014875"      → "+573113014875"
- *   "+573113014875"   → "+573113014875"
- *   "573113014875"    → "+573113014875"
+ *   "3005550199"      → "+573005550199"
+ *   "+573005550199"   → "+573005550199"
+ *   "573005550199"    → "+573005550199"
  *   "3001112233"      → "+573001112233"
  */
 export const normalizarTelefono = (telefono) => {

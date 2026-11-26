@@ -315,7 +315,7 @@ export const crearApp = () => {
   app.use('/api/buzon', buzonRoutes);
   app.use('/api/apk', apkRoutes);
 
-  // Health check
+  // Verificación de salud
   app.get('/', (req, res) => {
     res.json({
       message: 'API funcionando correctamente',
@@ -329,7 +329,7 @@ export const crearApp = () => {
     res.status(404).json({ message: 'Ruta no encontrada' });
   });
 
-  // Error handler global
+  // Manejador global de errores
   app.use((err, req, res, _next) => {
     // Fallback para rutas de subida de archivos que no capturan MulterError
     // por su cuenta (tareaRoutes y apkRoutes sí lo hacen): sin esto, un
