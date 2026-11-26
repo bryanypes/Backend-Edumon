@@ -190,7 +190,7 @@ export const createTarea = async (req, res) => {
     try {
       savedTarea = await newTarea.save();
     } catch (saveError) {
-      // save falló: limpiar lo ya subido a Cloudinary
+      // si falla el guardado, se borran los archivos ya subidos
       await Promise.all(
         archivosAdjuntos
           .filter((a) => a.tipo === 'archivo' && a.publicId)
@@ -506,7 +506,7 @@ export const updateTarea = async (req, res) => {
         .populate('moduloId', 'titulo')
         .populate('participantesSeleccionados', 'nombre apellido correo');
     } catch (updateError) {
-      // update falló: limpiar lo recién subido a Cloudinary
+      // si falla la actualización, se borran los archivos recién subidos
       await Promise.all(
         nuevosSubidos.map((a) => eliminarArchivoCloudinary(a.publicId, resourceTypeDeFormato(a.formato))),
       );
@@ -599,7 +599,7 @@ export const deleteTarea = async (req, res) => {
       );
     }
 
-    // limpiar referencias a los archivos ya borrados de Cloudinary
+    // se quitan las referencias a los archivos ya borrados del disco
     const updatedTarea = await Tarea.findByIdAndUpdate(
       id,
       { estado: 'cerrada', archivosAdjuntos: (tarea.archivosAdjuntos || []).filter((a) => a.tipo !== 'archivo') },

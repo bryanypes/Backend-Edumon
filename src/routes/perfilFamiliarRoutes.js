@@ -15,10 +15,10 @@ const router = express.Router();
 router.use(authMiddleware, requireRole(['padre']));
 
 router.get('/', getMisPerfiles); // Ver todos mis perfiles
-router.post('/', crearPerfil); // Crear perfil
+router.post('/', crearPerfil);
 router.post('/seleccionar', seleccionarPerfil); // Elegir perfil activo → nuevo token
 router.put('/:id', actualizarPerfil); // Editar perfil
-router.delete('/:id', eliminarPerfil); // Eliminar perfil
+router.delete('/:id', eliminarPerfil);
 router.post('/fcm-token', guardarFCMTokenPerfil); // Guardar token por perfil
 
 export default router;

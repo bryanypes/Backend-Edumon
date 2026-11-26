@@ -1,4 +1,3 @@
-// src/utils/normalizarTelefono.js
 
 /**
  * Normaliza un número de teléfono colombiano al formato +57XXXXXXXXXX

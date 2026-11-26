@@ -1,4 +1,3 @@
-// src/events/notificacionObservers.js
 import { eventBus, EVENTOS } from './EventBus.js';
 import notificador from '../notifications/NotificadorFacade.js';
 import Curso from '../models/Curso.js';
@@ -221,7 +220,6 @@ export const registrarObservers = () => {
   console.log('[Observer] Todos los observers registrados');
 };
 
-// Función auxiliar compartida
 async function resolverPadresDeEvento(evento) {
   const cursos = await Curso.find({
     _id: { $in: evento.cursosIds.map((c) => c._id || c) },
@@ -239,7 +237,6 @@ async function resolverPadresDeEvento(evento) {
   return Array.from(padresIds);
 }
 
-// Función auxiliar compartida
 async function resolverDestinatariosTarea(tarea) {
   const curso = await Curso.findById(tarea.cursoId).populate({
     path: 'participantes.usuarioId',

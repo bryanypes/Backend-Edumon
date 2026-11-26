@@ -122,7 +122,7 @@ export const createEntrega = async (req, res) => {
     try {
       savedEntrega = await newEntrega.save();
     } catch (saveError) {
-      // La entrega no se creó: limpiar los archivos que ya se subieron a Cloudinary
+      // La entrega no se creó: borrar los archivos que ya se habían guardado
       await Promise.all(
         archivosAdjuntos.map((a) =>
           eliminarArchivoCloudinary(

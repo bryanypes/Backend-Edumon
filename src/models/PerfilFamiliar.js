@@ -1,4 +1,3 @@
-// src/models/PerfilFamiliar.js
 import mongoose from 'mongoose';
 
 // sin credenciales propias, se accede desde la sesión del titular (estilo perfiles de Netflix)
