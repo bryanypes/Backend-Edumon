@@ -36,18 +36,18 @@ describe('el administrador gestiona a los padres de su institución', () => {
   it('edita nombre, apellido, cédula, teléfono y correo sin tocar sus entregas', async () => {
     const agente = await loginComo(app, admin);
     const res = await agente.put(`/api/users/${padre._id}`).send({
-      nombre: 'Luisa Ximena',
-      apellido: 'Buesaquillo',
-      cedula: '1067599204',
-      telefono: '+573207404534',
-      correo: ' Luisa@Correo.com ',
+      nombre: 'Laura Ximena',
+      apellido: 'Ficticia Prueba',
+      cedula: '1000555204',
+      telefono: '+573005550134',
+      correo: ' Laura@Correo.com ',
     });
     expect(res.status).toBe(200);
     expect(res.body.user).toMatchObject({
-      nombre: 'Luisa Ximena',
-      cedula: '1067599204',
-      telefono: '+573207404534',
-      correo: 'luisa@correo.com',
+      nombre: 'Laura Ximena',
+      cedula: '1000555204',
+      telefono: '+573005550134',
+      correo: 'laura@correo.com',
     });
     const sigue = await Entrega.findById(entrega._id);
     expect(String(sigue.padreId)).toBe(String(padre._id));

@@ -14,8 +14,8 @@ dotenv.config();
 import { enviarCorreoRecuperacion } from '../services/mailService.js';
 import { EmailStrategy } from '../notifications/strategies/EmailStrategy.js';
 
-const DESTINO = process.argv[2] || 'karen.mancilla.s@uniautonoma.edu.co';
-const usuario = { nombre: 'Karen', correo: DESTINO };
+const DESTINO = process.argv[2] || 'prueba@ejemplo.com';
+const usuario = { nombre: 'Prueba', correo: DESTINO };
 
 const notificaciones = [
   { tipo: 'tarea', mensaje: 'Nuevo reto: "Taller de fracciones". Entrega: 15 de septiembre de 2026, 11:59 PM' },
