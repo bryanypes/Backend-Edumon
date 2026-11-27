@@ -108,8 +108,10 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Índice TTL: Mongo limpia automáticamente los refresh tokens expirados
-userSchema.index({ 'refreshTokens.expiraEn': 1 }, { expireAfterSeconds: 0 });
+// Sin índice TTL sobre refreshTokens.expiraEn: en un arreglo, MongoDB borra el
+// documento entero (el usuario), no solo la sesión vencida. Las sesiones vencidas
+// se descartan en authController al iniciar sesión y al renovar.
+userSchema.index({ 'refreshTokens.tokenHash': 1 });
 // lista de usuarios del administrador (por institución y rol) y búsquedas por rol
 userSchema.index({ institucionId: 1, rol: 1 });
 userSchema.index({ rol: 1 });

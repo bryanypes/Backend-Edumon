@@ -4,17 +4,21 @@ import connectDB from './config/database.js';
 import { iniciarSchedulerTareas } from './schedulers/tareaScheduler.js';
 import { registrarObservers } from './events/NotificacionObservers.js';
 import { bootstrapAdmins } from './scripts/bootstrapAdmins.js';
+import { eliminarIndiceTTLSesiones } from './scripts/eliminarIndiceTTLSesiones.js';
 
 const { app, server } = crearApp();
 const isDev = process.env.NODE_ENV === 'development';
 
 registrarObservers();
 
-connectDB().then(() =>
-  bootstrapAdmins().catch((error) =>
+connectDB().then(async () => {
+  await eliminarIndiceTTLSesiones().catch((error) =>
+    console.error('[indices] No se pudo eliminar el índice TTL de sesiones:', error.message),
+  );
+  await bootstrapAdmins().catch((error) =>
     console.error('[bootstrap] Error inesperado creando administradores iniciales:', error.message),
-  ),
-);
+  );
+});
 iniciarSchedulerTareas();
 
 const PORT = process.env.PORT || 4000;
