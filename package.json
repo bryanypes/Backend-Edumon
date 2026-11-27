@@ -19,7 +19,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "diagnostico:usuarios": "node src/scripts/diagnosticoUsuariosHuerfanos.js"
   },
   "keywords": [
     "edumon",
